@@ -1,0 +1,27 @@
+# Root Git Ignore for Full-Stack Appointment & Hotel Booking Project
+
+# Node.js backend
+appointment-hotel-booking-backend/node_modules/
+appointment-hotel-booking-backend/.env
+appointment-hotel-booking-backend/.env.*.local
+appointment-hotel-booking-backend/*.log
+
+# Flutter frontend
+appointment_and_hotel_booking/.dart_tool/
+appointment_and_hotel_booking/build/
+appointment_and_hotel_booking/.flutter-plugins
+appointment_and_hotel_booking/.flutter-plugins-dependencies
+appointment_and_hotel_booking/.pub-cache/
+appointment_and_hotel_booking/.pub/
+appointment_and_hotel_booking/android/.gradle/
+appointment_and_hotel_booking/android/local.properties
+appointment_and_hotel_booking/windows/flutter/ephemeral/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
