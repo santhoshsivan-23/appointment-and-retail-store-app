@@ -1,0 +1,107 @@
+[
+  {
+    "id": 1,
+    "business_id": 1,
+    "category_id": 1,
+    "name": "Comprehensive Health Consult",
+    "sku": "MED-101",
+    "product_type": "normal",
+    "price": 65,
+    "description": "Standard veterinary consultation and vitals examination.",
+    "is_active": true,
+    "modifiers": [
+      4,
+      5
+    ],
+    "combo_items": [],
+    "created_at": "2026-09-28T16:08:11.029Z"
+  },
+  {
+    "id": 2,
+    "business_id": 1,
+    "category_id": 2,
+    "name": "Full Luxury Spa & Grooming",
+    "sku": "GRM-201",
+    "product_type": "normal",
+    "price": 85,
+    "description": "Hydrating wash, blow-dry, ear cleaning, and breed-standard cut.",
+    "is_active": true,
+    "modifiers": [
+      4
+    ],
+    "combo_items": [],
+    "created_at": "2026-09-28T16:08:11.029Z"
+  },
+  {
+    "id": 3,
+    "business_id": 1,
+    "category_id": 3,
+    "name": "Deluxe Suite Overnight Stay",
+    "sku": "HTL-301",
+    "product_type": "normal",
+    "price": 110,
+    "description": "Climate-controlled suite with webcam monitoring & outdoor playtime.",
+    "is_active": true,
+    "modifiers": [],
+    "combo_items": [],
+    "created_at": "2026-09-28T16:08:11.029Z"
+  },
+  {
+    "id": 4,
+    "business_id": 1,
+    "category_id": 2,
+    "name": "Aroma Therapy & Herbal Paw Balm",
+    "sku": "MOD-401",
+    "product_type": "modifier",
+    "price": 15,
+    "description": "Organic paw protection balm and calming aromatherapy add-on.",
+    "is_active": true,
+    "modifiers": [],
+    "combo_items": [],
+    "created_at": "2026-09-28T16:08:11.029Z"
+  },
+  {
+    "id": 5,
+    "business_id": 1,
+    "category_id": 1,
+    "name": "Express Diagnostic Panel",
+    "sku": "MOD-402",
+    "product_type": "modifier",
+    "price": 45,
+    "description": "Same-day rapid blood & vitals profile addition.",
+    "is_active": true,
+    "modifiers": [],
+    "combo_items": [],
+    "created_at": "2026-09-28T16:08:11.029Z"
+  },
+  {
+    "id": 6,
+    "business_id": 1,
+    "category_id": 1,
+    "name": "Unified Wellness & Grooming Bundle",
+    "sku": "CMB-501",
+    "product_type": "combo",
+    "price": 135,
+    "description": "Combo package: Health Consult + Full Spa Grooming + Herbal Balm.",
+    "is_active": true,
+    "modifiers": [],
+    "combo_items": [
+      {
+        "product_id": 1,
+        "quantity": 1,
+        "name": "Comprehensive Health Consult"
+      },
+      {
+        "product_id": 2,
+        "quantity": 1,
+        "name": "Full Luxury Spa & Grooming"
+      },
+      {
+        "product_id": 4,
+        "quantity": 1,
+        "name": "Aroma Therapy & Herbal Paw Balm"
+      }
+    ],
+    "created_at": "2026-09-28T16:08:11.029Z"
+  }
+]

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models/business_model.dart';
-import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/main_terminal_shell.dart';
 import 'services/auth_storage.dart';
 import 'theme/app_theme.dart';
 
@@ -25,11 +25,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Hotel & Appointment POS',
+      title: 'IQ Store - Clinical & Retail Terminal',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: initialBusiness != null
-          ? HomeScreen(business: initialBusiness!)
+          ? MainTerminalShell(business: initialBusiness!)
           : const LoginScreen(),
     );
   }

@@ -3,6 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const { initDatabase, getDatabaseStatus } = require('./config/db');
 const authRoutes = require('./routes/auth');
+const staffRoutes = require('./routes/staff');
+const customerRoutes = require('./routes/customers');
+const categoryRoutes = require('./routes/categories');
+const productRoutes = require('./routes/products');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,6 +25,10 @@ app.use((req, res, next) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/staff', staffRoutes);
+app.use('/api/customers', customerRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/products', productRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -39,9 +47,11 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: 'GET /api/health',
-      register: 'POST /api/auth/register',
-      login: 'POST /api/auth/login',
-      profile: 'GET /api/auth/me (Bearer Token required)',
+      auth: '/api/auth (register, login, me)',
+      staff: '/api/staff (list, create, update, delete)',
+      customers: '/api/customers (list, walk-in, create)',
+      categories: '/api/categories (list, create, update, delete)',
+      products: '/api/products (list, create, update, delete)',
     },
   });
 });
@@ -71,9 +81,10 @@ async function startServer() {
   app.listen(PORT, () => {
     console.log('====================================================');
     console.log(`🚀 Server listening on http://localhost:${PORT}`);
-    console.log(`📡 Health Check:     http://localhost:${PORT}/api/health`);
-    console.log(`📝 Register API:     POST http://localhost:${PORT}/api/auth/register`);
-    console.log(`🔑 Login API:        POST http://localhost:${PORT}/api/auth/login`);
+    console.log(`👥 Staff API:        http://localhost:${PORT}/api/staff`);
+    console.log(`👤 Customer API:     http://localhost:${PORT}/api/customers`);
+    console.log(`🗂️ Categories API:   http://localhost:${PORT}/api/categories`);
+    console.log(`📦 Products API:     http://localhost:${PORT}/api/products`);
     console.log('====================================================');
   });
 }

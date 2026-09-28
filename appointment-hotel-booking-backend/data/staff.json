@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "business_id": 1,
+    "name": "Dr. Shaun Ong",
+    "email": "shaun.ong@omopet.clinic",
+    "phone": "+1 555-0192",
+    "role": "Chief Veterinary Officer",
+    "color_code": "#B42907",
+    "is_active": true,
+    "deleted_at": null,
+    "created_at": "2026-09-28T16:08:11.027Z"
+  },
+  {
+    "id": 2,
+    "business_id": 1,
+    "name": "Elena Rostova",
+    "email": "elena@omopet.clinic",
+    "phone": "+1 555-0144",
+    "role": "Senior Stylist & Groomer",
+    "color_code": "#855300",
+    "is_active": true,
+    "deleted_at": null,
+    "created_at": "2026-09-28T16:08:11.028Z"
+  },
+  {
+    "id": 3,
+    "business_id": 1,
+    "name": "Marcus Vance",
+    "email": "marcus@omopet.clinic",
+    "phone": "+1 555-0188",
+    "role": "Retail POS & Inventory Lead",
+    "color_code": "#006C49",
+    "is_active": false,
+    "deleted_at": "2026-09-28T16:09:16.081Z",
+    "created_at": "2026-09-28T16:08:11.028Z"
+  }
+]

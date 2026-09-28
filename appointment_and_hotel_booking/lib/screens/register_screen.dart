@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
-import 'home_screen.dart';
+import 'main_terminal_shell.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -129,7 +129,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (context) => HomeScreen(business: res.data),
+          builder: (context) => MainTerminalShell(business: res.data),
         ),
         (route) => false,
       );

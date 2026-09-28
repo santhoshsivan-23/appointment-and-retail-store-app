@@ -7,36 +7,250 @@ let pool = null;
 let useFallback = false;
 
 const dataDir = path.join(__dirname, '..', 'data');
-const jsonFilePath = path.join(dataDir, 'businesses.json');
+const jsonFiles = {
+  businesses: path.join(dataDir, 'businesses.json'),
+  staff: path.join(dataDir, 'staff.json'),
+  customers: path.join(dataDir, 'customers.json'),
+  categories: path.join(dataDir, 'categories.json'),
+  products: path.join(dataDir, 'products.json'),
+};
 
-// Ensure data directory and fallback JSON file exist
+// Seed initial fallback data
+const initialData = {
+  businesses: [],
+  staff: [
+    {
+      id: 1,
+      business_id: 1,
+      name: 'Dr. Shaun Ong',
+      email: 'shaun.ong@omopet.clinic',
+      phone: '+1 555-0192',
+      role: 'Chief Veterinary Officer',
+      color_code: '#B42907',
+      is_active: true,
+      deleted_at: null,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 2,
+      business_id: 1,
+      name: 'Elena Rostova',
+      email: 'elena@omopet.clinic',
+      phone: '+1 555-0144',
+      role: 'Senior Stylist & Groomer',
+      color_code: '#855300',
+      is_active: true,
+      deleted_at: null,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 3,
+      business_id: 1,
+      name: 'Marcus Vance',
+      email: 'marcus@omopet.clinic',
+      phone: '+1 555-0188',
+      role: 'Retail POS & Inventory Lead',
+      color_code: '#006C49',
+      is_active: true,
+      deleted_at: null,
+      created_at: new Date().toISOString(),
+    },
+  ],
+  customers: [
+    {
+      id: 1,
+      business_id: 1,
+      name: 'Claire Beauchamp',
+      phone: '+1 555-4421',
+      email: 'claire.b@example.com',
+      is_walk_in: false,
+      notes: 'VIP client with 2 Golden Retrievers. Prefers organic diet.',
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 2,
+      business_id: 1,
+      name: 'David Kim (Walk-in)',
+      phone: '+1 555-8832',
+      email: '',
+      is_walk_in: true,
+      notes: 'Walk-in customer for express grooming bath.',
+      created_at: new Date().toISOString(),
+    },
+  ],
+  categories: [
+    {
+      id: 1,
+      business_id: 1,
+      name: 'Clinical Services',
+      description: 'Consultations, vaccines, checkups, and diagnostic procedures.',
+      icon: 'medical_services',
+      sort_order: 1,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 2,
+      business_id: 1,
+      name: 'Salon & Grooming',
+      description: 'Shampoo, styling, spa bath, nail trimming, and de-shedding.',
+      icon: 'content_cut',
+      sort_order: 2,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 3,
+      business_id: 1,
+      name: 'Hotel & Boarding Suites',
+      description: 'Luxury overnight suites, daylight kennels, and extended stays.',
+      icon: 'hotel',
+      sort_order: 3,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 4,
+      business_id: 1,
+      name: 'Retail & Wellness Diet',
+      description: 'Nutritional food, supplements, treats, and wellness supplies.',
+      icon: 'shopping_bag',
+      sort_order: 4,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 5,
+      business_id: 1,
+      name: 'Meeting Hall & Event Spaces',
+      description: 'Conference room, seminar hall, and pet training arena hourly rental.',
+      icon: 'meeting_room',
+      sort_order: 5,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    },
+  ],
+  products: [
+    {
+      id: 1,
+      business_id: 1,
+      category_id: 1,
+      name: 'Comprehensive Health Consult',
+      sku: 'MED-101',
+      product_type: 'normal',
+      price: 65.0,
+      description: 'Standard veterinary consultation and vitals examination.',
+      is_active: true,
+      modifiers: [4, 5],
+      combo_items: [],
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 2,
+      business_id: 1,
+      category_id: 2,
+      name: 'Full Luxury Spa & Grooming',
+      sku: 'GRM-201',
+      product_type: 'normal',
+      price: 85.0,
+      description: 'Hydrating wash, blow-dry, ear cleaning, and breed-standard cut.',
+      is_active: true,
+      modifiers: [4],
+      combo_items: [],
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 3,
+      business_id: 1,
+      category_id: 3,
+      name: 'Deluxe Suite Overnight Stay',
+      sku: 'HTL-301',
+      product_type: 'normal',
+      price: 110.0,
+      description: 'Climate-controlled suite with webcam monitoring & outdoor playtime.',
+      is_active: true,
+      modifiers: [],
+      combo_items: [],
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 4,
+      business_id: 1,
+      category_id: 2,
+      name: 'Aroma Therapy & Herbal Paw Balm',
+      sku: 'MOD-401',
+      product_type: 'modifier',
+      price: 15.0,
+      description: 'Organic paw protection balm and calming aromatherapy add-on.',
+      is_active: true,
+      modifiers: [],
+      combo_items: [],
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 5,
+      business_id: 1,
+      category_id: 1,
+      name: 'Express Diagnostic Panel',
+      sku: 'MOD-402',
+      product_type: 'modifier',
+      price: 45.0,
+      description: 'Same-day rapid blood & vitals profile addition.',
+      is_active: true,
+      modifiers: [],
+      combo_items: [],
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 6,
+      business_id: 1,
+      category_id: 1,
+      name: 'Unified Wellness & Grooming Bundle',
+      sku: 'CMB-501',
+      product_type: 'combo',
+      price: 135.0,
+      description: 'Combo package: Health Consult + Full Spa Grooming + Herbal Balm.',
+      is_active: true,
+      modifiers: [],
+      combo_items: [
+        { product_id: 1, quantity: 1, name: 'Comprehensive Health Consult' },
+        { product_id: 2, quantity: 1, name: 'Full Luxury Spa & Grooming' },
+        { product_id: 4, quantity: 1, name: 'Aroma Therapy & Herbal Paw Balm' },
+      ],
+      created_at: new Date().toISOString(),
+    },
+  ],
+};
+
 function initFallbackStorage() {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
-  if (!fs.existsSync(jsonFilePath)) {
-    fs.writeFileSync(jsonFilePath, JSON.stringify([], null, 2), 'utf8');
+
+  for (const [key, filepath] of Object.entries(jsonFiles)) {
+    if (!fs.existsSync(filepath)) {
+      fs.writeFileSync(filepath, JSON.stringify(initialData[key] || [], null, 2), 'utf8');
+    }
   }
 }
 
-// Fallback JSON operations
-function getFallbackBusinesses() {
+function readJson(key) {
   initFallbackStorage();
   try {
-    const raw = fs.readFileSync(jsonFilePath, 'utf8');
+    const raw = fs.readFileSync(jsonFiles[key], 'utf8');
     return JSON.parse(raw || '[]');
   } catch (err) {
-    console.error('Error reading JSON fallback file:', err);
+    console.error(`Error reading ${key}.json:`, err);
     return [];
   }
 }
 
-function saveFallbackBusinesses(businesses) {
+function writeJson(key, data) {
   initFallbackStorage();
-  fs.writeFileSync(jsonFilePath, JSON.stringify(businesses, null, 2), 'utf8');
+  fs.writeFileSync(jsonFiles[key], JSON.stringify(data, null, 2), 'utf8');
 }
 
-// Initialize MySQL Database and Tables
+// Initialize MySQL Tables
 async function initDatabase() {
   const host = process.env.DB_HOST || 'localhost';
   const user = process.env.DB_USER || 'root';
@@ -45,7 +259,6 @@ async function initDatabase() {
   const port = parseInt(process.env.DB_PORT || '3306', 10);
 
   try {
-    // Attempt connecting to server to ensure database exists
     const tempConnection = await mysql.createConnection({
       host,
       user,
@@ -57,7 +270,6 @@ async function initDatabase() {
     await tempConnection.query(`CREATE DATABASE IF NOT EXISTS \`${database}\`;`);
     await tempConnection.end();
 
-    // Create pool for the specific database
     pool = mysql.createPool({
       host,
       user,
@@ -69,8 +281,8 @@ async function initDatabase() {
       queueLimit: 0,
     });
 
-    // Create businesses table if not exists
-    const createTableQuery = `
+    // Create Tables
+    const schema = `
       CREATE TABLE IF NOT EXISTS businesses (
         id INT AUTO_INCREMENT PRIMARY KEY,
         business_name VARCHAR(255) NOT NULL,
@@ -86,34 +298,91 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS staff (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        business_id INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
+        phone VARCHAR(50),
+        role VARCHAR(100) DEFAULT 'Staff',
+        color_code VARCHAR(50) DEFAULT '#B42907',
+        is_active BOOLEAN DEFAULT TRUE,
+        deleted_at DATETIME NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS customers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        business_id INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(50) NOT NULL,
+        email VARCHAR(255) DEFAULT '',
+        is_walk_in BOOLEAN DEFAULT FALSE,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS categories (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        business_id INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        icon VARCHAR(100) DEFAULT 'category',
+        sort_order INT DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS products (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        business_id INT NOT NULL,
+        category_id INT NULL,
+        name VARCHAR(255) NOT NULL,
+        sku VARCHAR(100) DEFAULT '',
+        product_type VARCHAR(50) DEFAULT 'normal',
+        price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        description TEXT,
+        modifiers JSON NULL,
+        combo_items JSON NULL,
+        is_active BOOLEAN DEFAULT TRUE,
+        deleted_at DATETIME NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `;
 
-    await pool.query(createTableQuery);
+    // Run each statement
+    const statements = schema.split(';').map((s) => s.trim()).filter((s) => s.length > 0);
+    for (const sql of statements) {
+      await pool.query(sql);
+    }
+
     useFallback = false;
-    console.log(`✅ [MySQL] Connected successfully to database: "${database}"`);
+    console.log(`✅ [MySQL] Connected and verified schemas in database: "${database}"`);
   } catch (err) {
-    console.warn(`⚠️ [MySQL] Connection failed (${err.message}).`);
-    console.warn('📁 [Storage] Switching to local JSON fallback database in /data/businesses.json.');
+    console.warn(`⚠️ [MySQL] Connection failed (${err.message}). Using local JSON fallback in /data.`);
     useFallback = true;
     initFallbackStorage();
   }
 }
 
-// Unified Database Access Functions
+// ----------------- Business Auth Helpers -----------------
 async function findBusinessByEmail(email) {
-  const normalizedEmail = (email || '').trim().toLowerCase();
-
+  const norm = (email || '').trim().toLowerCase();
   if (!useFallback && pool) {
     try {
-      const [rows] = await pool.query('SELECT * FROM businesses WHERE LOWER(email) = ?', [normalizedEmail]);
+      const [rows] = await pool.query('SELECT * FROM businesses WHERE LOWER(email) = ?', [norm]);
       return rows[0] || null;
-    } catch (err) {
-      console.error('MySQL query error, using fallback:', err.message);
+    } catch (e) {
+      console.error(e);
     }
   }
-
-  const businesses = getFallbackBusinesses();
-  return businesses.find((b) => b.email.toLowerCase() === normalizedEmail) || null;
+  const businesses = readJson('businesses');
+  return businesses.find((b) => b.email.toLowerCase() === norm) || null;
 }
 
 async function findBusinessById(id) {
@@ -121,34 +390,18 @@ async function findBusinessById(id) {
     try {
       const [rows] = await pool.query('SELECT id, business_name, business_type, owner_name, email, phone, address, city, country, description, created_at FROM businesses WHERE id = ?', [id]);
       return rows[0] || null;
-    } catch (err) {
-      console.error('MySQL query error, using fallback:', err.message);
+    } catch (e) {
+      console.error(e);
     }
   }
-
-  const businesses = getFallbackBusinesses();
-  const business = businesses.find((b) => String(b.id) === String(id));
-  if (!business) return null;
-  const { password, ...safeData } = business;
-  return safeData;
+  const businesses = readJson('businesses');
+  const b = businesses.find((x) => String(x.id) === String(id));
+  if (!b) return null;
+  const { password, ...safe } = b;
+  return safe;
 }
 
 async function createBusiness(data) {
-  const {
-    business_name,
-    business_type,
-    owner_name,
-    email,
-    phone,
-    password,
-    address = '',
-    city = '',
-    country = '',
-    description = '',
-  } = data;
-
-  const normalizedEmail = email.trim().toLowerCase();
-
   if (!useFallback && pool) {
     try {
       const query = `
@@ -156,61 +409,482 @@ async function createBusiness(data) {
         (business_name, business_type, owner_name, email, phone, password, address, city, country, description) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
-      const [result] = await pool.query(query, [
-        business_name.trim(),
-        business_type.trim(),
-        owner_name.trim(),
-        normalizedEmail,
-        phone.trim(),
-        password,
-        address.trim(),
-        city.trim(),
-        country.trim(),
-        description.trim(),
+      const [res] = await pool.query(query, [
+        data.business_name.trim(),
+        data.business_type.trim(),
+        data.owner_name.trim(),
+        data.email.trim().toLowerCase(),
+        data.phone.trim(),
+        data.password,
+        data.address || '',
+        data.city || '',
+        data.country || '',
+        data.description || '',
       ]);
-
-      return {
-        id: result.insertId,
-        business_name: business_name.trim(),
-        business_type: business_type.trim(),
-        owner_name: owner_name.trim(),
-        email: normalizedEmail,
-        phone: phone.trim(),
-        address: address.trim(),
-        city: city.trim(),
-        country: country.trim(),
-        description: description.trim(),
-        created_at: new Date().toISOString(),
-      };
-    } catch (err) {
-      console.error('MySQL insert error, using fallback:', err.message);
+      return { id: res.insertId, ...data, created_at: new Date().toISOString() };
+    } catch (e) {
+      console.error(e);
     }
   }
 
-  // Fallback JSON insert
-  const businesses = getFallbackBusinesses();
-  const newId = businesses.length > 0 ? Math.max(...businesses.map((b) => Number(b.id) || 0)) + 1 : 1;
-  const newBusiness = {
-    id: newId,
-    business_name: business_name.trim(),
-    business_type: business_type.trim(),
-    owner_name: owner_name.trim(),
-    email: normalizedEmail,
-    phone: phone.trim(),
-    password,
-    address: address.trim(),
-    city: city.trim(),
-    country: country.trim(),
-    description: description.trim(),
+  const list = readJson('businesses');
+  const id = list.length > 0 ? Math.max(...list.map((x) => Number(x.id) || 0)) + 1 : 1;
+  const newB = { id, ...data, email: data.email.trim().toLowerCase(), created_at: new Date().toISOString() };
+  list.push(newB);
+  writeJson('businesses', list);
+  const { password, ...safe } = newB;
+  return safe;
+}
+
+// ----------------- Staff Helpers -----------------
+async function getStaffList(businessId, search = '', includeDeleted = false) {
+  const s = (search || '').trim().toLowerCase();
+  if (!useFallback && pool) {
+    try {
+      let query = 'SELECT * FROM staff WHERE (business_id = ? OR business_id = 1)';
+      const params = [businessId || 1];
+      if (!includeDeleted) {
+        query += ' AND is_active = TRUE';
+      }
+      if (s) {
+        query += ' AND (LOWER(name) LIKE ? OR LOWER(role) LIKE ? OR LOWER(email) LIKE ? OR phone LIKE ?)';
+        const wild = `%${s}%`;
+        params.push(wild, wild, wild, wild);
+      }
+      query += ' ORDER BY id DESC';
+      const [rows] = await pool.query(query, params);
+      return rows;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  let list = readJson('staff');
+  if (!includeDeleted) {
+    list = list.filter((st) => st.is_active !== false);
+  }
+  if (s) {
+    list = list.filter((st) =>
+      (st.name || '').toLowerCase().includes(s) ||
+      (st.role || '').toLowerCase().includes(s) ||
+      (st.email || '').toLowerCase().includes(s) ||
+      (st.phone || '').includes(s)
+    );
+  }
+  return list;
+}
+
+async function getStaffById(id) {
+  if (!useFallback && pool) {
+    try {
+      const [rows] = await pool.query('SELECT * FROM staff WHERE id = ?', [id]);
+      return rows[0] || null;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  const list = readJson('staff');
+  return list.find((st) => String(st.id) === String(id)) || null;
+}
+
+async function createStaff(data) {
+  if (!useFallback && pool) {
+    try {
+      const query = `
+        INSERT INTO staff (business_id, name, email, phone, role, color_code, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, TRUE)
+      `;
+      const [res] = await pool.query(query, [
+        data.business_id || 1,
+        data.name.trim(),
+        data.email || '',
+        data.phone || '',
+        data.role || 'Staff',
+        data.color_code || '#B42907',
+      ]);
+      return { id: res.insertId, ...data, is_active: true, created_at: new Date().toISOString() };
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('staff');
+  const id = list.length > 0 ? Math.max(...list.map((x) => Number(x.id) || 0)) + 1 : 1;
+  const newSt = {
+    id,
+    business_id: data.business_id || 1,
+    name: data.name.trim(),
+    email: data.email || '',
+    phone: data.phone || '',
+    role: data.role || 'Staff',
+    color_code: data.color_code || '#B42907',
+    is_active: true,
+    deleted_at: null,
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
   };
+  list.unshift(newSt);
+  writeJson('staff', list);
+  return newSt;
+}
 
-  businesses.push(newBusiness);
-  saveFallbackBusinesses(businesses);
+async function updateStaff(id, data) {
+  if (!useFallback && pool) {
+    try {
+      const query = `
+        UPDATE staff 
+        SET name = ?, email = ?, phone = ?, role = ?, color_code = ?
+        WHERE id = ?
+      `;
+      await pool.query(query, [
+        data.name,
+        data.email,
+        data.phone,
+        data.role,
+        data.color_code,
+        id,
+      ]);
+      return await getStaffById(id);
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
-  const { password: _, ...safeData } = newBusiness;
-  return safeData;
+  const list = readJson('staff');
+  const idx = list.findIndex((x) => String(x.id) === String(id));
+  if (idx === -1) return null;
+  list[idx] = { ...list[idx], ...data, updated_at: new Date().toISOString() };
+  writeJson('staff', list);
+  return list[idx];
+}
+
+// Soft Delete: Preserves records for historical appointment logs
+async function deleteStaff(id) {
+  if (!useFallback && pool) {
+    try {
+      await pool.query('UPDATE staff SET is_active = FALSE, deleted_at = NOW() WHERE id = ?', [id]);
+      return true;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('staff');
+  const idx = list.findIndex((x) => String(x.id) === String(id));
+  if (idx === -1) return false;
+  list[idx].is_active = false;
+  list[idx].deleted_at = new Date().toISOString();
+  writeJson('staff', list);
+  return true;
+}
+
+// ----------------- Customer Helpers -----------------
+async function getCustomers(businessId, search = '') {
+  const s = (search || '').trim().toLowerCase();
+  if (!useFallback && pool) {
+    try {
+      let query = 'SELECT * FROM customers WHERE (business_id = ? OR business_id = 1)';
+      const params = [businessId || 1];
+      if (s) {
+        query += ' AND (LOWER(name) LIKE ? OR LOWER(phone) LIKE ? OR LOWER(email) LIKE ?)';
+        const wild = `%${s}%`;
+        params.push(wild, wild, wild);
+      }
+      query += ' ORDER BY id DESC';
+      const [rows] = await pool.query(query, params);
+      return rows;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  let list = readJson('customers');
+  if (s) {
+    list = list.filter((c) =>
+      (c.name || '').toLowerCase().includes(s) ||
+      (c.phone || '').includes(s) ||
+      (c.email || '').toLowerCase().includes(s)
+    );
+  }
+  return list;
+}
+
+async function createCustomer(data) {
+  if (!useFallback && pool) {
+    try {
+      const query = `
+        INSERT INTO customers (business_id, name, phone, email, is_walk_in, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+      const [res] = await pool.query(query, [
+        data.business_id || 1,
+        data.name.trim(),
+        data.phone.trim(),
+        data.email || '',
+        data.is_walk_in ? 1 : 0,
+        data.notes || '',
+      ]);
+      return { id: res.insertId, ...data, created_at: new Date().toISOString() };
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('customers');
+  const id = list.length > 0 ? Math.max(...list.map((x) => Number(x.id) || 0)) + 1 : 1;
+  const newC = {
+    id,
+    business_id: data.business_id || 1,
+    name: data.name.trim(),
+    phone: data.phone.trim(),
+    email: data.email || '',
+    is_walk_in: Boolean(data.is_walk_in),
+    notes: data.notes || '',
+    created_at: new Date().toISOString(),
+  };
+  list.unshift(newC);
+  writeJson('customers', list);
+  return newC;
+}
+
+// ----------------- Categories Helpers -----------------
+async function getCategories(businessId) {
+  if (!useFallback && pool) {
+    try {
+      const [rows] = await pool.query(
+        'SELECT * FROM categories WHERE (business_id = ? OR business_id = 1) AND is_active = TRUE ORDER BY sort_order ASC, id ASC',
+        [businessId || 1]
+      );
+      return rows;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('categories');
+  return list.filter((c) => c.is_active !== false).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+}
+
+async function createCategory(data) {
+  if (!useFallback && pool) {
+    try {
+      const query = `
+        INSERT INTO categories (business_id, name, description, icon, sort_order, is_active)
+        VALUES (?, ?, ?, ?, ?, TRUE)
+      `;
+      const [res] = await pool.query(query, [
+        data.business_id || 1,
+        data.name.trim(),
+        data.description || '',
+        data.icon || 'category',
+        data.sort_order || 0,
+      ]);
+      return { id: res.insertId, ...data, is_active: true, created_at: new Date().toISOString() };
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('categories');
+  const id = list.length > 0 ? Math.max(...list.map((x) => Number(x.id) || 0)) + 1 : 1;
+  const newCat = {
+    id,
+    business_id: data.business_id || 1,
+    name: data.name.trim(),
+    description: data.description || '',
+    icon: data.icon || 'category',
+    sort_order: Number(data.sort_order) || 0,
+    is_active: true,
+    created_at: new Date().toISOString(),
+  };
+  list.push(newCat);
+  writeJson('categories', list);
+  return newCat;
+}
+
+async function updateCategory(id, data) {
+  if (!useFallback && pool) {
+    try {
+      await pool.query(
+        'UPDATE categories SET name = ?, description = ?, icon = ?, sort_order = ? WHERE id = ?',
+        [data.name, data.description, data.icon, data.sort_order, id]
+      );
+      const [rows] = await pool.query('SELECT * FROM categories WHERE id = ?', [id]);
+      return rows[0] || null;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('categories');
+  const idx = list.findIndex((c) => String(c.id) === String(id));
+  if (idx === -1) return null;
+  list[idx] = { ...list[idx], ...data };
+  writeJson('categories', list);
+  return list[idx];
+}
+
+async function deleteCategory(id) {
+  if (!useFallback && pool) {
+    try {
+      await pool.query('UPDATE categories SET is_active = FALSE WHERE id = ?', [id]);
+      return true;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('categories');
+  const idx = list.findIndex((c) => String(c.id) === String(id));
+  if (idx === -1) return false;
+  list[idx].is_active = false;
+  writeJson('categories', list);
+  return true;
+}
+
+// ----------------- Products Helpers -----------------
+async function getProducts(businessId, categoryId = null, productType = null, search = '') {
+  const s = (search || '').trim().toLowerCase();
+  if (!useFallback && pool) {
+    try {
+      let query = 'SELECT * FROM products WHERE (business_id = ? OR business_id = 1) AND is_active = TRUE';
+      const params = [businessId || 1];
+      if (categoryId) {
+        query += ' AND category_id = ?';
+        params.push(categoryId);
+      }
+      if (productType) {
+        query += ' AND product_type = ?';
+        params.push(productType);
+      }
+      if (s) {
+        query += ' AND (LOWER(name) LIKE ? OR LOWER(sku) LIKE ? OR LOWER(description) LIKE ?)';
+        const wild = `%${s}%`;
+        params.push(wild, wild, wild);
+      }
+      query += ' ORDER BY id DESC';
+      const [rows] = await pool.query(query, params);
+      return rows;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  let list = readJson('products');
+  list = list.filter((p) => p.is_active !== false);
+  if (categoryId) {
+    list = list.filter((p) => String(p.category_id) === String(categoryId));
+  }
+  if (productType) {
+    list = list.filter((p) => p.product_type === productType);
+  }
+  if (s) {
+    list = list.filter((p) =>
+      (p.name || '').toLowerCase().includes(s) ||
+      (p.sku || '').toLowerCase().includes(s) ||
+      (p.description || '').toLowerCase().includes(s)
+    );
+  }
+  return list;
+}
+
+async function createProduct(data) {
+  if (!useFallback && pool) {
+    try {
+      const query = `
+        INSERT INTO products 
+        (business_id, category_id, name, sku, product_type, price, description, modifiers, combo_items, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+      `;
+      const [res] = await pool.query(query, [
+        data.business_id || 1,
+        data.category_id || null,
+        data.name.trim(),
+        data.sku || '',
+        data.product_type || 'normal',
+        Number(data.price) || 0.0,
+        data.description || '',
+        JSON.stringify(data.modifiers || []),
+        JSON.stringify(data.combo_items || []),
+      ]);
+      return { id: res.insertId, ...data, is_active: true, created_at: new Date().toISOString() };
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('products');
+  const id = list.length > 0 ? Math.max(...list.map((x) => Number(x.id) || 0)) + 1 : 1;
+  const newProd = {
+    id,
+    business_id: data.business_id || 1,
+    category_id: data.category_id ? Number(data.category_id) : null,
+    name: data.name.trim(),
+    sku: data.sku || '',
+    product_type: data.product_type || 'normal',
+    price: Number(data.price) || 0.0,
+    description: data.description || '',
+    modifiers: data.modifiers || [],
+    combo_items: data.combo_items || [],
+    is_active: true,
+    deleted_at: null,
+    created_at: new Date().toISOString(),
+  };
+  list.unshift(newProd);
+  writeJson('products', list);
+  return newProd;
+}
+
+async function updateProduct(id, data) {
+  if (!useFallback && pool) {
+    try {
+      await pool.query(
+        `UPDATE products 
+         SET category_id = ?, name = ?, sku = ?, product_type = ?, price = ?, description = ?, modifiers = ?, combo_items = ?
+         WHERE id = ?`,
+        [
+          data.category_id || null,
+          data.name,
+          data.sku,
+          data.product_type,
+          data.price,
+          data.description,
+          JSON.stringify(data.modifiers || []),
+          JSON.stringify(data.combo_items || []),
+          id,
+        ]
+      );
+      const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
+      return rows[0] || null;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('products');
+  const idx = list.findIndex((p) => String(p.id) === String(id));
+  if (idx === -1) return null;
+  list[idx] = { ...list[idx], ...data, updated_at: new Date().toISOString() };
+  writeJson('products', list);
+  return list[idx];
+}
+
+async function deleteProduct(id) {
+  if (!useFallback && pool) {
+    try {
+      await pool.query('UPDATE products SET is_active = FALSE, deleted_at = NOW() WHERE id = ?', [id]);
+      return true;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('products');
+  const idx = list.findIndex((p) => String(p.id) === String(id));
+  if (idx === -1) return false;
+  list[idx].is_active = false;
+  list[idx].deleted_at = new Date().toISOString();
+  writeJson('products', list);
+  return true;
 }
 
 function getDatabaseStatus() {
@@ -223,8 +897,23 @@ function getDatabaseStatus() {
 
 module.exports = {
   initDatabase,
+  getDatabaseStatus,
   findBusinessByEmail,
   findBusinessById,
   createBusiness,
-  getDatabaseStatus,
+  getStaffList,
+  getStaffById,
+  createStaff,
+  updateStaff,
+  deleteStaff,
+  getCustomers,
+  createCustomer,
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
 };

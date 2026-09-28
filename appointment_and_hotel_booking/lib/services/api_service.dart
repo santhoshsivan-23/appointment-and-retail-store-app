@@ -2,6 +2,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/business_model.dart';
+import '../models/category_model.dart';
+import '../models/customer_model.dart';
+import '../models/product_model.dart';
+import '../models/staff_model.dart';
 import 'auth_storage.dart';
 
 class ApiResponse {
@@ -21,7 +25,6 @@ class ApiResponse {
 }
 
 class ApiService {
-  // Determine standard default URL depending on platform
   static String get defaultBaseUrl {
     if (kIsWeb) {
       return 'http://localhost:5000/api';
@@ -32,7 +35,6 @@ class ApiService {
     return 'http://localhost:5000/api';
   }
 
-  // Get active Base URL (custom if configured, otherwise default)
   static Future<String> getBaseUrl() async {
     final customUrl = await AuthStorage.getCustomBaseUrl();
     if (customUrl != null && customUrl.isNotEmpty) {
@@ -41,7 +43,6 @@ class ApiService {
     return defaultBaseUrl;
   }
 
-  // Helper headers
   static Future<Map<String, String>> _getHeaders({bool includeAuth = false}) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -56,18 +57,14 @@ class ApiService {
     return headers;
   }
 
-  // Register Business
+  // Auth: Register
   static Future<ApiResponse> register(Map<String, dynamic> businessData) async {
     try {
       final baseUrl = await getBaseUrl();
       final url = Uri.parse('$baseUrl/auth/register');
 
       final response = await http
-          .post(
-            url,
-            headers: await _getHeaders(),
-            body: jsonEncode(businessData),
-          )
+          .post(url, headers: await _getHeaders(), body: jsonEncode(businessData))
           .timeout(const Duration(seconds: 12));
 
       final body = jsonDecode(response.body);
@@ -101,13 +98,13 @@ class ApiService {
     } catch (e) {
       return ApiResponse(
         success: false,
-        message: 'Network error: Unable to connect to server. Check your connection or server status.',
+        message: 'Network error: Unable to connect to server.',
         statusCode: 0,
       );
     }
   }
 
-  // Login Business
+  // Auth: Login
   static Future<ApiResponse> login({
     required String email,
     required String password,
@@ -120,10 +117,7 @@ class ApiService {
           .post(
             url,
             headers: await _getHeaders(),
-            body: jsonEncode({
-              'email': email.trim(),
-              'password': password,
-            }),
+            body: jsonEncode({'email': email.trim(), 'password': password}),
           )
           .timeout(const Duration(seconds: 12));
 
@@ -158,62 +152,180 @@ class ApiService {
     } catch (e) {
       return ApiResponse(
         success: false,
-        message: 'Network error: Cannot reach server ($e). Make sure backend is running.',
+        message: 'Network error: Cannot reach server ($e).',
         statusCode: 0,
       );
     }
   }
 
-  // Get Current Business Profile
-  static Future<ApiResponse> getProfile() async {
+  // Staff APIs
+  static Future<List<StaffModel>> getStaff({String search = '', bool includeDeleted = false}) async {
     try {
       final baseUrl = await getBaseUrl();
-      final url = Uri.parse('$baseUrl/auth/me');
-
-      final response = await http
-          .get(
-            url,
-            headers: await _getHeaders(includeAuth: true),
-          )
-          .timeout(const Duration(seconds: 12));
-
-      final body = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        final businessJson = body['business'] as Map<String, dynamic>?;
-        BusinessModel? business;
-        if (businessJson != null) {
-          business = BusinessModel.fromJson(businessJson);
-        }
-        return ApiResponse(
-          success: true,
-          message: 'Profile fetched',
-          data: business,
-          statusCode: 200,
-        );
-      } else {
-        return ApiResponse(
-          success: false,
-          message: body['message'] ?? 'Failed to load profile',
-          statusCode: response.statusCode,
-        );
+      final uri = Uri.parse('$baseUrl/staff').replace(queryParameters: {
+        if (search.isNotEmpty) 'search': search,
+        if (includeDeleted) 'include_deleted': 'true',
+      });
+      final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List? ?? []);
+        return list.map((x) => StaffModel.fromJson(Map<String, dynamic>.from(x))).toList();
       }
     } catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Network error: $e',
-        statusCode: 0,
+      debugPrint('Error getting staff: $e');
+    }
+    return [];
+  }
+
+  static Future<bool> createStaff(Map<String, dynamic> data) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.post(
+        Uri.parse('$baseUrl/staff'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
       );
+      return res.statusCode == 201 || res.statusCode == 200;
+    } catch (_) {
+      return false;
     }
   }
 
-  // Test Server Connection
-  static Future<bool> testConnection() async {
+  static Future<bool> deleteStaff(int id) async {
     try {
       final baseUrl = await getBaseUrl();
-      // Replace /api with /api/health
-      final uri = Uri.parse('$baseUrl/health');
-      final res = await http.get(uri).timeout(const Duration(seconds: 5));
+      final res = await http.delete(
+        Uri.parse('$baseUrl/staff/$id'),
+        headers: await _getHeaders(),
+      );
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Customer APIs
+  static Future<List<CustomerModel>> getCustomers({String search = ''}) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final uri = Uri.parse('$baseUrl/customers').replace(queryParameters: {
+        if (search.isNotEmpty) 'search': search,
+      });
+      final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List? ?? []);
+        return list.map((x) => CustomerModel.fromJson(Map<String, dynamic>.from(x))).toList();
+      }
+    } catch (e) {
+      debugPrint('Error getting customers: $e');
+    }
+    return [];
+  }
+
+  static Future<CustomerModel?> createCustomer(Map<String, dynamic> data) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.post(
+        Uri.parse('$baseUrl/customers'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        return CustomerModel.fromJson(body['data']);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // Category APIs
+  static Future<List<CategoryModel>> getCategories() async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.get(Uri.parse('$baseUrl/categories'), headers: await _getHeaders()).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List? ?? []);
+        return list.map((x) => CategoryModel.fromJson(Map<String, dynamic>.from(x))).toList();
+      }
+    } catch (e) {
+      debugPrint('Error getting categories: $e');
+    }
+    return [];
+  }
+
+  static Future<bool> createCategory(Map<String, dynamic> data) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.post(
+        Uri.parse('$baseUrl/categories'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+      return res.statusCode == 201 || res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> deleteCategory(int id) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.delete(
+        Uri.parse('$baseUrl/categories/$id'),
+        headers: await _getHeaders(),
+      );
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Product APIs
+  static Future<List<ProductModel>> getProducts({int? categoryId, String? productType, String search = ''}) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final params = <String, String>{};
+      if (categoryId != null) params['category_id'] = categoryId.toString();
+      if (productType != null && productType.isNotEmpty) params['product_type'] = productType;
+      if (search.isNotEmpty) params['search'] = search;
+
+      final uri = Uri.parse('$baseUrl/products').replace(queryParameters: params);
+      final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List? ?? []);
+        return list.map((x) => ProductModel.fromJson(Map<String, dynamic>.from(x))).toList();
+      }
+    } catch (e) {
+      debugPrint('Error getting products: $e');
+    }
+    return [];
+  }
+
+  static Future<bool> createProduct(Map<String, dynamic> data) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.post(
+        Uri.parse('$baseUrl/products'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+      return res.statusCode == 201 || res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> deleteProduct(int id) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.delete(
+        Uri.parse('$baseUrl/products/$id'),
+        headers: await _getHeaders(),
+      );
       return res.statusCode == 200;
     } catch (_) {
       return false;

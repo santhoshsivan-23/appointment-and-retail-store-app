@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/auth_storage.dart';
 import '../theme/app_theme.dart';
-import 'home_screen.dart';
+import 'main_terminal_shell.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -66,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => HomeScreen(business: res.data),
+          builder: (context) => MainTerminalShell(business: res.data),
         ),
       );
     } else {
