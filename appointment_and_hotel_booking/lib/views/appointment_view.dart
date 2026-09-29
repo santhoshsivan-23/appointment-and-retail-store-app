@@ -44,6 +44,18 @@ class _AppointmentViewState extends State<AppointmentView> {
   DateTime _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
   int? _selectedStaffFilter; // null = all
   final String _searchQuery = '';
+  bool _isCalendarHidden = false;
+
+  // Customer Search
+  final TextEditingController _customerSearchCtrl = TextEditingController();
+  final FocusNode _customerSearchFocus = FocusNode();
+  final LayerLink _customerSearchLayerLink = LayerLink();
+  String _customerSearchQuery = '';
+
+  // Drag to extend appointment duration state
+  int? _resizingApptId;
+  double _resizingDeltaY = 0.0;
+  int? _activeHandleApptId;
 
   // Scroll Controllers
   final ScrollController _timelineScrollCtrl = ScrollController();
@@ -117,6 +129,8 @@ class _AppointmentViewState extends State<AppointmentView> {
     _headerHorizontalScrollCtrl.dispose();
     _bodyHorizontalScrollCtrl.dispose();
     _timeUpdateTimer?.cancel();
+    _customerSearchCtrl.dispose();
+    _customerSearchFocus.dispose();
     super.dispose();
   }
 
@@ -378,45 +392,200 @@ class _AppointmentViewState extends State<AppointmentView> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: Column(
+      body: Stack(
         children: [
-          _buildTopHeader(),
-          _buildStaffPillsBar(),
-          // Main Body: Left 70% (Staff & Time Slots) + Right 30% (Calendar & Booking Overview)
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final totalWidth = constraints.maxWidth;
-                final availableHeight = constraints.maxHeight;
+          Column(
+            children: [
+              _buildTopHeader(),
+              _buildStaffPillsBar(),
+              // Main Body: Left (Staff & Time Slots) + Right (Calendar & Booking Overview)
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final totalWidth = constraints.maxWidth;
+                    final availableHeight = constraints.maxHeight;
 
-                // User requirement: Left 70% fixed, Right 30% fixed, no overlapping
-                final double leftWidth = totalWidth * 0.70;
-                final double rightWidth = totalWidth * 0.30;
+                    if (_isCalendarHidden) {
+                      // Calendar hidden: Staff/Time Slot uses 100% width
+                      return SizedBox(
+                        width: totalWidth,
+                        height: availableHeight,
+                        child: _buildTimetableArea(totalWidth),
+                      );
+                    }
 
-                return Row(
-                  children: [
-                    // Left 70%: Staff and Time Slot section
-                    SizedBox(
-                      width: leftWidth,
-                      height: availableHeight,
-                      child: _buildTimetableArea(leftWidth),
-                    ),
+                    // User requirement: Left 70% fixed, Right 30% fixed, no overlapping
+                    final double leftWidth = totalWidth * 0.70;
+                    final double rightWidth = totalWidth * 0.30;
 
-                    // Right 30%: Calendar and Booking Overview section (Fixed on right)
-                    SizedBox(
-                      width: rightWidth,
-                      height: availableHeight,
-                      child: _buildRightCalendarAndBookingSection(rightWidth),
-                    ),
-                  ],
-                );
-              },
-            ),
+                    return Row(
+                      children: [
+                        // Left 70%: Staff and Time Slot section
+                        SizedBox(
+                          width: leftWidth,
+                          height: availableHeight,
+                          child: _buildTimetableArea(leftWidth),
+                        ),
+
+                        // Right 30%: Calendar and Booking Overview section (Fixed on right)
+                        SizedBox(
+                          width: rightWidth,
+                          height: availableHeight,
+                          child: _buildRightCalendarAndBookingSection(rightWidth),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
+          // Customer Search Results Overlay
+          if (_customerSearchQuery.isNotEmpty)
+            _buildCustomerSearchResults(),
         ],
       ),
     );
   }
+
+  Widget _buildCustomerSearchResults() {
+    final q = _customerSearchQuery.toLowerCase();
+    final matchedAppts = _appointments.where((a) {
+      return a.customerName.toLowerCase().contains(q) ||
+          a.customerPhone.toLowerCase().contains(q);
+    }).toList();
+
+    if (matchedAppts.isEmpty) {
+      return Positioned(
+        child: CompositedTransformFollower(
+          link: _customerSearchLayerLink,
+          showWhenUnlinked: false,
+          offset: const Offset(0, 40),
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 280,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4)),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.search_off, size: 18, color: Color(0xFF94A3B8)),
+                  const SizedBox(width: 8),
+                  Text('No matching appointments found', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Positioned(
+      child: CompositedTransformFollower(
+        link: _customerSearchLayerLink,
+        showWhenUnlinked: false,
+        offset: const Offset(0, 40),
+        child: Material(
+          elevation: 8,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: 320,
+            constraints: const BoxConstraints(maxHeight: 320),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.people_outline, size: 14, color: Color(0xFFE11D48)),
+                      const SizedBox(width: 6),
+                      Text('${matchedAppts.length} result${matchedAppts.length == 1 ? '' : 's'}', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: matchedAppts.length,
+                    separatorBuilder: (context, index) => const Divider(height: 1, indent: 14, endIndent: 14),
+                  itemBuilder: (ctx, idx) {
+                    final appt = matchedAppts[idx];
+                    final serviceName = appt.services.isNotEmpty
+                        ? appt.services.first['name']?.toString() ?? 'Service'
+                        : 'General';
+                    return InkWell(
+                      onTap: () {
+                        _customerSearchCtrl.clear();
+                        setState(() => _customerSearchQuery = '');
+                        _customerSearchFocus.unfocus();
+                        _showAppointmentDetails(appt);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: const Color(0xFFE11D48).withValues(alpha: 0.1),
+                              child: Text(
+                                appt.customerName.isNotEmpty ? appt.customerName[0].toUpperCase() : '?',
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFFE11D48)),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(appt.customerName, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A))),
+                                  const SizedBox(height: 2),
+                                  Text(appt.customerPhone, style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF64748B))),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF1F2),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFFFFE4E6)),
+                              ),
+                              child: Text(serviceName, style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFFE11D48))),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
   // =====================================================================
   // TOP HEADER
@@ -513,6 +682,49 @@ class _AppointmentViewState extends State<AppointmentView> {
               ),
             ],
           ),
+          const SizedBox(width: 16),
+          // Customer Search Bar
+          CompositedTransformTarget(
+            link: _customerSearchLayerLink,
+            child: SizedBox(
+              width: 260,
+              height: 36,
+              child: Focus(
+                onFocusChange: (hasFocus) => setState(() {}),
+                child: TextField(
+                  controller: _customerSearchCtrl,
+                  focusNode: _customerSearchFocus,
+                  onChanged: (val) => setState(() => _customerSearchQuery = val.trim()),
+                  style: GoogleFonts.inter(fontSize: 12),
+                  decoration: InputDecoration(
+                    hintText: 'Search customer name or phone...',
+                    hintStyle: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade400),
+                    prefixIcon: const Icon(Icons.search, size: 16, color: Color(0xFFE11D48)),
+                    suffixIcon: _customerSearchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.close, size: 14),
+                            onPressed: () {
+                              _customerSearchCtrl.clear();
+                              setState(() => _customerSearchQuery = '');
+                            },
+                          )
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Color(0xFFE11D48), width: 2),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
           const Spacer(),
           // Right Side: New Appointment button only!
           ElevatedButton.icon(
@@ -606,21 +818,33 @@ class _AppointmentViewState extends State<AppointmentView> {
               ),
             ),
           ),
-          // Add Staff button
+          // Hide Calendar toggle button
           InkWell(
-            onTap: () {},
+            onTap: () => setState(() => _isCalendarHidden = !_isCalendarHidden),
             borderRadius: BorderRadius.circular(20),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+                color: _isCalendarHidden ? const Color(0xFFE11D48).withValues(alpha: 0.1) : Colors.transparent,
+                border: Border.all(color: _isCalendarHidden ? const Color(0xFFE11D48) : Colors.grey.shade300, style: BorderStyle.solid),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.add, size: 14, color: Colors.grey.shade500),
+                  Icon(
+                    _isCalendarHidden ? Icons.calendar_month : Icons.visibility_off_outlined,
+                    size: 14,
+                    color: _isCalendarHidden ? const Color(0xFFE11D48) : Colors.grey.shade500,
+                  ),
                   const SizedBox(width: 4),
-                  Text('Add Staff', style: GoogleFonts.inter(fontSize: 10, color: Colors.grey.shade500)),
+                  Text(
+                    _isCalendarHidden ? 'Show Calendar' : 'Hide Calendar',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: _isCalendarHidden ? FontWeight.w600 : FontWeight.normal,
+                      color: _isCalendarHidden ? const Color(0xFFE11D48) : Colors.grey.shade500,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -702,8 +926,8 @@ class _AppointmentViewState extends State<AppointmentView> {
 
     const double timeColWidth = 84.0;
     final double staffAreaWidth = math.max(200.0, leftWidth - timeColWidth);
-    // User requirement: each Staff column can use approximately 20% width within the 75% staff area!
-    final double staffColWidth = math.max(160.0, staffAreaWidth * 0.20);
+    // User requirement: each Staff column uses approximately 30% width
+    final double staffColWidth = math.max(180.0, staffAreaWidth * 0.30);
     final double totalStaffWidth = math.max(staffAreaWidth, staff.length * staffColWidth);
 
     return Container(
@@ -840,81 +1064,154 @@ class _AppointmentViewState extends State<AppointmentView> {
 
   Widget _buildSingleStaffHeader(StaffModel s, int idx) {
     final color = _staffColor(idx);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(left: idx > 0 ? BorderSide(color: Colors.grey.shade200) : BorderSide.none),
+    return InkWell(
+      onTap: () => _showStaffInfoPopup(s, idx),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(left: idx > 0 ? BorderSide(color: Colors.grey.shade200) : BorderSide.none),
+        ),
+        child: Row(
+          children: [
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: color,
+                  child: Text(
+                    s.name.isNotEmpty ? s.name[0].toUpperCase() : '?',
+                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      s.name,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0F172A),
+                        letterSpacing: -0.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    '${_countForStaff(s.id)} slots',
+                    style: GoogleFonts.inter(fontSize: 9.5, color: Colors.grey.shade400, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Row(
-        children: [
-          Stack(
+    );
+  }
+
+  void _showStaffInfoPopup(StaffModel s, int idx) {
+    final color = _staffColor(idx);
+    final staffAppts = _appointments.where((a) => a.staffId == s.id).toList();
+    final bookedCount = staffAppts.where((a) => a.status == 'booked').length;
+    final inServiceCount = staffAppts.where((a) => a.status == 'in_service').length;
+    final completedCount = staffAppts.where((a) => a.status == 'completed').length;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: 360,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               CircleAvatar(
-                radius: 16,
+                radius: 32,
                 backgroundColor: color,
                 child: Text(
                   s.name.isNotEmpty ? s.name[0].toUpperCase() : '?',
-                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                  style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white),
                 ),
               ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
+              const SizedBox(height: 12),
+              Text(s.name, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(s.role.isNotEmpty ? s.role : 'Staff', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              if (s.email.isNotEmpty)
+                _staffInfoRow(Icons.email_outlined, 'Email', s.email),
+              if (s.phone.isNotEmpty)
+                _staffInfoRow(Icons.phone_outlined, 'Phone', s.phone),
+              _staffInfoRow(Icons.event_available, 'Booked Today', '$bookedCount'),
+              _staffInfoRow(Icons.play_circle_outline, 'In Service', '$inServiceCount'),
+              _staffInfoRow(Icons.check_circle_outline, 'Completed', '$completedCount'),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    setState(() => _selectedStaffFilter = s.id);
+                  },
+                  child: Text('View Schedule', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
                 ),
               ),
             ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        s.name,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF0F172A),
-                          letterSpacing: -0.3,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        s.role.isNotEmpty ? s.role : 'Staff',
-                        style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.w600, color: color),
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  '${_countForStaff(s.id)} slots',
-                  style: GoogleFonts.inter(fontSize: 9.5, color: Colors.grey.shade400, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _staffInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFF64748B)),
+          const SizedBox(width: 10),
+          Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+          const Spacer(),
+          Text(value, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A))),
         ],
       ),
     );
@@ -1503,9 +1800,14 @@ class _AppointmentViewState extends State<AppointmentView> {
     final top = ((appt.startMinutes - _gridBaseMinutes) / 30.0) * _slotHeight;
     final height = ((appt.endMinutes - appt.startMinutes) / 30.0) * _slotHeight;
 
-    // Check if appointment can be dragged
-    // User requested: Booked and In Service can be dragged, completed cards cannot be dragged
-    final bool canDrag = appt.status == 'booked' || appt.status == 'in_service';
+    final bool isResizing = _resizingApptId == appt.id;
+    final bool isHolding = _activeHandleApptId == appt.id;
+    final double extraHeight = isResizing ? _resizingDeltaY : 0.0;
+    final double effectiveHeight = height + extraHeight;
+
+    // Check if appointment can be dragged to other slots / staff
+    final bool canDrag = !isResizing && !isHolding && (appt.status == 'booked' || appt.status == 'in_service');
+    final bool showExtendIndicator = (appt.status == 'booked' || appt.status == 'in_service');
 
     // Status colors
     Color bgColor, borderColor, textColor, badgeBg, badgeText;
@@ -1571,16 +1873,26 @@ class _AppointmentViewState extends State<AppointmentView> {
 
     // Build the visual card content
     Widget cardBody = Container(
-      padding: EdgeInsets.all(height > 60 ? 10 : 8),
+      padding: EdgeInsets.fromLTRB(
+        height > 60 ? 10 : 8,
+        height > 60 ? 8 : 6,
+        height > 60 ? 10 : 8,
+        showExtendIndicator ? 2 : (height > 60 ? 8 : 6),
+      ),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(8),
         border: Border(left: BorderSide(color: borderColor, width: 4)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4)],
+        boxShadow: [
+          BoxShadow(
+            color: (isResizing || isHolding) ? const Color(0xFFE11D48).withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.04),
+            blurRadius: (isResizing || isHolding) ? 8 : 4,
+            spreadRadius: (isResizing || isHolding) ? 1 : 0,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1641,7 +1953,7 @@ class _AppointmentViewState extends State<AppointmentView> {
               ),
             ],
           ),
-          if (height > 50) ...[
+          if (effectiveHeight > 50) ...[
             const SizedBox(height: 2),
             Text(
               serviceName,
@@ -1655,8 +1967,8 @@ class _AppointmentViewState extends State<AppointmentView> {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          if (height > 80 && appt.notes.isNotEmpty) ...[
-            const Spacer(),
+          if (effectiveHeight > 80 && appt.notes.isNotEmpty) ...[
+            const SizedBox(height: 2),
             Text(
               appt.status == 'no_show' ? '⚠️ ${appt.notes}' : appt.notes,
               style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500, color: textColor),
@@ -1664,8 +1976,8 @@ class _AppointmentViewState extends State<AppointmentView> {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          if (height > 90 && appt.totalAmount > 0 && appt.status == 'completed') ...[
-            const Spacer(),
+          if (effectiveHeight > 90 && appt.totalAmount > 0 && appt.status == 'completed') ...[
+            const SizedBox(height: 2),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -1674,6 +1986,9 @@ class _AppointmentViewState extends State<AppointmentView> {
               ],
             ),
           ],
+          const Spacer(),
+          if (showExtendIndicator)
+            _buildExtendIndicator(appt, borderColor),
         ],
       ),
     );
@@ -1746,9 +2061,263 @@ class _AppointmentViewState extends State<AppointmentView> {
       left: 6,
       right: 6,
       top: top + 2,
-      height: (height - 6).clamp(30, double.infinity),
+      height: (effectiveHeight - 6).clamp(30.0, double.infinity),
       child: interactiveCard,
     );
+  }
+
+  /// 5. Booked / In-Service Appointment Slot Indicator & 6. Drag to Extend Appointment Time
+  Widget _buildExtendIndicator(AppointmentModel appt, Color borderColor) {
+    final bool isResizing = _resizingApptId == appt.id;
+    final bool isHolding = _activeHandleApptId == appt.id;
+    final bool isProminent = isResizing || isHolding;
+
+    // 15 minutes = _slotHeight / 2.0 = 28.0 px
+    const double pxPer15Min = _slotHeight / 2.0;
+    final int previewAddedMinutes = isResizing ? math.max(0, (_resizingDeltaY / pxPer15Min).round() * 15) : 0;
+    final Color activeColor = const Color(0xFFE11D48);
+    final Color indicatorColor = isProminent ? activeColor : borderColor;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeUpDown,
+      child: Listener(
+        onPointerDown: (_) {
+          setState(() {
+            _activeHandleApptId = appt.id;
+          });
+        },
+        onPointerUp: (_) {
+          if (_resizingApptId == null) {
+            setState(() {
+              _activeHandleApptId = null;
+            });
+          }
+        },
+        onPointerCancel: (_) {
+          if (_resizingApptId == null) {
+            setState(() {
+              _activeHandleApptId = null;
+            });
+          }
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onVerticalDragStart: (_) {
+            setState(() {
+              _activeHandleApptId = appt.id;
+              _resizingApptId = appt.id;
+              _resizingDeltaY = 0.0;
+            });
+          },
+          onVerticalDragUpdate: (details) {
+            setState(() {
+              _resizingDeltaY = math.max(0.0, _resizingDeltaY + details.delta.dy);
+            });
+          },
+          onVerticalDragEnd: (_) async {
+            final int addedIntervals = (_resizingDeltaY / pxPer15Min).round();
+            final int addedMinutes = addedIntervals * 15;
+            setState(() {
+              _activeHandleApptId = null;
+              _resizingApptId = null;
+              _resizingDeltaY = 0.0;
+            });
+            if (addedMinutes >= 15) {
+              await _applyDirectExtend(appt, addedMinutes);
+            }
+          },
+          onVerticalDragCancel: () {
+            setState(() {
+              _activeHandleApptId = null;
+              _resizingApptId = null;
+              _resizingDeltaY = 0.0;
+            });
+          },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isResizing && previewAddedMinutes > 0)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: activeColor,
+                      borderRadius: BorderRadius.circular(4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: activeColor.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      '+$previewAddedMinutes min (${_formatExtendedEnd(appt, previewAddedMinutes)})',
+                      style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                  )
+                else if (isHolding && !isResizing)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: activeColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.arrow_downward, size: 8, color: Colors.white),
+                        const SizedBox(width: 2),
+                        Text(
+                          'Drag down to extend',
+                          style: GoogleFonts.inter(fontSize: 8.0, fontWeight: FontWeight.w600, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOutCubic,
+                  height: isProminent ? 10 : 7,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // 2px full-width horizontal base line
+                      Container(
+                        height: 2,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: indicatorColor.withValues(alpha: isProminent ? 0.5 : 0.35),
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                      // Center indicator line: 5px normal -> 8px when holding/dragging, 40% -> 55% width
+                      FractionallySizedBox(
+                        widthFactor: isProminent ? 0.55 : 0.40,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          curve: Curves.easeOutCubic,
+                          height: isProminent ? 8 : 5,
+                          decoration: BoxDecoration(
+                            color: indicatorColor,
+                            borderRadius: BorderRadius.circular(isProminent ? 4.0 : 2.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: indicatorColor.withValues(alpha: isProminent ? 0.5 : 0.35),
+                                blurRadius: isProminent ? 5 : 2,
+                                spreadRadius: isProminent ? 1 : 0,
+                                offset: Offset(0, isProminent ? 1.0 : 0.5),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: isProminent
+                                ? Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(width: 3, height: 3, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
+                                      const SizedBox(width: 3),
+                                      Container(width: 3, height: 3, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
+                                      const SizedBox(width: 3),
+                                      Container(width: 3, height: 3, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
+                                    ],
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatExtendedEnd(AppointmentModel appt, int addMinutes) {
+    final int newMinutes = appt.endMinutes + addMinutes;
+    final int h = ((newMinutes ~/ 60) % 24).clamp(0, 23);
+    final int m = (newMinutes % 60).clamp(0, 59);
+    final String time24 = '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+    return _formatSlotLabel(time24);
+  }
+
+  Future<void> _applyDirectExtend(AppointmentModel appt, int addMinutes) async {
+    final int newEndMinutes = appt.endMinutes + addMinutes;
+    final int closeMinutes = _timeToMinutes(_configCloseTime);
+
+    if (newEndMinutes > closeMinutes) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFE11D48),
+            content: Text('Cannot extend past business hours closing time (${_formatSlotLabel(_configCloseTime)}).'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    final int newEndH = ((newEndMinutes ~/ 60) % 24).clamp(0, 23);
+    final int newEndM = (newEndMinutes % 60).clamp(0, 59);
+    final String newEndTime = '${newEndH.toString().padLeft(2, '0')}:${newEndM.toString().padLeft(2, '0')}';
+
+    // Conflict check for extended window
+    final conflict = await ApiService.checkAppointmentConflict(
+      staffId: appt.staffId,
+      appointmentDate: appt.appointmentDate,
+      startTime: appt.endTime,
+      endTime: newEndTime,
+      excludeId: appt.id,
+    );
+
+    if (conflict['has_conflict'] == true) {
+      final conf = conflict['conflicting_appointment'];
+      final range = conf != null ? ' (${conf['start_time']} - ${conf['end_time']})' : '';
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFE11D48),
+            content: Text('Cannot extend: ${appt.staffName} already has an active appointment$range.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    final success = await ApiService.updateAppointment(appt.id, {'end_time': newEndTime});
+    if (success) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF10B981),
+            content: Text('Appointment extended to ${_formatSlotLabel(newEndTime)} (+${addMinutes}m) successfully!'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        _loadData();
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFFE11D48),
+            content: Text('Failed to extend appointment duration.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildCurrentTimeIndicator() {
@@ -2534,7 +3103,7 @@ class _AppointmentViewState extends State<AppointmentView> {
             ],
           ),
           content: Text(
-            'Are you sure you want to delete this in-service appointment for "${appt.customerName}"? This action cannot be undone.',
+            'Are you sure you want to delete this appointment for "${appt.customerName}"? This action cannot be undone.',
             style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF334155)),
           ),
           actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2758,6 +3327,10 @@ class _AppointmentViewState extends State<AppointmentView> {
                         await ApiService.updateAppointmentStatus(appt.id, 'cancelled');
                         _loadData();
                       }),
+                      if (_allowDeleteService)
+                        _actionBtn('Delete', Icons.delete_outline, const Color(0xFFE11D48), () {
+                          _confirmDeleteAppointment(ctx, appt);
+                        }),
                     ],
                     if (appt.status == 'in_service') ...[
                       _actionBtn('Continue Service', Icons.play_arrow_rounded, const Color(0xFF0D9488), () {
