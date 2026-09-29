@@ -13,6 +13,8 @@ const jsonFiles = {
   customers: path.join(dataDir, 'customers.json'),
   categories: path.join(dataDir, 'categories.json'),
   products: path.join(dataDir, 'products.json'),
+  appointments: path.join(dataDir, 'appointments.json'),
+  sales: path.join(dataDir, 'sales.json'),
 };
 
 // Seed initial fallback data
@@ -220,6 +222,137 @@ const initialData = {
       created_at: new Date().toISOString(),
     },
   ],
+  appointments: (() => {
+    const today = new Date().toISOString().split('T')[0];
+    return [
+      {
+        id: 1, business_id: 1, staff_id: 1, customer_id: 1,
+        customer_name: 'Omopet', customer_phone: '+1 555-4421',
+        staff_name: 'Dr. Shaun Ong',
+        appointment_date: today, start_time: '17:00', end_time: '17:30',
+        status: 'completed', total_amount: 65.00,
+        services: [{ product_id: 1, name: 'Omopet Bath Basic', price: 65.00 }],
+        notes: '', created_at: new Date().toISOString(),
+      },
+      {
+        id: 2, business_id: 1, staff_id: 1, customer_id: 1,
+        customer_name: 'New Bel... (Persian Cat)', customer_phone: '+1 555-4421',
+        staff_name: 'Dr. Shaun Ong',
+        appointment_date: today, start_time: '18:00', end_time: '19:30',
+        status: 'no_show', total_amount: 120.00,
+        services: [{ product_id: 2, name: 'Full Fur Detangling & Spa', price: 120.00 }],
+        notes: 'Client missed check-in', created_at: new Date().toISOString(),
+      },
+      {
+        id: 3, business_id: 1, staff_id: 1, customer_id: 2,
+        customer_name: 'test (Golden Retriever)', customer_phone: '+1 555-8832',
+        staff_name: 'Dr. Shaun Ong',
+        appointment_date: today, start_time: '18:45', end_time: '19:44',
+        status: 'completed', total_amount: 75.00,
+        services: [{ product_id: 2, name: 'Deep Deshedding + Ear Clean', price: 75.00 }],
+        notes: 'Paid via Card', created_at: new Date().toISOString(),
+      },
+      {
+        id: 4, business_id: 1, staff_id: 1, customer_id: 1,
+        customer_name: 'Omopet', customer_phone: '+1 555-4421',
+        staff_name: 'Dr. Shaun Ong',
+        appointment_date: today, start_time: '20:00', end_time: '20:30',
+        status: 'completed', total_amount: 45.00,
+        services: [{ product_id: 1, name: 'Omopet Express Bath', price: 45.00 }],
+        notes: '', created_at: new Date().toISOString(),
+      },
+      {
+        id: 5, business_id: 1, staff_id: 1, customer_id: 1,
+        customer_name: 'Omopet', customer_phone: '+1 555-4421',
+        staff_name: 'Dr. Shaun Ong',
+        appointment_date: today, start_time: '20:30', end_time: '21:00',
+        status: 'in_service', total_amount: 55.00,
+        services: [{ product_id: 2, name: 'Omopet Haircut & Style', price: 55.00 }],
+        notes: '', created_at: new Date().toISOString(),
+      },
+      {
+        id: 6, business_id: 1, staff_id: 1, customer_id: 1,
+        customer_name: 'Omopet', customer_phone: '+1 555-4421',
+        staff_name: 'Dr. Shaun Ong',
+        appointment_date: today, start_time: '21:00', end_time: '21:30',
+        status: 'in_service', total_amount: 25.00,
+        services: [{ product_id: 4, name: 'Omopet Nail Trimming', price: 25.00 }],
+        notes: '', created_at: new Date().toISOString(),
+      },
+      {
+        id: 7, business_id: 1, staff_id: 2, customer_id: 2,
+        customer_name: 'Consultation — Milo', customer_phone: '+1 555-8832',
+        staff_name: 'Elena Rostova',
+        appointment_date: today, start_time: '17:00', end_time: '17:30',
+        status: 'completed', total_amount: 65.00,
+        services: [{ product_id: 1, name: 'Consultation — Milo', price: 65.00 }],
+        notes: '', created_at: new Date().toISOString(),
+      },
+      {
+        id: 8, business_id: 1, staff_id: 2, customer_id: 1,
+        customer_name: 'Quick Vet Assessment', customer_phone: '+1 555-4421',
+        staff_name: 'Elena Rostova',
+        appointment_date: today, start_time: '18:44', end_time: '19:00',
+        status: 'completed', total_amount: 45.00,
+        services: [{ product_id: 5, name: 'Quick Vet Assessment', price: 45.00 }],
+        notes: '', created_at: new Date().toISOString(),
+      },
+      {
+        id: 9, business_id: 1, staff_id: 2, customer_id: 1,
+        customer_name: 'Omopet', customer_phone: '+1 555-4421',
+        staff_name: 'Elena Rostova',
+        appointment_date: today, start_time: '20:00', end_time: '20:30',
+        status: 'cancelled', total_amount: 0,
+        services: [{ product_id: 1, name: 'Omopet Routine Check', price: 65.00 }],
+        notes: '', created_at: new Date().toISOString(),
+      },
+      {
+        id: 10, business_id: 1, staff_id: 2, customer_id: 2,
+        customer_name: 'Vaccine Booster (Corgi)', customer_phone: '+1 555-8832',
+        staff_name: 'Elena Rostova',
+        appointment_date: today, start_time: '20:30', end_time: '21:00',
+        status: 'cancelled', total_amount: 0,
+        services: [{ product_id: 1, name: 'Vaccine Booster (Corgi)', price: 65.00 }],
+        notes: '', created_at: new Date().toISOString(),
+      },
+      {
+        id: 11, business_id: 1, staff_id: 2, customer_id: 1,
+        customer_name: 'Omopet', customer_phone: '+1 555-4421',
+        staff_name: 'Elena Rostova',
+        appointment_date: today, start_time: '21:00', end_time: '21:30',
+        status: 'in_service', total_amount: 85.00,
+        services: [{ product_id: 2, name: 'Omopet Dental Cleaning', price: 85.00 }],
+        notes: '', created_at: new Date().toISOString(),
+      },
+      {
+        id: 12, business_id: 1, staff_id: 3, customer_id: 2,
+        customer_name: 'r4r4', customer_phone: '+1 555-8832',
+        staff_name: 'Marcus Vance',
+        appointment_date: today, start_time: '18:00', end_time: '18:30',
+        status: 'in_service', total_amount: 85.00,
+        services: [{ product_id: 2, name: 'r4r4 Therapy Session', price: 85.00 }],
+        notes: '', created_at: new Date().toISOString(),
+      },
+      {
+        id: 13, business_id: 1, staff_id: 3, customer_id: 2,
+        customer_name: 'test', customer_phone: '+1 555-8832',
+        staff_name: 'Marcus Vance',
+        appointment_date: today, start_time: '20:00', end_time: '20:30',
+        status: 'cancelled', total_amount: 0,
+        services: [{ product_id: 2, name: 'test Hydrotherapy', price: 85.00 }],
+        notes: '', created_at: new Date().toISOString(),
+      },
+      {
+        id: 14, business_id: 1, staff_id: 3, customer_id: 1,
+        customer_name: 'Tester (Shih Tzu)', customer_phone: '+1 555-4421',
+        staff_name: 'Marcus Vance',
+        appointment_date: today, start_time: '20:30', end_time: '21:24',
+        status: 'completed', total_amount: 110.00,
+        services: [{ product_id: 3, name: 'Acupuncture & Relaxation', price: 110.00 }],
+        notes: 'Verified by Tester Omopet', created_at: new Date().toISOString(),
+      },
+    ];
+  })(),
 };
 
 function initFallbackStorage() {
@@ -352,6 +485,47 @@ async function initDatabase() {
         deleted_at DATETIME NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS appointments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        business_id INT NOT NULL,
+        staff_id INT NOT NULL,
+        customer_id INT NULL,
+        customer_name VARCHAR(255) DEFAULT '',
+        customer_phone VARCHAR(50) DEFAULT '',
+        staff_name VARCHAR(255) DEFAULT '',
+        appointment_date DATE NOT NULL,
+        start_time VARCHAR(10) NOT NULL,
+        end_time VARCHAR(10) NOT NULL,
+        status ENUM('booked', 'in_service', 'completed', 'no_show', 'cancelled') DEFAULT 'booked',
+        total_amount DECIMAL(10, 2) DEFAULT 0.00,
+        services JSON NULL,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS sales (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        business_id INT NOT NULL,
+        appointment_id INT NULL,
+        customer_id INT NULL,
+        customer_name VARCHAR(255) NOT NULL DEFAULT '',
+        customer_phone VARCHAR(50) DEFAULT '',
+        staff_id INT NULL,
+        staff_name VARCHAR(255) DEFAULT '',
+        subtotal DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        item_discount_total DECIMAL(10, 2) DEFAULT 0.00,
+        overall_discount DECIMAL(10, 2) DEFAULT 0.00,
+        tax_amount DECIMAL(10, 2) DEFAULT 0.00,
+        total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        payment_method ENUM('cash', 'card', 'qr', 'other') NOT NULL DEFAULT 'cash',
+        amount_tendered DECIMAL(10, 2) DEFAULT 0.00,
+        change_amount DECIMAL(10, 2) DEFAULT 0.00,
+        items JSON NULL,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `;
 
@@ -887,6 +1061,351 @@ async function deleteProduct(id) {
   return true;
 }
 
+// ----------------- Appointments Helpers -----------------
+async function getAppointments(date = null, staffId = null) {
+  if (!useFallback && pool) {
+    try {
+      let query = 'SELECT * FROM appointments WHERE business_id = 1';
+      const params = [];
+      if (date) {
+        query += ' AND appointment_date = ?';
+        params.push(date);
+      }
+      if (staffId) {
+        query += ' AND staff_id = ?';
+        params.push(staffId);
+      }
+      query += ' ORDER BY start_time ASC';
+      const [rows] = await pool.query(query, params);
+      return rows.map((r) => {
+        if (r.services && typeof r.services === 'string') {
+          try { r.services = JSON.parse(r.services); } catch (_) { r.services = []; }
+        }
+        return r;
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  let list = readJson('appointments');
+  if (date) {
+    list = list.filter((a) => a.appointment_date === date);
+  }
+  if (staffId) {
+    list = list.filter((a) => String(a.staff_id) === String(staffId));
+  }
+  return list.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+}
+
+async function getAppointmentById(id) {
+  if (!useFallback && pool) {
+    try {
+      const [rows] = await pool.query('SELECT * FROM appointments WHERE id = ?', [id]);
+      if (rows[0] && rows[0].services && typeof rows[0].services === 'string') {
+        try { rows[0].services = JSON.parse(rows[0].services); } catch (_) { rows[0].services = []; }
+      }
+      return rows[0] || null;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  const list = readJson('appointments');
+  return list.find((a) => String(a.id) === String(id)) || null;
+}
+
+async function getAppointmentStats(date = null) {
+  const appts = await getAppointments(date, null);
+  const stats = {
+    total: appts.length,
+    booked: 0,
+    in_service: 0,
+    completed: 0,
+    no_show: 0,
+    cancelled: 0,
+  };
+  for (const a of appts) {
+    const s = (a.status || '').toLowerCase().trim();
+    if (s === 'booked') {
+      stats.booked++;
+    } else if (s === 'in_service' || s === 'inservice' || s === 'in-service') {
+      stats.in_service++;
+    } else if (s === 'completed') {
+      stats.completed++;
+    } else if (s === 'no_show' || s === 'noshow' || s === 'no-show') {
+      stats.no_show++;
+    } else if (s === 'cancelled' || s === 'canceled') {
+      stats.cancelled++;
+    }
+  }
+  return stats;
+}
+
+async function createAppointment(data) {
+  if (!useFallback && pool) {
+    try {
+      const query = `
+        INSERT INTO appointments
+        (business_id, staff_id, customer_id, customer_name, customer_phone, staff_name, appointment_date, start_time, end_time, status, total_amount, services, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const [res] = await pool.query(query, [
+        data.business_id || 1,
+        data.staff_id,
+        data.customer_id || null,
+        data.customer_name || '',
+        data.customer_phone || '',
+        data.staff_name || '',
+        data.appointment_date,
+        data.start_time,
+        data.end_time,
+        data.status || 'booked',
+        data.total_amount || 0,
+        JSON.stringify(data.services || []),
+        data.notes || '',
+      ]);
+      return { id: res.insertId, ...data, created_at: new Date().toISOString() };
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('appointments');
+  const id = list.length > 0 ? Math.max(...list.map((x) => Number(x.id) || 0)) + 1 : 1;
+  const newAppt = {
+    id,
+    business_id: data.business_id || 1,
+    staff_id: data.staff_id,
+    customer_id: data.customer_id || null,
+    customer_name: data.customer_name || '',
+    customer_phone: data.customer_phone || '',
+    staff_name: data.staff_name || '',
+    appointment_date: data.appointment_date,
+    start_time: data.start_time,
+    end_time: data.end_time,
+    status: data.status || 'booked',
+    total_amount: Number(data.total_amount) || 0,
+    services: data.services || [],
+    notes: data.notes || '',
+    created_at: new Date().toISOString(),
+  };
+  list.push(newAppt);
+  writeJson('appointments', list);
+  return newAppt;
+}
+
+async function updateAppointmentStatus(id, status) {
+  if (!useFallback && pool) {
+    try {
+      await pool.query('UPDATE appointments SET status = ? WHERE id = ?', [status, id]);
+      return await getAppointmentById(id);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('appointments');
+  const idx = list.findIndex((a) => String(a.id) === String(id));
+  if (idx === -1) return null;
+  list[idx].status = status;
+  list[idx].updated_at = new Date().toISOString();
+  writeJson('appointments', list);
+  return list[idx];
+}
+
+async function updateAppointment(id, data) {
+  if (!useFallback && pool) {
+    try {
+      const fields = [];
+      const values = [];
+      const allowed = ['staff_id', 'customer_id', 'customer_name', 'customer_phone', 'staff_name', 'appointment_date', 'start_time', 'end_time', 'status', 'total_amount', 'notes'];
+      for (const key of allowed) {
+        if (data[key] !== undefined) {
+          fields.push(`${key} = ?`);
+          values.push(data[key]);
+        }
+      }
+      if (data.services !== undefined) {
+        fields.push('services = ?');
+        values.push(JSON.stringify(data.services));
+      }
+      if (fields.length === 0) return await getAppointmentById(id);
+      values.push(id);
+      await pool.query(`UPDATE appointments SET ${fields.join(', ')} WHERE id = ?`, values);
+      return await getAppointmentById(id);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('appointments');
+  const idx = list.findIndex((a) => String(a.id) === String(id));
+  if (idx === -1) return null;
+  list[idx] = { ...list[idx], ...data, updated_at: new Date().toISOString() };
+  writeJson('appointments', list);
+  return list[idx];
+}
+
+async function deleteAppointment(id) {
+  if (!useFallback && pool) {
+    try {
+      const [res] = await pool.query('DELETE FROM appointments WHERE id = ?', [id]);
+      return res.affectedRows > 0;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('appointments');
+  const idx = list.findIndex((a) => String(a.id) === String(id));
+  if (idx === -1) return false;
+  list.splice(idx, 1);
+  writeJson('appointments', list);
+  return true;
+}
+
+// =================== Sales CRUD ===================
+async function getSales(filters = {}) {
+  if (!useFallback && pool) {
+    try {
+      let sql = 'SELECT * FROM sales';
+      const conditions = [];
+      const values = [];
+      if (filters.appointment_id) {
+        conditions.push('appointment_id = ?');
+        values.push(filters.appointment_id);
+      }
+      if (filters.customer_id) {
+        conditions.push('customer_id = ?');
+        values.push(filters.customer_id);
+      }
+      if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
+      sql += ' ORDER BY created_at DESC';
+      const [rows] = await pool.query(sql, values);
+      return rows.map((r) => {
+        if (r.items && typeof r.items === 'string') r.items = JSON.parse(r.items);
+        return r;
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  let list = readJson('sales');
+  if (filters.appointment_id) list = list.filter((s) => String(s.appointment_id) === String(filters.appointment_id));
+  if (filters.customer_id) list = list.filter((s) => String(s.customer_id) === String(filters.customer_id));
+  return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
+async function getSaleById(id) {
+  if (!useFallback && pool) {
+    try {
+      const [rows] = await pool.query('SELECT * FROM sales WHERE id = ?', [id]);
+      if (rows[0] && rows[0].items && typeof rows[0].items === 'string') {
+        rows[0].items = JSON.parse(rows[0].items);
+      }
+      return rows[0] || null;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  const list = readJson('sales');
+  return list.find((s) => String(s.id) === String(id)) || null;
+}
+
+async function createSale(data) {
+  if (!useFallback && pool) {
+    try {
+      const query = `
+        INSERT INTO sales
+        (business_id, appointment_id, customer_id, customer_name, customer_phone, staff_id, staff_name,
+         subtotal, item_discount_total, overall_discount, tax_amount, total_amount,
+         payment_method, amount_tendered, change_amount, items, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const [result] = await pool.query(query, [
+        data.business_id || 1,
+        data.appointment_id || null,
+        data.customer_id || null,
+        data.customer_name || '',
+        data.customer_phone || '',
+        data.staff_id || null,
+        data.staff_name || '',
+        data.subtotal || 0,
+        data.item_discount_total || 0,
+        data.overall_discount || 0,
+        data.tax_amount || 0,
+        data.total_amount || 0,
+        data.payment_method || 'cash',
+        data.amount_tendered || 0,
+        data.change_amount || 0,
+        JSON.stringify(data.items || []),
+        data.notes || '',
+      ]);
+      return await getSaleById(result.insertId);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const list = readJson('sales');
+  const newId = list.length > 0 ? Math.max(...list.map((s) => s.id)) + 1 : 1;
+  const sale = {
+    id: newId,
+    business_id: data.business_id || 1,
+    appointment_id: data.appointment_id || null,
+    customer_id: data.customer_id || null,
+    customer_name: data.customer_name || '',
+    customer_phone: data.customer_phone || '',
+    staff_id: data.staff_id || null,
+    staff_name: data.staff_name || '',
+    subtotal: data.subtotal || 0,
+    item_discount_total: data.item_discount_total || 0,
+    overall_discount: data.overall_discount || 0,
+    tax_amount: data.tax_amount || 0,
+    total_amount: data.total_amount || 0,
+    payment_method: data.payment_method || 'cash',
+    amount_tendered: data.amount_tendered || 0,
+    change_amount: data.change_amount || 0,
+    items: data.items || [],
+    notes: data.notes || '',
+    created_at: new Date().toISOString(),
+  };
+  list.push(sale);
+  writeJson('sales', list);
+  return sale;
+}
+
+// =================== Appointment Conflict Check ===================
+async function checkAppointmentConflict({ staff_id, appointment_date, start_time, end_time, exclude_id }) {
+  // Parse times to minutes
+  function timeToMinutes(t) {
+    const parts = (t || '').split(':');
+    return (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+  }
+  const newStart = timeToMinutes(start_time);
+  const newEnd = timeToMinutes(end_time);
+
+  // Get all appointments for this staff on this date
+  const allAppointments = await getAppointments(appointment_date, staff_id);
+
+  // Filter to only active (blocking) statuses — cancelled and no_show are FREE
+  const blocking = allAppointments.filter((a) => {
+    if (exclude_id && String(a.id) === String(exclude_id)) return false;
+    return ['booked', 'in_service', 'completed'].includes(a.status);
+  });
+
+  // Check for overlap
+  for (const a of blocking) {
+    const aStart = timeToMinutes(a.start_time);
+    const aEnd = timeToMinutes(a.end_time);
+    // Overlap check: two intervals [s1, e1) and [s2, e2) overlap when s1 < e2 && s2 < e1
+    if (newStart < aEnd && aStart < newEnd) {
+      return { has_conflict: true, conflicting_appointment: a };
+    }
+  }
+  return { has_conflict: false };
+}
+
 function getDatabaseStatus() {
   return {
     mode: useFallback ? 'JSON_FALLBACK' : 'MYSQL',
@@ -916,4 +1435,15 @@ module.exports = {
   createProduct,
   updateProduct,
   deleteProduct,
+  getAppointments,
+  getAppointmentById,
+  getAppointmentStats,
+  createAppointment,
+  updateAppointmentStatus,
+  updateAppointment,
+  deleteAppointment,
+  getSales,
+  getSaleById,
+  createSale,
+  checkAppointmentConflict,
 };

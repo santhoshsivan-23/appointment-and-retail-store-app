@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/auth_storage.dart';
 import '../theme/app_theme.dart';
 
 class AppointmentConfigView extends StatefulWidget {
@@ -12,10 +13,72 @@ class AppointmentConfigView extends StatefulWidget {
 class _AppointmentConfigViewState extends State<AppointmentConfigView> {
   int _slotDuration = 30; // minutes
   int _bufferTime = 10; // minutes
+  String _timeFormat = '12'; // '12' or '24'
   bool _allowWalkInQueue = true;
   bool _requireDoctorNotes = true;
-  String _openTime = '08:30 AM';
-  String _closeTime = '07:30 PM';
+  bool _allowDeleteService = false;
+  late TextEditingController _openTimeCtrl;
+  late TextEditingController _closeTimeCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _openTimeCtrl = TextEditingController(text: '08:00');
+    _closeTimeCtrl = TextEditingController(text: '20:00');
+    _loadSavedConfig();
+  }
+
+  @override
+  void dispose() {
+    _openTimeCtrl.dispose();
+    _closeTimeCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSavedConfig() async {
+    final format = await AuthStorage.getTimeFormat();
+    final open = await AuthStorage.getOpenTime();
+    final close = await AuthStorage.getCloseTime();
+    final slot = await AuthStorage.getSlotDuration();
+    final buffer = await AuthStorage.getBufferTime();
+    final allowDelete = await AuthStorage.getAllowDeleteService();
+    if (!mounted) return;
+    setState(() {
+      _timeFormat = format;
+      _openTimeCtrl.text = open;
+      _closeTimeCtrl.text = close;
+      _slotDuration = slot;
+      _bufferTime = buffer;
+      _allowDeleteService = allowDelete;
+    });
+  }
+
+  Future<void> _saveConfig() async {
+    await AuthStorage.setTimeFormat(_timeFormat);
+    await AuthStorage.setOpenTime(_openTimeCtrl.text.trim());
+    await AuthStorage.setCloseTime(_closeTimeCtrl.text.trim());
+    await AuthStorage.setSlotDuration(_slotDuration);
+    await AuthStorage.setBufferTime(_bufferTime);
+    await AuthStorage.setAllowDeleteService(_allowDeleteService);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF10B981),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Appointment configuration saved successfully! (Format: ${_timeFormat == '12' ? '12-Hour AM/PM' : '24-Hour'})',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +92,7 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Appointment Configuration & Rules', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold)),
-              Text('Configure operational booking intervals, buffer times, and clinic schedule policies.', style: GoogleFonts.inter(fontSize: 13, color: AppTheme.onSurfaceVariant)),
+              Text('Configure operational booking intervals, time format (12h/24h), buffer times, and clinic schedule policies.', style: GoogleFonts.inter(fontSize: 13, color: AppTheme.onSurfaceVariant)),
               const SizedBox(height: 24),
 
               Container(
@@ -45,7 +108,54 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('1. Booking Slot Interval', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
+                    // 1. Time Format Configuration (12-hour AM/PM vs 24-hour)
+                    Text('1. Time Format & Clock Display', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Text('Controls whether appointment times use 12-hour (with AM/PM dropdown) or 24-hour notation:', style: GoogleFonts.inter(fontSize: 12.5, color: AppTheme.onSurfaceVariant)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        ChoiceChip(
+                          selected: _timeFormat == '12',
+                          label: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.schedule, size: 16),
+                              SizedBox(width: 6),
+                              Text('12-Hour Format (AM / PM Dropdown)'),
+                            ],
+                          ),
+                          selectedColor: AppTheme.primaryContainer.withValues(alpha: 0.25),
+                          labelStyle: TextStyle(
+                            color: _timeFormat == '12' ? AppTheme.primary : AppTheme.onSurface,
+                            fontWeight: _timeFormat == '12' ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          onSelected: (_) => setState(() => _timeFormat = '12'),
+                        ),
+                        const SizedBox(width: 14),
+                        ChoiceChip(
+                          selected: _timeFormat == '24',
+                          label: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.timer_outlined, size: 16),
+                              SizedBox(width: 6),
+                              Text('24-Hour Format (00:00 - 23:59)'),
+                            ],
+                          ),
+                          selectedColor: AppTheme.primaryContainer.withValues(alpha: 0.25),
+                          labelStyle: TextStyle(
+                            color: _timeFormat == '24' ? AppTheme.primary : AppTheme.onSurface,
+                            fontWeight: _timeFormat == '24' ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          onSelected: (_) => setState(() => _timeFormat = '24'),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 32),
+
+                    // 2. Booking Slot Interval
+                    Text('2. Booking Slot Interval', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     Text('Controls duration grid for clinician slots and salon schedules:', style: GoogleFonts.inter(fontSize: 12.5, color: AppTheme.onSurfaceVariant)),
                     const SizedBox(height: 12),
@@ -67,7 +177,8 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
                     ),
                     const Divider(height: 32),
 
-                    Text('2. Buffer Time Between Sessions', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
+                    // 3. Buffer Time Between Sessions
+                    Text('3. Buffer Time Between Sessions', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     Text('Automatic sanitation and preparation window added after each appointment:', style: GoogleFonts.inter(fontSize: 12.5, color: AppTheme.onSurfaceVariant)),
                     const SizedBox(height: 12),
@@ -89,30 +200,38 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
                     ),
                     const Divider(height: 32),
 
-                    Text('3. Operating Business Hours', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
+                    // 4. Operating Business Hours
+                    Text('4. Operating Business Hours', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Text('Only appointment bookings within these operating hours will be validated and accepted:', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant)),
                     const SizedBox(height: 14),
                     Row(
                       children: [
                         Expanded(
                           child: TextFormField(
-                            initialValue: _openTime,
-                            decoration: const InputDecoration(labelText: 'Opening Time', prefixIcon: Icon(Icons.wb_sunny_outlined)),
-                            onChanged: (v) => _openTime = v,
+                            controller: _openTimeCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Opening Time (e.g. 08:00)',
+                              prefixIcon: Icon(Icons.wb_sunny_outlined),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: TextFormField(
-                            initialValue: _closeTime,
-                            decoration: const InputDecoration(labelText: 'Closing Time', prefixIcon: Icon(Icons.nights_stay_outlined)),
-                            onChanged: (v) => _closeTime = v,
+                            controller: _closeTimeCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Closing Time (e.g. 20:00)',
+                              prefixIcon: Icon(Icons.nights_stay_outlined),
+                            ),
                           ),
                         ),
                       ],
                     ),
                     const Divider(height: 32),
 
-                    Text('4. Terminal Policies', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
+                    // 5. Terminal Policies
+                    Text('5. Terminal Policies', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
                     SwitchListTile(
                       title: Text('Allow Instant Walk-in Queue Insertion', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
@@ -128,6 +247,20 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
                       activeThumbColor: AppTheme.primary,
                       onChanged: (v) => setState(() => _requireDoctorNotes = v),
                     ),
+                    const Divider(height: 32),
+
+                    // 6. Delete Service Configuration
+                    Text('6. Delete Service Configuration', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Text('Controls whether appointments that are currently In Service can be deleted directly:', style: GoogleFonts.inter(fontSize: 12.5, color: AppTheme.onSurfaceVariant)),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      title: Text('Enable Delete Service for In-Service Appointments', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+                      subtitle: Text('When enabled, a Delete option is displayed with a confirmation dialog for appointments currently In Service.', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant)),
+                      value: _allowDeleteService,
+                      activeThumbColor: AppTheme.error,
+                      onChanged: (v) => setState(() => _allowDeleteService = v),
+                    ),
                     const SizedBox(height: 24),
 
                     Align(
@@ -141,11 +274,7 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
                         ),
                         icon: const Icon(Icons.save, size: 18),
                         label: Text('Save Configuration', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Appointment configuration rules saved successfully.')),
-                          );
-                        },
+                        onPressed: _saveConfig,
                       ),
                     ),
                   ],

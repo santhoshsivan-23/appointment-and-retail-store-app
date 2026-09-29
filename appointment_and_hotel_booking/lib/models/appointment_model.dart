@@ -1,0 +1,155 @@
+import 'dart:convert';
+
+class AppointmentModel {
+  final int id;
+  final int businessId;
+  final int staffId;
+  final int? customerId;
+  final String customerName;
+  final String customerPhone;
+  final String staffName;
+  final String appointmentDate; // 'YYYY-MM-DD'
+  final String startTime; // 'HH:MM'
+  final String endTime; // 'HH:MM'
+  final String status; // 'booked', 'in_service', 'completed', 'no_show', 'cancelled'
+  final double totalAmount;
+  final List<Map<String, dynamic>> services;
+  final String notes;
+  final DateTime? createdAt;
+
+  AppointmentModel({
+    required this.id,
+    required this.businessId,
+    required this.staffId,
+    this.customerId,
+    this.customerName = '',
+    this.customerPhone = '',
+    this.staffName = '',
+    required this.appointmentDate,
+    required this.startTime,
+    required this.endTime,
+    this.status = 'booked',
+    this.totalAmount = 0.0,
+    this.services = const [],
+    this.notes = '',
+    this.createdAt,
+  });
+
+  factory AppointmentModel.fromJson(Map<String, dynamic> json) {
+    List<Map<String, dynamic>> svcList = [];
+    if (json['services'] != null) {
+      if (json['services'] is List) {
+        svcList = (json['services'] as List)
+            .map((e) => e is Map<String, dynamic>
+                ? e
+                : Map<String, dynamic>.from(e as Map))
+            .toList();
+      } else if (json['services'] is String) {
+        try {
+          final decoded = jsonDecode(json['services']);
+          if (decoded is List) {
+            svcList = decoded
+                .map((e) => Map<String, dynamic>.from(e as Map))
+                .toList();
+          }
+        } catch (_) {}
+      }
+    }
+
+    return AppointmentModel(
+      id: json['id'] is int
+          ? json['id']
+          : int.tryParse(json['id'].toString()) ?? 0,
+      businessId: json['business_id'] is int
+          ? json['business_id']
+          : int.tryParse(json['business_id']?.toString() ?? '1') ?? 1,
+      staffId: json['staff_id'] is int
+          ? json['staff_id']
+          : int.tryParse(json['staff_id']?.toString() ?? '0') ?? 0,
+      customerId: json['customer_id'] != null
+          ? (json['customer_id'] is int
+              ? json['customer_id']
+              : int.tryParse(json['customer_id'].toString()))
+          : null,
+      customerName: json['customer_name'] ?? '',
+      customerPhone: json['customer_phone'] ?? '',
+      staffName: json['staff_name'] ?? '',
+      appointmentDate: json['appointment_date'] ?? '',
+      startTime: json['start_time'] ?? '',
+      endTime: json['end_time'] ?? '',
+      status: json['status'] ?? 'booked',
+      totalAmount: json['total_amount'] != null
+          ? (double.tryParse(json['total_amount'].toString()) ?? 0.0)
+          : 0.0,
+      services: svcList,
+      notes: json['notes'] ?? '',
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString())
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'business_id': businessId,
+      'staff_id': staffId,
+      'customer_id': customerId,
+      'customer_name': customerName,
+      'customer_phone': customerPhone,
+      'appointment_date': appointmentDate,
+      'start_time': startTime,
+      'end_time': endTime,
+      'status': status,
+      'total_amount': totalAmount,
+      'services': services,
+      'notes': notes,
+    };
+  }
+
+  /// Parse time string "HH:MM" to total minutes from midnight
+  int get startMinutes {
+    final parts = startTime.split(':');
+    if (parts.length >= 2) {
+      return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
+    }
+    return 0;
+  }
+
+  int get endMinutes {
+    final parts = endTime.split(':');
+    if (parts.length >= 2) {
+      return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
+    }
+    return 0;
+  }
+
+  int get durationMinutes => endMinutes - startMinutes;
+
+  /// Formatted time range string
+  String get timeRange => '$startTime - $endTime';
+
+  /// Comma-separated summary of service names
+  String get servicesSummary {
+    if (services.isEmpty) return 'General Consultation / Service';
+    return services.map((s) => (s['name'] ?? s['product_name'] ?? 'Service').toString()).join(', ');
+  }
+
+  /// User-friendly status label
+  String get statusLabel {
+    switch (status) {
+      case 'booked':
+        return 'BOOKED';
+      case 'in_service':
+        return 'IN SERVICE';
+      case 'completed':
+        return 'COMPLETED';
+      case 'no_show':
+        return 'NO-SHOW';
+      case 'cancelled':
+        return 'CANCELLED';
+      default:
+        return status.toUpperCase();
+    }
+  }
+}

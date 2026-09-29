@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../models/appointment_model.dart';
 import '../models/business_model.dart';
+import '../models/customer_model.dart';
+import '../models/product_model.dart';
 import '../services/auth_storage.dart';
 import '../theme/app_theme.dart';
 import '../views/appointment_config_view.dart';
@@ -10,6 +14,8 @@ import '../views/cart_view.dart';
 import '../views/categories_view.dart';
 import '../views/dashboard_view.dart';
 import '../views/products_view.dart';
+import '../views/sales_history_view.dart';
+import '../views/settings_view.dart';
 import '../views/staff_view.dart';
 import 'login_screen.dart';
 
@@ -26,15 +32,80 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
   int _currentIndex = 0;
   bool _isSidebarExpanded = true;
 
+  // Display Settings: Header & Footer visibility, Android fullscreen
+  bool _hideHeader = false;
+  bool _hideFooter = false;
+  bool _isFullscreen = false;
+
+  // Cart preloading from Appointment "Start Service"
+  CustomerModel? _preloadCustomer;
+  List<ProductModel> _preloadProducts = [];
+  int? _preloadAppointmentId;
+  String? _preloadStaffName;
+  int _cartKey = 0; // Force CartView rebuild when preloading
+  int _appointmentHistoryKey = 1; // Force AppointmentHistoryView reload on navigation
+  int _salesHistoryKey = 1; // Force SalesHistoryView reload on navigation
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDisplayPreferences();
+  }
+
+  Future<void> _loadDisplayPreferences() async {
+    final hideH = await AuthStorage.getHideHeader();
+    final hideF = await AuthStorage.getHideFooter();
+    final isFull = await AuthStorage.getIsFullscreen();
+    if (!mounted) return;
+    setState(() {
+      _hideHeader = hideH;
+      _hideFooter = hideF;
+      _isFullscreen = isFull;
+    });
+    if (isFull) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+  }
+
+  void _toggleHeader(bool val) {
+    setState(() => _hideHeader = val);
+    AuthStorage.setHideHeader(val);
+  }
+
+  void _toggleFooter(bool val) {
+    setState(() => _hideFooter = val);
+    AuthStorage.setHideFooter(val);
+  }
+
+  void _toggleFullscreen(bool val) {
+    setState(() => _isFullscreen = val);
+    AuthStorage.setIsFullscreen(val);
+    if (val) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+  }
+
+  void _navigateToTab(int idx) {
+    setState(() {
+      if (idx == 3) _appointmentHistoryKey++;
+      if (idx == 5) _salesHistoryKey++;
+      _currentIndex = idx;
+    });
+  }
+
   final List<Map<String, dynamic>> _navItems = [
     {'title': 'Dashboard', 'icon': Icons.dashboard_outlined, 'activeIcon': Icons.dashboard},
     {'title': 'Appointment', 'icon': Icons.calendar_month_outlined, 'activeIcon': Icons.calendar_month},
     {'title': 'Staff', 'icon': Icons.people_alt_outlined, 'activeIcon': Icons.people_alt},
     {'title': 'Appointment History', 'icon': Icons.history_edu_outlined, 'activeIcon': Icons.history_edu},
     {'title': 'Cart & POS', 'icon': Icons.shopping_cart_outlined, 'activeIcon': Icons.shopping_cart},
+    {'title': 'Sales History', 'icon': Icons.receipt_long_outlined, 'activeIcon': Icons.receipt_long},
     {'title': 'Categories', 'icon': Icons.category_outlined, 'activeIcon': Icons.category},
     {'title': 'Products', 'icon': Icons.inventory_2_outlined, 'activeIcon': Icons.inventory_2},
     {'title': 'Appointment Config', 'icon': Icons.tune_outlined, 'activeIcon': Icons.tune},
+    {'title': 'Settings', 'icon': Icons.settings_outlined, 'activeIcon': Icons.settings},
   ];
 
   void _handleLogout() {
@@ -72,8 +143,8 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
       backgroundColor: AppTheme.surface,
       body: Column(
         children: [
-          // 1. Fixed Top Header
-          _buildFixedHeader(),
+          // 1. Fixed Top Header (Hidden on demand via Settings)
+          if (!_hideHeader) _buildFixedHeader(),
 
           // 2. Main Row: Collapsible Sidebar + Content Viewport
           Expanded(
@@ -91,15 +162,47 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                       children: [
                         DashboardView(
                           business: widget.business,
-                          onNavigate: (idx) => setState(() => _currentIndex = idx),
+                          onNavigate: (idx) => _navigateToTab(idx),
                         ),
-                        const AppointmentView(),
+                        AppointmentView(
+                          onStartService: (customer, products, {AppointmentModel? appointment}) {
+                            setState(() {
+                              _preloadCustomer = customer;
+                              _preloadProducts = products;
+                              _preloadAppointmentId = appointment?.id;
+                              _preloadStaffName = appointment?.staffName;
+                              _cartKey++;
+                              _currentIndex = 4; // Switch to Cart tab
+                            });
+                          },
+                        ),
                         const StaffView(),
-                        const AppointmentHistoryView(),
-                        const CartView(),
+                        AppointmentHistoryView(
+                          key: ValueKey('apt_hist_$_appointmentHistoryKey'),
+                        ),
+                        CartView(
+                          key: ValueKey('cart_$_cartKey'),
+                          preloadCustomer: _preloadCustomer,
+                          preloadProducts: _preloadProducts,
+                          preloadAppointmentId: _preloadAppointmentId,
+                          preloadStaffName: _preloadStaffName,
+                          onNavigateToSalesHistory: () => _navigateToTab(5),
+                        ),
+                        SalesHistoryView(
+                          key: ValueKey('sales_hist_$_salesHistoryKey'),
+                        ),
                         const CategoriesView(),
                         const ProductsView(),
                         const AppointmentConfigView(),
+                        SettingsView(
+                          business: widget.business,
+                          hideHeader: _hideHeader,
+                          hideFooter: _hideFooter,
+                          isFullscreen: _isFullscreen,
+                          onToggleHeader: _toggleHeader,
+                          onToggleFooter: _toggleFooter,
+                          onToggleFullscreen: _toggleFullscreen,
+                        ),
                       ],
                     ),
                   ),
@@ -107,6 +210,9 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
               ],
             ),
           ),
+
+          // 3. Status Footer Bar (Hidden on demand via Settings)
+          if (!_hideFooter) _buildFooterBar(),
         ],
       ),
     );
@@ -282,6 +388,12 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
       ),
       child: Column(
         children: [
+          // If the top header is hidden, display compact top brand/toggle in sidebar
+          if (_hideHeader) ...[
+            _buildSidebarTopWhenHeaderHidden(),
+            const Divider(height: 1),
+          ],
+
           const SizedBox(height: 12),
           Expanded(
             child: ListView.separated(
@@ -299,7 +411,7 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                     preferBelow: false,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
-                      onTap: () => setState(() => _currentIndex = idx),
+                      onTap: () => _navigateToTab(idx),
                       child: Container(
                         height: 48,
                         decoration: BoxDecoration(
@@ -321,7 +433,7 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                 // Expanded Item
                 return InkWell(
                   borderRadius: BorderRadius.circular(12),
-                  onTap: () => setState(() => _currentIndex = idx),
+                  onTap: () => _navigateToTab(idx),
                   child: Container(
                     height: 46,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -389,6 +501,195 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Compact sidebar top header when the fixed top header is hidden
+  Widget _buildSidebarTopWhenHeaderHidden() {
+    if (!_isSidebarExpanded) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: AppTheme.primary,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.pets, color: Colors.white, size: 20),
+            ),
+            const SizedBox(height: 6),
+            IconButton(
+              icon: const Icon(Icons.menu, size: 20),
+              tooltip: 'Expand Sidebar',
+              onPressed: () => setState(() => _isSidebarExpanded = true),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primary.withValues(alpha: 0.25),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.pets, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'IQ Store',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.onSurface,
+                    ),
+                  ),
+                  Text(
+                    'CLINICAL SUITE',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.onSurfaceVariant,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.menu_open, size: 20),
+            tooltip: 'Collapse Sidebar',
+            onPressed: () => setState(() => _isSidebarExpanded = false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Bottom Status Footer Bar
+  Widget _buildFooterBar() {
+    return Container(
+      height: 34,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerLowest,
+        border: Border(
+          top: BorderSide(
+            color: AppTheme.outlineVariant.withValues(alpha: 0.35),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Left: POS Station & Business Info
+          Row(
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: const BoxDecoration(
+                  color: AppTheme.tertiaryContainer,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Station #01 Online',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text('•', style: TextStyle(color: AppTheme.outlineVariant, fontSize: 10)),
+              const SizedBox(width: 10),
+              Text(
+                widget.business.businessName.isNotEmpty ? widget.business.businessName : 'Grand Horizon Clinic',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+
+          // Right: Status Badges & Quick Settings Link
+          Row(
+            children: [
+              if (_hideHeader)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.visibility_off, size: 10, color: Colors.amber),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Header Hidden',
+                        style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.amber.shade900),
+                      ),
+                    ],
+                  ),
+                ),
+              InkWell(
+                onTap: () => _navigateToTab(9),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Row(
+                    children: [
+                      Icon(Icons.settings, size: 13, color: _currentIndex == 9 ? AppTheme.primary : AppTheme.onSurfaceVariant),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Display Settings',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: _currentIndex == 9 ? FontWeight.bold : FontWeight.w500,
+                          color: _currentIndex == 9 ? AppTheme.primary : AppTheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -7,6 +7,8 @@ const staffRoutes = require('./routes/staff');
 const customerRoutes = require('./routes/customers');
 const categoryRoutes = require('./routes/categories');
 const productRoutes = require('./routes/products');
+const appointmentRoutes = require('./routes/appointments');
+const salesRoutes = require('./routes/sales');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -23,12 +25,21 @@ app.use((req, res, next) => {
   next();
 });
 
-// API Routes
+// API Routes (supports both /api/* and /*)
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/staff', staffRoutes);
 app.use('/api/customers', customerRoutes);
+app.use('/customers', customerRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
+app.use('/products', productRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/appointments', appointmentRoutes);
+app.use('/api/sales', salesRoutes);
+app.use('/sales', salesRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -52,6 +63,8 @@ app.get('/', (req, res) => {
       customers: '/api/customers (list, walk-in, create)',
       categories: '/api/categories (list, create, update, delete)',
       products: '/api/products (list, create, update, delete)',
+      appointments: '/api/appointments (list, create, status, update, delete, check-conflict)',
+      sales: '/api/sales (list, create by id)',
     },
   });
 });
@@ -85,6 +98,8 @@ async function startServer() {
     console.log(`👤 Customer API:     http://localhost:${PORT}/api/customers`);
     console.log(`🗂️ Categories API:   http://localhost:${PORT}/api/categories`);
     console.log(`📦 Products API:     http://localhost:${PORT}/api/products`);
+    console.log(`📅 Appointments API: http://localhost:${PORT}/api/appointments`);
+    console.log(`💰 Sales API:         http://localhost:${PORT}/api/sales`);
     console.log('====================================================');
   });
 }

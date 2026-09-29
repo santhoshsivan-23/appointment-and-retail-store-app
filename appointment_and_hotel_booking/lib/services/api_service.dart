@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../constants/app_constant.dart';
+import '../models/appointment_model.dart';
 import '../models/business_model.dart';
 import '../models/category_model.dart';
 import '../models/customer_model.dart';
 import '../models/product_model.dart';
+import '../models/sale_model.dart';
 import '../models/staff_model.dart';
 import 'auth_storage.dart';
 
@@ -26,26 +29,23 @@ class ApiResponse {
 
 class ApiService {
   static String get defaultBaseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:5000/api';
-    }
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:5000/api';
-    }
-    return 'http://localhost:5000/api';
+    final base = AppConstant.baseUrl.trim();
+    if (base.endsWith('/api')) return base;
+    return '$base/api';
   }
 
   static Future<String> getBaseUrl() async {
     final customUrl = await AuthStorage.getCustomBaseUrl();
     if (customUrl != null && customUrl.isNotEmpty) {
-      return customUrl;
+      if (customUrl.endsWith('/api')) return customUrl;
+      return '$customUrl/api';
     }
     return defaultBaseUrl;
   }
 
   static Future<Map<String, String>> _getHeaders({bool includeAuth = false}) async {
     final headers = <String, String>{
-      'Content-Type': 'application/json',
+      ...AppConstant.jsonHeaders,
       'Accept': 'application/json',
     };
     if (includeAuth) {
@@ -330,5 +330,190 @@ class ApiService {
     } catch (_) {
       return false;
     }
+  }
+
+  // Appointment APIs
+  static Future<List<AppointmentModel>> getAppointments({String? date}) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final params = <String, String>{};
+      if (date != null && date.isNotEmpty) params['date'] = date;
+
+      final uri = Uri.parse('$baseUrl/appointments').replace(queryParameters: params.isNotEmpty ? params : null);
+      final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List? ?? []);
+        return list.map((x) => AppointmentModel.fromJson(Map<String, dynamic>.from(x))).toList();
+      }
+    } catch (e) {
+      debugPrint('Error getting appointments: $e');
+    }
+    return [];
+  }
+
+  static Future<Map<String, int>> getAppointmentStats({String? date}) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final params = <String, String>{};
+      if (date != null && date.isNotEmpty) params['date'] = date;
+
+      final uri = Uri.parse('$baseUrl/appointments/stats/overview').replace(
+        queryParameters: params.isNotEmpty ? params : null,
+      );
+      final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final data = body['data'] as Map<String, dynamic>? ?? {};
+        return {
+          'total': (data['total'] as num?)?.toInt() ?? 0,
+          'booked': (data['booked'] as num?)?.toInt() ?? 0,
+          'in_service': (data['in_service'] as num?)?.toInt() ?? 0,
+          'completed': (data['completed'] as num?)?.toInt() ?? 0,
+          'no_show': (data['no_show'] as num?)?.toInt() ?? 0,
+          'cancelled': (data['cancelled'] as num?)?.toInt() ?? 0,
+        };
+      }
+    } catch (e) {
+      debugPrint('Error getting appointment stats: $e');
+    }
+    return {
+      'total': 0,
+      'booked': 0,
+      'in_service': 0,
+      'completed': 0,
+      'no_show': 0,
+      'cancelled': 0,
+    };
+  }
+
+  static Future<AppointmentModel?> createAppointment(Map<String, dynamic> data) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.post(
+        Uri.parse('$baseUrl/appointments'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        return AppointmentModel.fromJson(body['data']);
+      }
+    } catch (e) {
+      debugPrint('Error creating appointment: $e');
+    }
+    return null;
+  }
+
+  static Future<bool> updateAppointmentStatus(int id, String status) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.put(
+        Uri.parse('$baseUrl/appointments/$id/status'),
+        headers: await _getHeaders(),
+        body: jsonEncode({'status': status}),
+      );
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error updating appointment status: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> updateAppointment(int id, Map<String, dynamic> data) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.put(
+        Uri.parse('$baseUrl/appointments/$id'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error updating appointment: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteAppointment(int id) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.delete(
+        Uri.parse('$baseUrl/appointments/$id'),
+        headers: await _getHeaders(),
+      );
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error deleting appointment: $e');
+      return false;
+    }
+  }
+
+  // Sales APIs
+  static Future<SaleModel?> createSale(Map<String, dynamic> data) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.post(
+        Uri.parse('$baseUrl/sales'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        return SaleModel.fromJson(body['data']);
+      }
+    } catch (e) {
+      debugPrint('Error creating sale: $e');
+    }
+    return null;
+  }
+
+  static Future<List<SaleModel>> getSales({int? appointmentId}) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final params = <String, String>{};
+      if (appointmentId != null) params['appointment_id'] = appointmentId.toString();
+      final uri = Uri.parse('$baseUrl/sales').replace(queryParameters: params.isNotEmpty ? params : null);
+      final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List? ?? []);
+        return list.map((x) => SaleModel.fromJson(Map<String, dynamic>.from(x))).toList();
+      }
+    } catch (e) {
+      debugPrint('Error getting sales: $e');
+    }
+    return [];
+  }
+
+  // Conflict Check
+  static Future<Map<String, dynamic>> checkAppointmentConflict({
+    required int staffId,
+    required String appointmentDate,
+    required String startTime,
+    required String endTime,
+    int? excludeId,
+  }) async {
+    try {
+      final baseUrl = await getBaseUrl();
+        final payload = <String, dynamic>{
+          'staff_id': staffId,
+          'appointment_date': appointmentDate,
+          'start_time': startTime,
+          'end_time': endTime,
+        };
+        if (excludeId != null) payload['exclude_id'] = excludeId;
+        final res = await http.post(
+          Uri.parse('$baseUrl/appointments/check-conflict'),
+          headers: await _getHeaders(),
+          body: jsonEncode(payload),
+        );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      debugPrint('Error checking conflict: $e');
+    }
+    return {'has_conflict': false};
   }
 }
