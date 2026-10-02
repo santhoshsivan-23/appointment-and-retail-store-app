@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 
-// GET /api/appointments?date=YYYY-MM-DD&staff_id=X
+// GET /api/appointments?date=YYYY-MM-DD&staff_id=X&search=...&status=...
 router.get('/', async (req, res) => {
   try {
-    const { date, staff_id } = req.query;
-    const appointments = await db.getAppointments(date || null, staff_id || null);
+    const { date, staff_id, search, status } = req.query;
+    const appointments = await db.getAppointments(date || null, staff_id || null, search || null, status || null);
     res.json({ success: true, data: appointments, count: appointments.length });
   } catch (err) {
     console.error('Error fetching appointments:', err);
@@ -47,7 +47,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/appointments
 router.post('/', async (req, res) => {
   try {
-    const { staff_id, customer_id, customer_name, customer_phone, appointment_date, start_time, end_time, services, notes, total_amount } = req.body;
+    const { staff_id, staff_name, customer_id, customer_name, customer_phone, appointment_date, start_time, end_time, services, notes, total_amount } = req.body;
 
     if (!staff_id || !appointment_date || !start_time || !end_time) {
       return res.status(400).json({
@@ -59,6 +59,7 @@ router.post('/', async (req, res) => {
     const newAppointment = await db.createAppointment({
       business_id: req.body.business_id || 1,
       staff_id,
+      staff_name: staff_name || '',
       customer_id: customer_id || null,
       customer_name: customer_name || '',
       customer_phone: customer_phone || '',

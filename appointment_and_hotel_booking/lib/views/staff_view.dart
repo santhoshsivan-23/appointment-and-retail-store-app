@@ -1,8 +1,12 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/staff_model.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/staff_avatar.dart';
 
 class StaffView extends StatefulWidget {
   const StaffView({super.key});
@@ -49,23 +53,13 @@ class _StaffViewState extends State<StaffView> {
         contentPadding: const EdgeInsets.all(24),
         title: Row(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  staff.name.isNotEmpty ? staff.name[0].toUpperCase() : 'S',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                    color: AppTheme.primary,
-                  ),
-                ),
-              ),
+            StaffAvatar(
+              staff: staff,
+              radius: 22,
+              backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
+              textColor: AppTheme.primary,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -108,6 +102,18 @@ class _StaffViewState extends State<StaffView> {
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Close'),
+          ),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.primary,
+              side: const BorderSide(color: AppTheme.primary),
+            ),
+            icon: const Icon(Icons.edit_outlined, size: 16),
+            label: const Text('Edit Staff'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showEditStaffModal(staff);
+            },
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
@@ -228,66 +234,608 @@ class _StaffViewState extends State<StaffView> {
     );
   }
 
+  void _showEditStaffModal(StaffModel staff) {
+    final nameCtrl = TextEditingController(text: staff.name);
+    final emailCtrl = TextEditingController(text: staff.email);
+    final phoneCtrl = TextEditingController(text: staff.phone);
+    final roleCtrl = TextEditingController(text: staff.role);
+    bool isActive = staff.isActive;
+    String? selectedImageBase64 = staff.image;
+    Uint8List? previewBytes;
+    bool isPicking = false;
+    bool isSaving = false;
+    bool imageChanged = false;
+
+    if (staff.image != null && staff.image!.trim().isNotEmpty) {
+      try {
+        final imgStr = staff.image!.trim();
+        if (imgStr.startsWith('data:image')) {
+          final commaIdx = imgStr.indexOf(',');
+          final rawB64 = commaIdx != -1 ? imgStr.substring(commaIdx + 1) : imgStr;
+          previewBytes = base64Decode(rawB64);
+        } else if (!imgStr.startsWith('http')) {
+          previewBytes = base64Decode(imgStr);
+        }
+      } catch (_) {}
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          Future<void> pickImage() async {
+            try {
+              setDialogState(() => isPicking = true);
+              final picker = ImagePicker();
+              final XFile? file = await picker.pickImage(
+                source: ImageSource.gallery,
+                maxWidth: 512,
+                maxHeight: 512,
+                imageQuality: 85,
+              );
+              if (file != null) {
+                final bytes = await file.readAsBytes();
+                final ext = file.name.split('.').last.toLowerCase();
+                final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+                final b64 = 'data:$mime;base64,${base64Encode(bytes)}';
+                setDialogState(() {
+                  previewBytes = bytes;
+                  selectedImageBase64 = b64;
+                  imageChanged = true;
+                  isPicking = false;
+                });
+              } else {
+                setDialogState(() => isPicking = false);
+              }
+            } catch (e) {
+              debugPrint('Error picking staff image: $e');
+              setDialogState(() => isPicking = false);
+            }
+          }
+
+          final hasImage = previewBytes != null ||
+              (selectedImageBase64 != null &&
+                  selectedImageBase64!.trim().isNotEmpty &&
+                  (selectedImageBase64!.startsWith('http://') || selectedImageBase64!.startsWith('https://')));
+
+          return AlertDialog(
+            backgroundColor: AppTheme.surfaceContainerLowest,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.edit, color: AppTheme.primary, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Edit Staff Member',
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Profile image upload / edit section
+                    Center(
+                      child: Column(
+                        children: [
+                          Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              GestureDetector(
+                                onTap: pickImage,
+                                child: Container(
+                                  width: 84,
+                                  height: 84,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.surfaceContainerHigh,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppTheme.primary.withValues(alpha: 0.5),
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipOval(
+                                    child: previewBytes != null
+                                        ? Image.memory(previewBytes!, width: 84, height: 84, fit: BoxFit.cover)
+                                        : (selectedImageBase64 != null &&
+                                                (selectedImageBase64!.startsWith('http://') ||
+                                                    selectedImageBase64!.startsWith('https://'))
+                                            ? Image.network(
+                                                selectedImageBase64!,
+                                                width: 84,
+                                                height: 84,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) => Container(
+                                                  color: AppTheme.primary,
+                                                  alignment: Alignment.center,
+                                                  child: Text(
+                                                    nameCtrl.text.trim().isNotEmpty
+                                                        ? nameCtrl.text.trim()[0].toUpperCase()
+                                                        : '?',
+                                                    style: GoogleFonts.plusJakartaSans(
+                                                      color: Colors.white,
+                                                      fontSize: 32,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                            : (nameCtrl.text.trim().isNotEmpty
+                                                ? Container(
+                                                    color: AppTheme.primary,
+                                                    alignment: Alignment.center,
+                                                    child: Text(
+                                                      nameCtrl.text.trim()[0].toUpperCase(),
+                                                      style: GoogleFonts.plusJakartaSans(
+                                                        color: Colors.white,
+                                                        fontSize: 32,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  )
+                                                : Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.add_a_photo_outlined,
+                                                        size: 28,
+                                                        color: AppTheme.onSurfaceVariant,
+                                                      ),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        'Add Photo',
+                                                        style: GoogleFonts.inter(
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.w600,
+                                                          color: AppTheme.onSurfaceVariant,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ))),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: GestureDetector(
+                                  onTap: pickImage,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primary,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                icon: Icon(
+                                  hasImage ? Icons.photo_library_outlined : Icons.upload_outlined,
+                                  size: 15,
+                                  color: AppTheme.primary,
+                                ),
+                                label: Text(
+                                  hasImage ? 'Change Photo' : 'Upload Profile Image',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.primary,
+                                  ),
+                                ),
+                                onPressed: isPicking ? null : pickImage,
+                              ),
+                              if (hasImage) ...[
+                                const SizedBox(width: 4),
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  child: Text(
+                                    'Remove',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.error,
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      previewBytes = null;
+                                      selectedImageBase64 = '';
+                                      imageChanged = true;
+                                    });
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: nameCtrl,
+                      onChanged: (_) => setDialogState(() {}),
+                      decoration: const InputDecoration(labelText: 'Full Name *', hintText: 'e.g. Dr. Maya Lin'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: roleCtrl,
+                      decoration: const InputDecoration(labelText: 'Staff Role / Specialization *'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: phoneCtrl,
+                      decoration: const InputDecoration(labelText: 'Contact Phone', hintText: '+1 555-0100'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailCtrl,
+                      decoration: const InputDecoration(labelText: 'Email Address', hintText: 'maya@omopet.clinic'),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.3)),
+                      ),
+                      child: SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          'Active for Bookings',
+                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          isActive
+                              ? 'Staff is visible and selectable for bookings'
+                              : 'Staff is archived from active bookings',
+                          style: GoogleFonts.inter(fontSize: 11.5, color: AppTheme.onSurfaceVariant),
+                        ),
+                        value: isActive,
+                        activeThumbColor: AppTheme.primary,
+                        onChanged: (val) => setDialogState(() => isActive = val),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (nameCtrl.text.trim().isEmpty) return;
+                        setDialogState(() => isSaving = true);
+
+                        final staffPayload = <String, dynamic>{
+                          'name': nameCtrl.text.trim(),
+                          'role': roleCtrl.text.trim(),
+                          'phone': phoneCtrl.text.trim(),
+                          'email': emailCtrl.text.trim(),
+                          'is_active': isActive,
+                        };
+                        if (imageChanged) {
+                          staffPayload['image'] = selectedImageBase64 ?? '';
+                        } else {
+                          staffPayload['image'] = staff.image ?? '';
+                        }
+
+                        final success = await ApiService.updateStaff(staff.id, staffPayload);
+                        if (!ctx.mounted) return;
+                        Navigator.pop(ctx);
+
+                        if (mounted) {
+                          if (success) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Staff member "${nameCtrl.text.trim()}" updated successfully.'),
+                                backgroundColor: AppTheme.tertiary,
+                              ),
+                            );
+                            _loadStaff();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Failed to update staff member.'),
+                                backgroundColor: AppTheme.error,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text('Save Changes'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   void _showAddStaffModal() {
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final roleCtrl = TextEditingController(text: 'Stylist / Clinician');
+    String? selectedImageBase64;
+    Uint8List? previewBytes;
+    bool isPicking = false;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceContainerLowest,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Add New Staff Member',
-          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        content: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Full Name *', hintText: 'e.g. Dr. Maya Lin'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          Future<void> pickImage() async {
+            try {
+              setDialogState(() => isPicking = true);
+              final picker = ImagePicker();
+              final XFile? file = await picker.pickImage(
+                source: ImageSource.gallery,
+                maxWidth: 512,
+                maxHeight: 512,
+                imageQuality: 85,
+              );
+              if (file != null) {
+                final bytes = await file.readAsBytes();
+                final ext = file.name.split('.').last.toLowerCase();
+                final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+                final b64 = 'data:$mime;base64,${base64Encode(bytes)}';
+                setDialogState(() {
+                  previewBytes = bytes;
+                  selectedImageBase64 = b64;
+                  isPicking = false;
+                });
+              } else {
+                setDialogState(() => isPicking = false);
+              }
+            } catch (e) {
+              debugPrint('Error picking staff image: $e');
+              setDialogState(() => isPicking = false);
+            }
+          }
+
+          return AlertDialog(
+            backgroundColor: AppTheme.surfaceContainerLowest,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text(
+              'Add New Staff Member',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Profile image upload section
+                    Center(
+                      child: Column(
+                        children: [
+                          Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              GestureDetector(
+                                onTap: pickImage,
+                                child: Container(
+                                  width: 84,
+                                  height: 84,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.surfaceContainerHigh,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppTheme.outlineVariant.withValues(alpha: 0.5),
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipOval(
+                                    child: previewBytes != null
+                                        ? Image.memory(previewBytes!, width: 84, height: 84, fit: BoxFit.cover)
+                                        : (nameCtrl.text.trim().isNotEmpty
+                                            ? Container(
+                                                color: AppTheme.primary,
+                                                alignment: Alignment.center,
+                                                child: Text(
+                                                  nameCtrl.text.trim()[0].toUpperCase(),
+                                                  style: GoogleFonts.plusJakartaSans(
+                                                    color: Colors.white,
+                                                    fontSize: 32,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              )
+                                            : Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.add_a_photo_outlined,
+                                                    size: 28,
+                                                    color: AppTheme.onSurfaceVariant,
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    'Add Photo',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: AppTheme.onSurfaceVariant,
+                                                    ),
+                                                  ),
+                                                ],
+                                              )),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: GestureDetector(
+                                  onTap: pickImage,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primary,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                icon: Icon(
+                                  previewBytes != null ? Icons.photo_library_outlined : Icons.upload_outlined,
+                                  size: 15,
+                                  color: AppTheme.primary,
+                                ),
+                                label: Text(
+                                  previewBytes != null ? 'Change Photo' : 'Upload Profile Image',
+                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primary),
+                                ),
+                                onPressed: isPicking ? null : pickImage,
+                              ),
+                              if (previewBytes != null) ...[
+                                const SizedBox(width: 4),
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  child: Text(
+                                    'Remove',
+                                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.error),
+                                  ),
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      previewBytes = null;
+                                      selectedImageBase64 = null;
+                                    });
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: nameCtrl,
+                      onChanged: (_) => setDialogState(() {}),
+                      decoration: const InputDecoration(labelText: 'Full Name *', hintText: 'e.g. Dr. Maya Lin'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: roleCtrl,
+                      decoration: const InputDecoration(labelText: 'Staff Role / Specialization *'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: phoneCtrl,
+                      decoration: const InputDecoration(labelText: 'Contact Phone', hintText: '+1 555-0100'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailCtrl,
+                      decoration: const InputDecoration(labelText: 'Email Address', hintText: 'maya@omopet.clinic'),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: roleCtrl,
-                decoration: const InputDecoration(labelText: 'Staff Role / Specialization *'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: phoneCtrl,
-                decoration: const InputDecoration(labelText: 'Contact Phone', hintText: '+1 555-0100'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: emailCtrl,
-                decoration: const InputDecoration(labelText: 'Email Address', hintText: 'maya@omopet.clinic'),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
+                onPressed: () async {
+                  if (nameCtrl.text.trim().isEmpty) return;
+                  Navigator.pop(ctx);
+                  final staffPayload = <String, dynamic>{
+                    'name': nameCtrl.text.trim(),
+                    'role': roleCtrl.text.trim(),
+                    'phone': phoneCtrl.text.trim(),
+                    'email': emailCtrl.text.trim(),
+                  };
+                  if (selectedImageBase64 != null && selectedImageBase64!.isNotEmpty) {
+                    staffPayload['image'] = selectedImageBase64;
+                  }
+                  await ApiService.createStaff(staffPayload);
+                  _loadStaff();
+                },
+                child: const Text('Create Staff'),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
-            onPressed: () async {
-              if (nameCtrl.text.trim().isEmpty) return;
-              Navigator.pop(ctx);
-              await ApiService.createStaff({
-                'name': nameCtrl.text.trim(),
-                'role': roleCtrl.text.trim(),
-                'phone': phoneCtrl.text.trim(),
-                'email': emailCtrl.text.trim(),
-              });
-              _loadStaff();
-            },
-            child: const Text('Create Staff'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -452,19 +1000,12 @@ class _StaffViewState extends State<StaffView> {
         children: [
           Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    staff.name.isNotEmpty ? staff.name[0].toUpperCase() : 'S',
-                    style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                ),
+              StaffAvatar(
+                staff: staff,
+                radius: 22,
+                backgroundColor: AppTheme.primary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -520,6 +1061,12 @@ class _StaffViewState extends State<StaffView> {
                 icon: const Icon(Icons.info_outline, size: 16),
                 label: const Text('Details'),
                 onPressed: () => _showStaffDetailsPopup(staff),
+              ),
+              const SizedBox(width: 4),
+              TextButton.icon(
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Edit'),
+                onPressed: () => _showEditStaffModal(staff),
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.error),

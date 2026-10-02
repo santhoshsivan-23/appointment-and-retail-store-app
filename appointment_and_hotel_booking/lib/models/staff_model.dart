@@ -6,6 +6,7 @@ class StaffModel {
   final String phone;
   final String role;
   final String colorCode;
+  final String? image;
   final bool isActive;
   final DateTime? deletedAt;
   final DateTime? createdAt;
@@ -18,6 +19,7 @@ class StaffModel {
     this.phone = '',
     this.role = 'Staff',
     this.colorCode = '#B42907',
+    this.image,
     this.isActive = true,
     this.deletedAt,
     this.createdAt,
@@ -32,6 +34,7 @@ class StaffModel {
       phone: json['phone'] ?? '',
       role: json['role'] ?? 'Staff',
       colorCode: json['color_code'] ?? '#B42907',
+      image: json['image']?.toString(),
       isActive: json['is_active'] == 1 || json['is_active'] == true,
       deletedAt: json['deleted_at'] != null ? DateTime.tryParse(json['deleted_at'].toString()) : null,
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
@@ -47,6 +50,7 @@ class StaffModel {
       'phone': phone,
       'role': role,
       'color_code': colorCode,
+      if (image != null) 'image': image,
       'is_active': isActive,
     };
   }

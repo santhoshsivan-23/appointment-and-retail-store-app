@@ -5,10 +5,11 @@ const db = require('../config/db');
 // GET /api/sales
 router.get('/', async (req, res) => {
   try {
-    const { appointment_id, customer_id } = req.query;
+    const { appointment_id, customer_id, search } = req.query;
     const filters = {};
     if (appointment_id) filters.appointment_id = appointment_id;
     if (customer_id) filters.customer_id = customer_id;
+    if (search) filters.search = search;
 
     const sales = await db.getSales(filters);
     res.json({ success: true, data: sales, count: sales.length });

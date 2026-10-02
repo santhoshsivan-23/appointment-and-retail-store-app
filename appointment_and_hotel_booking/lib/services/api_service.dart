@@ -192,6 +192,20 @@ class ApiService {
     }
   }
 
+  static Future<bool> updateStaff(int id, Map<String, dynamic> data) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.put(
+        Uri.parse('$baseUrl/staff/$id'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<bool> deleteStaff(int id) async {
     try {
       final baseUrl = await getBaseUrl();
@@ -270,6 +284,20 @@ class ApiService {
     }
   }
 
+  static Future<bool> updateCategory(int id, Map<String, dynamic> data) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.put(
+        Uri.parse('$baseUrl/categories/$id'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<bool> deleteCategory(int id) async {
     try {
       final baseUrl = await getBaseUrl();
@@ -333,13 +361,21 @@ class ApiService {
   }
 
   // Appointment APIs
-  static Future<List<AppointmentModel>> getAppointments({String? date}) async {
+  static Future<List<AppointmentModel>> getAppointments({
+    String? date,
+    String? search,
+    String? status,
+  }) async {
     try {
       final baseUrl = await getBaseUrl();
       final params = <String, String>{};
       if (date != null && date.isNotEmpty) params['date'] = date;
+      if (search != null && search.trim().isNotEmpty) params['search'] = search.trim();
+      if (status != null && status.isNotEmpty) params['status'] = status;
 
-      final uri = Uri.parse('$baseUrl/appointments').replace(queryParameters: params.isNotEmpty ? params : null);
+      final uri = Uri.parse('$baseUrl/appointments').replace(
+        queryParameters: params.isNotEmpty ? params : null,
+      );
       final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
@@ -468,11 +504,12 @@ class ApiService {
     return null;
   }
 
-  static Future<List<SaleModel>> getSales({int? appointmentId}) async {
+  static Future<List<SaleModel>> getSales({int? appointmentId, String? search}) async {
     try {
       final baseUrl = await getBaseUrl();
       final params = <String, String>{};
       if (appointmentId != null) params['appointment_id'] = appointmentId.toString();
+      if (search != null && search.trim().isNotEmpty) params['search'] = search.trim();
       final uri = Uri.parse('$baseUrl/sales').replace(queryParameters: params.isNotEmpty ? params : null);
       final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {

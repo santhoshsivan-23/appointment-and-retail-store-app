@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -46,10 +47,61 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
   int _appointmentHistoryKey = 1; // Force AppointmentHistoryView reload on navigation
   int _salesHistoryKey = 1; // Force SalesHistoryView reload on navigation
 
+  // Live system clock and time format
+  Timer? _clockTimer;
+  DateTime _currentTime = DateTime.now();
+  String _timeFormat = '12';
+
   @override
   void initState() {
     super.initState();
     _loadDisplayPreferences();
+    _loadTimeFormat();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _currentTime = DateTime.now();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadTimeFormat() async {
+    final fmt = await AuthStorage.getTimeFormat();
+    if (!mounted) return;
+    setState(() {
+      _timeFormat = fmt;
+    });
+  }
+
+  String _formatHeaderTime(DateTime now) {
+    final s = now.second.toString().padLeft(2, '0');
+    if (_timeFormat == '24') {
+      final h = now.hour.toString().padLeft(2, '0');
+      final m = now.minute.toString().padLeft(2, '0');
+      return '$h:$m:$s';
+    } else {
+      final hour12 = now.hour == 0 ? 12 : (now.hour > 12 ? now.hour - 12 : now.hour);
+      final h = hour12.toString().padLeft(2, '0');
+      final m = now.minute.toString().padLeft(2, '0');
+      final ampm = now.hour >= 12 ? 'PM' : 'AM';
+      return '$h:$m:$s $ampm';
+    }
+  }
+
+  String _formatHeaderDate(DateTime now) {
+    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final weekday = weekdays[now.weekday - 1];
+    final month = months[now.month - 1];
+    final day = now.day.toString().padLeft(2, '0');
+    return '$weekday, $day $month';
   }
 
   Future<void> _loadDisplayPreferences() async {
@@ -89,10 +141,20 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
 
   void _navigateToTab(int idx) {
     setState(() {
+      // If user leaves Cart/service workflow without completing transaction:
+      // Clear temporary appointment cart data so stale products from the previous session do not appear.
+      if (_currentIndex == 4 && idx != 4) {
+        _preloadCustomer = null;
+        _preloadProducts = [];
+        _preloadAppointmentId = null;
+        _preloadStaffName = null;
+        _cartKey++;
+      }
       if (idx == 3) _appointmentHistoryKey++;
       if (idx == 5) _salesHistoryKey++;
       _currentIndex = idx;
     });
+    _loadTimeFormat();
   }
 
   final List<Map<String, dynamic>> _navItems = [
@@ -211,80 +273,77 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
             ),
           ),
 
-          // 3. Status Footer Bar (Hidden on demand via Settings)
-          if (!_hideFooter) _buildFooterBar(),
+          // 3. Status Footer Bar removed per requirements (Station and Display Settings no longer shown in footer)
         ],
       ),
     );
   }
 
   // Fixed Header Component
+  // Fixed Header Component with IQ App Logo, Curved Border Styling, System Time, and User Info Card
   Widget _buildFixedHeader() {
+    final themeColor = Theme.of(context).primaryColor;
+    final businessName = widget.business.businessName.trim().isNotEmpty
+        ? widget.business.businessName.trim()
+        : (widget.business.ownerName.trim().isNotEmpty
+            ? widget.business.ownerName.trim()
+            : 'IQ Store');
+
     return Container(
-      height: 64,
+      height: 60,
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: AppTheme.surfaceContainerLowest,
-        border: Border(
-          bottom: BorderSide(
-            color: AppTheme.outlineVariant.withValues(alpha: 0.35),
-            width: 1,
-          ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.outlineVariant.withValues(alpha: 0.4),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Left: Sidebar Toggle + Brand Identity
+          // Left Corner: IQ App Logo + IQ Store Title
           Row(
             children: [
-              // Expand/Collapse Sidebar Toggle Button
-              IconButton(
-                icon: AnimatedRotation(
-                  duration: const Duration(milliseconds: 250),
-                  turns: _isSidebarExpanded ? 0 : 0.5,
-                  child: Icon(
-                    _isSidebarExpanded ? Icons.menu_open : Icons.menu,
-                    color: AppTheme.onSurface,
-                  ),
-                ),
-                tooltip: _isSidebarExpanded ? 'Collapse Sidebar' : 'Expand Sidebar',
-                onPressed: () {
-                  setState(() {
-                    _isSidebarExpanded = !_isSidebarExpanded;
-                  });
-                },
-              ),
-              const SizedBox(width: 8),
-
-              // Brand Icon
               Container(
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: AppTheme.primary,
                   borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primary.withValues(alpha: 0.3),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  border: Border.all(
+                    color: const Color(0xFFEF4444),
+                    width: 2,
+                  ),
                 ),
-                child: const Icon(Icons.pets, color: Colors.white, size: 20),
+                clipBehavior: Clip.antiAlias,
+                child: Image.asset(
+                  'assets/icon/app_icon.png',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: AppTheme.primary,
+                    alignment: Alignment.center,
+                    child: Text(
+                      'IQ',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(width: 10),
-
-              // Brand Name
+              const SizedBox(width: 12),
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,57 +371,93 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
             ],
           ),
 
-          // Center: Station Indicator & Active Business Name Badge
+          // Right Corner: Time & Date + Gray Carded User Info + Sign Out
           Row(
             children: [
+              // System Time & Date
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppTheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.3)),
+                  color: themeColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: themeColor.withValues(alpha: 0.35),
+                  ),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.tertiaryContainer,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+                    Icon(Icons.access_time_rounded, size: 16, color: themeColor),
                     const SizedBox(width: 8),
                     Text(
-                      'Station #01 Online',
+                      _formatHeaderTime(_currentTime),
                       style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0F172A),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Container(height: 12, width: 1, color: AppTheme.outlineVariant.withValues(alpha: 0.5)),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
+                    Container(height: 12, width: 1, color: themeColor.withValues(alpha: 0.3)),
+                    const SizedBox(width: 10),
                     Text(
-                      widget.business.businessName.isNotEmpty ? widget.business.businessName : 'Grand Horizon Clinic',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primary,
+                      _formatHeaderDate(_currentTime),
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF64748B),
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+              const SizedBox(width: 12),
 
-          // Right: Sign Out button
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: AppTheme.primary, size: 22),
-            tooltip: 'Sign Out Terminal',
-            onPressed: _handleLogout,
+              // User Information Card: Displays Business Name on the right side of User Icon
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9), // mild/light-gray background
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        size: 16,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      businessName,
+                      style: GoogleFonts.inter(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Sign Out Terminal
+              IconButton(
+                icon: const Icon(Icons.logout_rounded, color: AppTheme.primary, size: 20),
+                tooltip: 'Sign Out Terminal',
+                onPressed: _handleLogout,
+              ),
+            ],
           ),
         ],
       ),
@@ -372,56 +467,73 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
   // Collapsible Sidebar Component
   Widget _buildCollapsibleSidebar() {
     final double width = _isSidebarExpanded ? 240 : 72;
+    final themeColor = Theme.of(context).primaryColor;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
       width: width,
       decoration: BoxDecoration(
-        color: AppTheme.surfaceContainerLowest,
+        color: const Color(0xFFF8FAFC),
         border: Border(
           right: BorderSide(
-            color: AppTheme.outlineVariant.withValues(alpha: 0.35),
+            color: const Color(0xFFE2E8F0),
             width: 1,
           ),
         ),
       ),
       child: Column(
         children: [
-          // If the top header is hidden, display compact top brand/toggle in sidebar
+          // Top section of Sidebar with View Toggle
           if (_hideHeader) ...[
-            _buildSidebarTopWhenHeaderHidden(),
-            const Divider(height: 1),
+            _buildSidebarTopWhenHeaderHidden(themeColor),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          ] else ...[
+            _buildSidebarTopBar(themeColor),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
           ],
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               itemCount: _navItems.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 4),
+              separatorBuilder: (context, index) => const SizedBox(height: 6),
               itemBuilder: (context, idx) {
                 final item = _navItems[idx];
                 final isSelected = _currentIndex == idx;
 
                 if (!_isSidebarExpanded) {
-                  // Collapsed Rail Item with Tooltip
+                  // Collapsed Rail Item with Tooltip: White card container / Active light theme card
                   return Tooltip(
                     message: item['title'] as String,
                     preferBelow: false,
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                       onTap: () => _navigateToTab(idx),
                       child: Container(
-                        height: 48,
+                        height: 46,
                         decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primaryContainer.withValues(alpha: 0.14) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
+                          color: isSelected ? themeColor.withValues(alpha: 0.10) : Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isSelected ? themeColor : const Color(0xFFE2E8F0),
+                            width: isSelected ? 1.5 : 1.0,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isSelected
+                                  ? themeColor.withValues(alpha: 0.12)
+                                  : Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 3,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                         ),
                         child: Center(
                           child: Icon(
                             isSelected ? (item['activeIcon'] as IconData) : (item['icon'] as IconData),
-                            color: isSelected ? AppTheme.primary : AppTheme.onSurfaceVariant,
+                            color: isSelected ? themeColor : const Color(0xFF64748B),
                             size: 22,
                           ),
                         ),
@@ -430,22 +542,36 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                   );
                 }
 
-                // Expanded Item
+                // Expanded Item: White button/card-style container
+                // Active option: light background using theme colour, theme border, black text for clear readability
                 return InkWell(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   onTap: () => _navigateToTab(idx),
                   child: Container(
                     height: 46,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primaryContainer.withValues(alpha: 0.14) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
+                      color: isSelected ? themeColor.withValues(alpha: 0.10) : Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isSelected ? themeColor : const Color(0xFFE2E8F0),
+                        width: isSelected ? 1.5 : 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isSelected
+                              ? themeColor.withValues(alpha: 0.12)
+                              : Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 3,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
                         Icon(
                           isSelected ? (item['activeIcon'] as IconData) : (item['icon'] as IconData),
-                          color: isSelected ? AppTheme.primary : AppTheme.onSurfaceVariant,
+                          color: isSelected ? themeColor : const Color(0xFF64748B),
                           size: 20,
                         ),
                         const SizedBox(width: 12),
@@ -454,8 +580,8 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                             item['title'] as String,
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 13,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              color: isSelected ? AppTheme.primary : AppTheme.onSurface,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                              color: isSelected ? Colors.black : const Color(0xFF1E293B),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -465,8 +591,8 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                           Container(
                             width: 6,
                             height: 6,
-                            decoration: const BoxDecoration(
-                              color: AppTheme.primary,
+                            decoration: BoxDecoration(
+                              color: themeColor,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -477,28 +603,158 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
               },
             ),
           ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
 
-          // Sidebar Footer Toggle Hint
-          const Divider(height: 1),
-          InkWell(
-            onTap: () => setState(() => _isSidebarExpanded = !_isSidebarExpanded),
+  // Top header bar of the sidebar containing the View Toggle
+  Widget _buildSidebarTopBar(Color themeColor) {
+    if (!_isSidebarExpanded) {
+      // Grid view active (collapsed): Show only the List icon button so user can switch back
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Tooltip(
+          message: 'Switch to List View',
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              setState(() => _isSidebarExpanded = true);
+            },
             child: Container(
               height: 46,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                mainAxisAlignment: _isSidebarExpanded ? MainAxisAlignment.spaceBetween : MainAxisAlignment.center,
-                children: [
-                  if (_isSidebarExpanded)
-                    Text(
-                      'Collapse Navigation',
-                      style: GoogleFonts.inter(fontSize: 11.5, color: AppTheme.onSurfaceVariant),
-                    ),
-                  Icon(
-                    _isSidebarExpanded ? Icons.keyboard_double_arrow_left : Icons.keyboard_double_arrow_right,
-                    size: 18,
-                    color: AppTheme.onSurfaceVariant,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
                   ),
                 ],
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.view_list_rounded,
+                  color: themeColor,
+                  size: 22,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // List view active (expanded): Display Grid and List view options on the right side,
+    // each occupying 50% width of the available area, with height 46 (same as sidebar button).
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(
+              'MENU',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF64748B),
+                letterSpacing: 1.0,
+              ),
+            ),
+          ),
+          _buildSidebarViewToggle(themeColor),
+        ],
+      ),
+    );
+  }
+
+  // Segmented view toggle control: height 46 (same as sidebar option buttons),
+  // Grid and List options each occupying 50% width of the control.
+  Widget _buildSidebarViewToggle(Color themeColor) {
+    return Container(
+      width: 104,
+      height: 46,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Left: Grid view button (occupies 50% width)
+          Expanded(
+            child: Tooltip(
+              message: 'Grid View (Icons Only)',
+              child: InkWell(
+                borderRadius: const BorderRadius.horizontal(left: Radius.circular(9)),
+                onTap: () {
+                  if (_isSidebarExpanded) {
+                    setState(() => _isSidebarExpanded = false);
+                  }
+                },
+                child: Container(
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: !_isSidebarExpanded ? themeColor.withValues(alpha: 0.12) : Colors.transparent,
+                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(9)),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.grid_view_rounded,
+                      size: 20,
+                      color: !_isSidebarExpanded ? themeColor : const Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Subtle vertical divider between the two options
+          Container(
+            width: 1,
+            height: 22,
+            color: const Color(0xFFE2E8F0),
+          ),
+
+          // Right: List view button (occupies 50% width)
+          Expanded(
+            child: Tooltip(
+              message: 'List View (Icons + Labels)',
+              child: InkWell(
+                borderRadius: const BorderRadius.horizontal(right: Radius.circular(9)),
+                onTap: () {
+                  if (!_isSidebarExpanded) {
+                    setState(() => _isSidebarExpanded = true);
+                  }
+                },
+                child: Container(
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: _isSidebarExpanded ? themeColor.withValues(alpha: 0.12) : Colors.transparent,
+                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(9)),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.view_list_rounded,
+                      size: 22,
+                      color: _isSidebarExpanded ? themeColor : const Color(0xFF64748B),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -508,26 +764,71 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
   }
 
   // Compact sidebar top header when the fixed top header is hidden
-  Widget _buildSidebarTopWhenHeaderHidden() {
+  Widget _buildSidebarTopWhenHeaderHidden(Color themeColor) {
     if (!_isSidebarExpanded) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Column(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: AppTheme.primary,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFEF4444),
+                  width: 2,
+                ),
               ),
-              child: const Icon(Icons.pets, color: Colors.white, size: 20),
+              clipBehavior: Clip.antiAlias,
+              child: Image.asset(
+                'assets/icon/app_icon.png',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: AppTheme.primary,
+                  alignment: Alignment.center,
+                  child: Text(
+                    'IQ',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 6),
-            IconButton(
-              icon: const Icon(Icons.menu, size: 20),
-              tooltip: 'Expand Sidebar',
-              onPressed: () => setState(() => _isSidebarExpanded = true),
+            const SizedBox(height: 8),
+            Tooltip(
+              message: 'Switch to List View',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () {
+                  setState(() => _isSidebarExpanded = true);
+                },
+                child: Container(
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.view_list_rounded,
+                      color: themeColor,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -535,162 +836,52 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
     }
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primary.withValues(alpha: 0.25),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFFEF4444),
+                    width: 2,
+                  ),
                 ),
-                child: const Icon(Icons.pets, color: Colors.white, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'IQ Store',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.onSurface,
+                clipBehavior: Clip.antiAlias,
+                child: Image.asset(
+                  'assets/icon/app_icon.png',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: AppTheme.primary,
+                    alignment: Alignment.center,
+                    child: Text(
+                      'IQ',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
-                  Text(
-                    'CLINICAL SUITE',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.onSurfaceVariant,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.menu_open, size: 20),
-            tooltip: 'Collapse Sidebar',
-            onPressed: () => setState(() => _isSidebarExpanded = false),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Bottom Status Footer Bar
-  Widget _buildFooterBar() {
-    return Container(
-      height: 34,
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceContainerLowest,
-        border: Border(
-          top: BorderSide(
-            color: AppTheme.outlineVariant.withValues(alpha: 0.35),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Left: POS Station & Business Info
-          Row(
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: const BoxDecoration(
-                  color: AppTheme.tertiaryContainer,
-                  shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
-                'Station #01 Online',
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text('•', style: TextStyle(color: AppTheme.outlineVariant, fontSize: 10)),
-              const SizedBox(width: 10),
-              Text(
-                widget.business.businessName.isNotEmpty ? widget.business.businessName : 'Grand Horizon Clinic',
+                'IQ Store',
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
                   color: AppTheme.onSurface,
                 ),
               ),
             ],
           ),
-
-          // Right: Status Badges & Quick Settings Link
-          Row(
-            children: [
-              if (_hideHeader)
-                Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.visibility_off, size: 10, color: Colors.amber),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Header Hidden',
-                        style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.amber.shade900),
-                      ),
-                    ],
-                  ),
-                ),
-              InkWell(
-                onTap: () => _navigateToTab(9),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Row(
-                    children: [
-                      Icon(Icons.settings, size: 13, color: _currentIndex == 9 ? AppTheme.primary : AppTheme.onSurfaceVariant),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Display Settings',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: _currentIndex == 9 ? FontWeight.bold : FontWeight.w500,
-                          color: _currentIndex == 9 ? AppTheme.primary : AppTheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _buildSidebarViewToggle(themeColor),
         ],
       ),
     );

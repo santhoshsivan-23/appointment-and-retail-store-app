@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
 // Create category
 router.post('/', async (req, res) => {
   try {
-    const { name, description, icon, sort_order } = req.body;
+    const { name, description, icon, sort_order, show_in_appointment } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, message: 'Category name is required.' });
     }
@@ -32,6 +32,7 @@ router.post('/', async (req, res) => {
       description: description || '',
       icon: icon || 'category',
       sort_order: sort_order || 0,
+      show_in_appointment: show_in_appointment !== false,
     });
     res.status(201).json({ success: true, message: 'Category created successfully', data: category });
   } catch (err) {

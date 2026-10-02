@@ -43,10 +43,9 @@ class _CartViewState extends State<CartView> {
   final List<CartItem> _cart = [];
   List<CustomerModel> _customers = [];
   CustomerModel? _selectedCustomer;
-
-  bool _isWalkInMode = false;
-  final _walkInNameCtrl = TextEditingController();
-  final _walkInPhoneCtrl = TextEditingController();
+  Map<String, String>? _tempNewCustomer; // In-memory temporary new customer {'name': ..., 'phone': ...}
+  int? _currentAppointmentId;
+  String? _currentStaffName;
 
   int? _selectedCategoryId; // null = all
   double _overallDiscount = 0.0;
@@ -54,18 +53,16 @@ class _CartViewState extends State<CartView> {
 
   bool _isLoading = true;
 
-  bool get _isAppointmentMode => widget.preloadAppointmentId != null;
-
   @override
   void initState() {
     super.initState();
+    _currentAppointmentId = widget.preloadAppointmentId;
+    _currentStaffName = widget.preloadStaffName;
     _loadInitialData();
   }
 
   @override
   void dispose() {
-    _walkInNameCtrl.dispose();
-    _walkInPhoneCtrl.dispose();
     _overallDiscountCtrl.dispose();
     super.dispose();
   }
@@ -81,16 +78,26 @@ class _CartViewState extends State<CartView> {
       _customers = custs;
       _categories = cats;
 
-      if (widget.preloadCustomer != null) {
-        _selectedCustomer = widget.preloadCustomer;
-        _isWalkInMode = false;
+      _cart.clear();
+      if (widget.preloadCustomer != null || _currentAppointmentId != null) {
+        _selectedCustomer = (widget.preloadCustomer != null && widget.preloadCustomer!.name.isNotEmpty && widget.preloadCustomer!.name != 'Walk-in')
+            ? widget.preloadCustomer
+            : null;
+        _tempNewCustomer = null;
         if (widget.preloadProducts != null && widget.preloadProducts!.isNotEmpty) {
           for (final p in widget.preloadProducts!) {
-            _cart.add(CartItem(product: p, quantity: 1));
+            final idx = _cart.indexWhere((it) => it.product.id == p.id);
+            if (idx != -1) {
+              _cart[idx].quantity++;
+            } else {
+              _cart.add(CartItem(product: p, quantity: 1));
+            }
           }
         }
       } else {
-        if (custs.isNotEmpty) _selectedCustomer = custs.first;
+        // Default: No customer selected -> Walk-in Customer flow
+        _selectedCustomer = null;
+        _tempNewCustomer = null;
       }
       _isLoading = false;
     });
@@ -118,54 +125,478 @@ class _CartViewState extends State<CartView> {
     });
   }
 
-  void _showAddCustomerModal() {
-    final nameCtrl = TextEditingController();
-    final phoneCtrl = TextEditingController();
-    final emailCtrl = TextEditingController();
+  void _showCustomerSelectionDialog() {
+    final phoneSearchCtrl = TextEditingController();
+    final newNameCtrl = TextEditingController();
+    final newPhoneCtrl = TextEditingController();
+
+    bool isSearching = false;
+    List<CustomerModel> searchResults = [];
+    String? searchMessage;
+    String? newError;
+
+    final bool hasActiveCustomer = _selectedCustomer != null || _tempNewCustomer != null;
+    final String activeCustName = _selectedCustomer?.name ?? _tempNewCustomer?['name'] ?? '';
+    final String activeCustPhone = _selectedCustomer?.phone ?? _tempNewCustomer?['phone'] ?? '';
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Register New Customer', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
-        content: SizedBox(
-          width: 380,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Customer Full Name *')),
-              const SizedBox(height: 12),
-              TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: 'Phone Number *')),
-              const SizedBox(height: 12),
-              TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Email (Optional)')),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
-            onPressed: () async {
-              if (nameCtrl.text.trim().isEmpty || phoneCtrl.text.trim().isEmpty) return;
-              Navigator.pop(ctx);
-              final newC = await ApiService.createCustomer({
-                'name': nameCtrl.text.trim(),
-                'phone': phoneCtrl.text.trim(),
-                'email': emailCtrl.text.trim(),
-                'is_walk_in': false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          Future<void> performSearch() async {
+            final query = phoneSearchCtrl.text.trim();
+            if (query.isEmpty) {
+              setModalState(() {
+                searchMessage = 'Please enter a phone number to search.';
+                searchResults = [];
               });
-              if (newC != null) {
-                setState(() {
-                  _customers.insert(0, newC);
-                  _selectedCustomer = newC;
-                  _isWalkInMode = false;
-                });
-              }
-            },
-            child: const Text('Save Customer'),
-          ),
-        ],
+              return;
+            }
+
+            setModalState(() {
+              isSearching = true;
+              searchMessage = null;
+              searchResults = [];
+            });
+
+            try {
+              final results = await ApiService.getCustomers(search: query);
+              final cleanQuery = query.replaceAll(RegExp(r'\D'), '');
+              final matching = results.where((c) {
+                final cleanPhone = c.phone.replaceAll(RegExp(r'\D'), '');
+                return cleanPhone.contains(cleanQuery) || c.phone.contains(query);
+              }).toList();
+
+              setModalState(() {
+                isSearching = false;
+                searchResults = matching.isNotEmpty ? matching : results;
+                if (searchResults.isEmpty) {
+                  searchMessage = 'No customer found with phone "$query".';
+                  if (newPhoneCtrl.text.isEmpty) {
+                    newPhoneCtrl.text = query;
+                  }
+                }
+              });
+            } catch (e) {
+              setModalState(() {
+                isSearching = false;
+                searchMessage = 'Error searching customer. Please try again.';
+              });
+            }
+          }
+
+          return Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              width: 720,
+              constraints: const BoxConstraints(maxHeight: 560),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Dialog Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Customer Selection',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Search existing customer by phone or register a new customer for this order.',
+                            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (hasActiveCustomer) ...[
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFE11D48),
+                                side: const BorderSide(color: Color(0xFFFDA4AF)),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.person_remove_outlined, size: 16),
+                              label: const Text('Remove Customer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              onPressed: () {
+                                setState(() {
+                                  _selectedCustomer = null;
+                                  _tempNewCustomer = null;
+                                  _currentAppointmentId = null;
+                                  _currentStaffName = null;
+                                });
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Customer removed from cart. Order will checkout as Walk-in Customer.'),
+                                    backgroundColor: Color(0xFF475569),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  if (hasActiveCustomer) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF1F2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFFCCD5)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.person_pin, size: 16, color: Color(0xFFE11D48)),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Currently Assigned: ',
+                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF9F1239)),
+                          ),
+                          Text(
+                            activeCustName + (activeCustPhone.isNotEmpty ? ' ($activeCustPhone)' : ''),
+                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF881337)),
+                          ),
+                          const Spacer(),
+                          Text(
+                            _tempNewCustomer != null ? 'Temporary in Memory' : 'Existing in Database',
+                            style: GoogleFonts.inter(fontSize: 11, fontStyle: FontStyle.italic, color: const Color(0xFF9F1239)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const Divider(height: 24),
+
+                  // Two columns: Left (Existing Customer), Right (New Customer)
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // LEFT: Existing Customer
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEEF2FF),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.person_search, color: Color(0xFF4F46E5), size: 18),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Existing Customer',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Enter phone number to search database and assign customer.',
+                                style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 40,
+                                      child: TextField(
+                                        controller: phoneSearchCtrl,
+                                        keyboardType: TextInputType.phone,
+                                        style: GoogleFonts.inter(fontSize: 13),
+                                        decoration: InputDecoration(
+                                          hintText: 'Enter Phone Number...',
+                                          hintStyle: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade400),
+                                          prefixIcon: const Icon(Icons.phone, size: 18),
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                                        ),
+                                        onSubmitted: (_) => performSearch(),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    height: 40,
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF4F46E5),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                                      ),
+                                      onPressed: isSearching ? null : performSearch,
+                                      child: isSearching
+                                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                          : const Text('Search', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Search Results area
+                              Expanded(
+                                child: isSearching
+                                    ? const Center(child: CircularProgressIndicator(color: Color(0xFF4F46E5)))
+                                    : searchResults.isNotEmpty
+                                        ? ListView.separated(
+                                            itemCount: searchResults.length,
+                                            separatorBuilder: (context, index) => const SizedBox(height: 8),
+                                            itemBuilder: (context, idx) {
+                                              final c = searchResults[idx];
+                                              final isCurrent = _selectedCustomer?.id == c.id;
+                                              return Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                                decoration: BoxDecoration(
+                                                  color: isCurrent ? const Color(0xFFEEF2FF) : const Color(0xFFF8FAFC),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: isCurrent ? const Color(0xFF818CF8) : Colors.grey.shade200),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    CircleAvatar(
+                                                      radius: 15,
+                                                      backgroundColor: const Color(0xFF4F46E5),
+                                                      child: Text(
+                                                        c.name.isNotEmpty ? c.name[0].toUpperCase() : 'C',
+                                                        style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          Text(
+                                                            c.name,
+                                                            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+                                                          ),
+                                                          Text(
+                                                            c.phone,
+                                                            style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    ElevatedButton(
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: isCurrent ? const Color(0xFF10B981) : const Color(0xFF4F46E5),
+                                                        foregroundColor: Colors.white,
+                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                        minimumSize: Size.zero,
+                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                                      ),
+                                                      onPressed: () {
+                                                        setState(() {
+                                                          _selectedCustomer = c;
+                                                          _tempNewCustomer = null;
+                                                        });
+                                                        Navigator.pop(ctx);
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          SnackBar(
+                                                            content: Text('Existing customer "${c.name}" assigned to cart.'),
+                                                            backgroundColor: const Color(0xFF4F46E5),
+                                                            behavior: SnackBarBehavior.floating,
+                                                          ),
+                                                        );
+                                                      },
+                                                      child: Text(isCurrent ? 'Assigned' : 'Assign', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          )
+                                        : searchMessage != null
+                                            ? Container(
+                                                width: double.infinity,
+                                                padding: const EdgeInsets.all(12),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFFFFBEB),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: const Color(0xFFFDE68A)),
+                                                ),
+                                                child: Text(
+                                                  searchMessage!,
+                                                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF92400E)),
+                                                ),
+                                              )
+                                            : Center(
+                                                child: Text(
+                                                  'Enter phone number above to search existing customers.',
+                                                  style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade400),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(width: 20),
+                        Container(width: 1, color: Colors.grey.shade200),
+                        const SizedBox(width: 20),
+
+                        // RIGHT: New Customer
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFF1F2),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.person_add_alt_1, color: Color(0xFFE11D48), size: 18),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'New Customer',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Enter name and phone. Stored in memory; saved to DB when order completes.',
+                                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                                ),
+                                const SizedBox(height: 14),
+                                TextField(
+                                  controller: newNameCtrl,
+                                  style: GoogleFonts.inter(fontSize: 13),
+                                  decoration: InputDecoration(
+                                    labelText: 'Customer Name *',
+                                    hintText: 'Enter full name...',
+                                    prefixIcon: const Icon(Icons.person_outline, size: 18),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  controller: newPhoneCtrl,
+                                  keyboardType: TextInputType.phone,
+                                  style: GoogleFonts.inter(fontSize: 13),
+                                  decoration: InputDecoration(
+                                    labelText: 'Phone Number *',
+                                    hintText: 'Enter phone number...',
+                                    prefixIcon: const Icon(Icons.phone_outlined, size: 18),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.grey.shade200),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(Icons.info_outline, size: 15, color: Color(0xFF64748B)),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          'Customer info will not be saved to DB yet. Only after order payment is completed will it be stored in the database.',
+                                          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (newError != null) ...[
+                                  const SizedBox(height: 8),
+                                  Text(newError!, style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFFE11D48), fontWeight: FontWeight.w600)),
+                                ],
+                                const SizedBox(height: 14),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFE11D48),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 11),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    icon: const Icon(Icons.save_outlined, size: 16),
+                                    label: const Text('Save Customer', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                    onPressed: () {
+                                      final name = newNameCtrl.text.trim();
+                                      final phone = newPhoneCtrl.text.trim();
+                                      if (name.isEmpty) {
+                                        setModalState(() => newError = 'Customer Name is required.');
+                                        return;
+                                      }
+                                      if (phone.isEmpty) {
+                                        setModalState(() => newError = 'Phone Number is required.');
+                                        return;
+                                      }
+                                      setState(() {
+                                        _tempNewCustomer = {
+                                          'name': name,
+                                          'phone': phone,
+                                        };
+                                        _selectedCustomer = null;
+                                      });
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Temporary customer "$name" assigned to cart.'),
+                                          backgroundColor: const Color(0xFFE11D48),
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -422,32 +853,57 @@ class _CartViewState extends State<CartView> {
     required double changeAmount,
     String notes = '',
   }) async {
-    // Create walk-in customer if needed
-    String custName = _isWalkInMode ? _walkInNameCtrl.text : (_selectedCustomer?.name ?? 'Walk-in');
-    String custPhone = _isWalkInMode ? _walkInPhoneCtrl.text : (_selectedCustomer?.phone ?? '');
-    int? custId = _isWalkInMode ? null : _selectedCustomer?.id;
+    int? custId;
+    String custName = 'Walk-in';
+    String custPhone = '';
 
-    if (_isWalkInMode && _walkInNameCtrl.text.isNotEmpty && _walkInPhoneCtrl.text.isNotEmpty) {
-      final newC = await ApiService.createCustomer({
-        'name': _walkInNameCtrl.text.trim(),
-        'phone': _walkInPhoneCtrl.text.trim(),
-        'is_walk_in': true,
-      });
-      if (newC != null) {
-        custId = newC.id;
-        custName = newC.name;
-        custPhone = newC.phone;
+    if (_selectedCustomer != null) {
+      // 1. Existing Customer (retrieved from API/database)
+      custId = _selectedCustomer!.id;
+      custName = _selectedCustomer!.name;
+      custPhone = _selectedCustomer!.phone;
+    } else if (_tempNewCustomer != null) {
+      // 2. New Customer (stored temporarily in memory) -> Permanently save to DB on order completion
+      try {
+        final newC = await ApiService.createCustomer({
+          'name': _tempNewCustomer!['name']!.trim(),
+          'phone': _tempNewCustomer!['phone']!.trim(),
+          'email': '',
+          'is_walk_in': false,
+        });
+        if (newC != null) {
+          custId = newC.id;
+          custName = newC.name;
+          custPhone = newC.phone;
+          _customers.insert(0, newC);
+        } else {
+          custName = _tempNewCustomer!['name']!;
+          custPhone = _tempNewCustomer!['phone']!;
+          custId = null;
+        }
+      } catch (e) {
+        debugPrint('Error saving temporary customer on checkout: $e');
+        custName = _tempNewCustomer!['name']!;
+        custPhone = _tempNewCustomer!['phone']!;
+        custId = null;
       }
+      // Clear temporary customer from memory
+      _tempNewCustomer = null;
+    } else {
+      // 3. Walk-in Customer -> Customer ID/number remains NULL (no unnecessary record created in DB)
+      custId = null;
+      custName = 'Walk-in';
+      custPhone = '';
     }
 
     final sale = await ApiService.createSale({
       'business_id': 1,
-      'appointment_id': widget.preloadAppointmentId,
+      'appointment_id': _currentAppointmentId,
       'customer_id': custId,
       'customer_name': custName,
       'customer_phone': custPhone,
       'staff_id': null,
-      'staff_name': widget.preloadStaffName ?? '',
+      'staff_name': _currentStaffName ?? '',
       'subtotal': _subtotal,
       'item_discount_total': _itemDiscountTotal,
       'overall_discount': _overallDiscount,
@@ -468,9 +924,11 @@ class _CartViewState extends State<CartView> {
     });
 
     if (sale != null && mounted) {
-      if (widget.preloadAppointmentId != null) {
-        await ApiService.updateAppointmentStatus(widget.preloadAppointmentId!, 'completed');
+      if (_currentAppointmentId != null) {
+        await ApiService.updateAppointmentStatus(_currentAppointmentId!, 'completed');
       }
+      _currentAppointmentId = null;
+      _currentStaffName = null;
       _showReceiptPopup(sale);
     }
   }
@@ -600,8 +1058,10 @@ class _CartViewState extends State<CartView> {
                               _cart.clear();
                               _overallDiscount = 0;
                               _overallDiscountCtrl.text = '0.00';
-                              _walkInNameCtrl.clear();
-                              _walkInPhoneCtrl.clear();
+                              _selectedCustomer = null;
+                              _tempNewCustomer = null;
+                              _currentAppointmentId = null;
+                              _currentStaffName = null;
                             });
                             widget.onNavigateToSalesHistory?.call();
                           },
@@ -625,8 +1085,10 @@ class _CartViewState extends State<CartView> {
                             _cart.clear();
                             _overallDiscount = 0;
                             _overallDiscountCtrl.text = '0.00';
-                            _walkInNameCtrl.clear();
-                            _walkInPhoneCtrl.clear();
+                            _selectedCustomer = null;
+                            _tempNewCustomer = null;
+                            _currentAppointmentId = null;
+                            _currentStaffName = null;
                           });
                         },
                       ),
@@ -1064,158 +1526,159 @@ class _CartViewState extends State<CartView> {
   }
 
   Widget _buildCartCustomerSection() {
-    if (_isAppointmentMode) {
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFEF3C7),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFFDE68A)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.event_available, size: 14, color: Color(0xFFB45309)),
-                const SizedBox(width: 6),
-                Text(
-                  'APPOINTMENT #${widget.preloadAppointmentId}',
-                  style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFFB45309)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '${widget.preloadCustomer?.name ?? 'Customer'} • ${widget.preloadCustomer?.phone ?? ''}',
-              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF92400E)),
-            ),
-          ],
-        ),
-      );
-    }
+    final hasCustomer = _selectedCustomer != null || _tempNewCustomer != null;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    if (!hasCustomer) {
+      // Display ONLY the Add Customer button when no customer is selected
+      return InkWell(
+        onTap: _showCustomerSelectionDialog,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                'Walk-in Customer',
-                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE11D48).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person_add_alt_1,
+                  size: 16,
+                  color: Color(0xFFE11D48),
+                ),
               ),
-              Transform.scale(
-                scale: 0.8,
-                child: Switch(
-                  value: _isWalkInMode,
-                  activeThumbColor: const Color(0xFFE11D48),
-                  onChanged: (val) => setState(() => _isWalkInMode = val),
+              const SizedBox(width: 8),
+              Text(
+                'Add Customer',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFE11D48),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          if (!_isWalkInMode)
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 38,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<CustomerModel>(
-                        value: _selectedCustomer,
-                        isExpanded: true,
-                        hint: Text('Select Customer', style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade400)),
-                        items: _customers.map((c) => DropdownMenuItem(
-                          value: c,
-                          child: Text(c.name, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF0F172A))),
-                        )).toList(),
-                        onChanged: (val) => setState(() => _selectedCustomer = val),
-                      ),
-                    ),
-                  ),
+        ),
+      );
+    }
+
+    // Customer is selected (Existing or Temporary New Customer)
+    final String custName = _selectedCustomer?.name ?? _tempNewCustomer?['name'] ?? '';
+    final String custPhone = _selectedCustomer?.phone ?? _tempNewCustomer?['phone'] ?? '';
+    final bool isTempNew = _tempNewCustomer != null;
+
+    return InkWell(
+      onTap: _showCustomerSelectionDialog,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF1F2),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFFFCCD5)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: const Color(0xFFE11D48),
+              child: Text(
+                custName.isNotEmpty ? custName[0].toUpperCase() : 'C',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: _showAddCustomerModal,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    height: 38,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF1F2),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFFFE4E6)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.person_add_alt_1, size: 16, color: Color(0xFFE11D48)),
-                        const SizedBox(width: 4),
-                        Text('Add', style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w700, color: const Color(0xFFE11D48))),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            )
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 36,
-                    child: TextField(
-                      controller: _walkInNameCtrl,
-                      style: GoogleFonts.inter(fontSize: 12),
-                      decoration: InputDecoration(
-                        hintText: 'Customer Name',
-                        hintStyle: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade400),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SizedBox(
-                    height: 36,
-                    child: TextField(
-                      controller: _walkInPhoneCtrl,
-                      style: GoogleFonts.inter(fontSize: 12),
-                      decoration: InputDecoration(
-                        hintText: 'Phone',
-                        hintStyle: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade400),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-        ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          custName,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF0F172A),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isTempNew) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
+                          ),
+                          child: Text(
+                            'New (Temp)',
+                            style: GoogleFonts.inter(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF92400E),
+                            ),
+                          ),
+                        ),
+                      ] else if (_currentAppointmentId != null) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
+                          ),
+                          child: Text(
+                            'Apt #$_currentAppointmentId',
+                            style: GoogleFonts.inter(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF92400E),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (custPhone.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      custPhone,
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.edit_outlined,
+              size: 16,
+              color: Color(0xFFE11D48),
+            ),
+          ],
+        ),
       ),
     );
   }

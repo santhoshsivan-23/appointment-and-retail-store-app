@@ -35,22 +35,8 @@ class _CategoriesViewState extends State<CategoriesView> {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final descCtrl = TextEditingController(text: existing?.description ?? '');
     final sortCtrl = TextEditingController(text: existing != null ? existing.sortOrder.toString() : '1');
-    String selectedIcon = existing?.icon ?? 'category';
-
-    final iconOptions = [
-      {'name': 'category', 'icon': Icons.category},
-      {'name': 'medical_services', 'icon': Icons.medical_services},
-      {'name': 'content_cut', 'icon': Icons.content_cut},
-      {'name': 'hotel', 'icon': Icons.hotel},
-      {'name': 'restaurant', 'icon': Icons.restaurant},
-      {'name': 'local_bar', 'icon': Icons.local_bar},
-      {'name': 'meeting_room', 'icon': Icons.meeting_room},
-      {'name': 'shopping_bag', 'icon': Icons.shopping_bag},
-      {'name': 'fitness_center', 'icon': Icons.fitness_center},
-      {'name': 'spa', 'icon': Icons.spa},
-      {'name': 'pets', 'icon': Icons.pets},
-      {'name': 'more_horiz', 'icon': Icons.more_horiz},
-    ];
+    final String selectedIcon = existing?.icon ?? 'category';
+    bool showInAppointment = existing?.showInAppointment ?? true;
 
     showDialog(
       context: context,
@@ -63,71 +49,79 @@ class _CategoriesViewState extends State<CategoriesView> {
             style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 18),
           ),
           content: SizedBox(
-            width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Supports any industry domain: Food, Service, Drinks, Meeting Hall, Room, Hotel, etc.',
-                  style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Category Name *',
-                    hintText: 'e.g. Meeting Hall, Spa, Food, Room, Clinic...',
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Configure category details and manage visibility in the appointment booking flow.',
+                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    hintText: 'Brief category overview or notes',
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Category Name *',
+                      hintText: 'e.g. Meeting Hall, Spa, Food, Room, Clinic...',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: sortCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Display Sort Order',
-                    hintText: '1, 2, 3...',
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      hintText: 'Brief category overview or notes',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  'Select Icon:',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: iconOptions.map((opt) {
-                    final isSel = selectedIcon == opt['name'];
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: () => setModalState(() => selectedIcon = opt['name'] as String),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: isSel ? AppTheme.primaryContainer.withValues(alpha: 0.2) : AppTheme.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: isSel ? AppTheme.primary : AppTheme.outlineVariant.withValues(alpha: 0.4)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: sortCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Display Sort Order',
+                      hintText: '1, 2, 3...',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Show in Appointment toggle
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.35)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Show in Appointment',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.onSurface),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Enable to show this category and its products in Book New Appointment popup.',
+                                style: GoogleFonts.inter(fontSize: 11, color: AppTheme.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Icon(
-                          opt['icon'] as IconData,
-                          size: 20,
-                          color: isSel ? AppTheme.primary : AppTheme.onSurfaceVariant,
+                        Switch(
+                          value: showInAppointment,
+                          activeThumbColor: const Color(0xFFE11D48),
+                          onChanged: (val) => setModalState(() => showInAppointment = val),
                         ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -137,12 +131,18 @@ class _CategoriesViewState extends State<CategoriesView> {
               onPressed: () async {
                 if (nameCtrl.text.trim().isEmpty) return;
                 Navigator.pop(ctx);
-                await ApiService.createCategory({
+                final data = {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
                   'icon': selectedIcon,
                   'sort_order': int.tryParse(sortCtrl.text) ?? 0,
-                });
+                  'show_in_appointment': showInAppointment,
+                };
+                if (existing == null) {
+                  await ApiService.createCategory(data);
+                } else {
+                  await ApiService.updateCategory(existing.id, data);
+                }
                 _loadCategories();
               },
               child: Text(existing == null ? 'Create Category' : 'Save Changes'),
@@ -223,7 +223,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                       style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.onSurface),
                     ),
                     Text(
-                      'Organize any inventory or appointment domain: Food, Service, Drinks, Meeting Hall, Room, and more.',
+                      'Organize inventory and manage which categories and products appear in appointment booking.',
                       style: GoogleFonts.inter(fontSize: 13, color: AppTheme.onSurfaceVariant),
                     ),
                   ],
@@ -250,16 +250,16 @@ class _CategoriesViewState extends State<CategoriesView> {
                       ? const Center(child: Text('No categories created yet.'))
                       : GridView.builder(
                           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 360,
+                            maxCrossAxisExtent: 380,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
-                            mainAxisExtent: 150,
+                            mainAxisExtent: 180,
                           ),
                           itemCount: _categories.length,
                           itemBuilder: (context, idx) {
                             final cat = _categories[idx];
                             return Container(
-                              padding: const EdgeInsets.all(18),
+                              padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 color: AppTheme.surfaceContainerLowest,
                                 borderRadius: BorderRadius.circular(18),
@@ -278,15 +278,15 @@ class _CategoriesViewState extends State<CategoriesView> {
                                   Row(
                                     children: [
                                       Container(
-                                        width: 40,
-                                        height: 40,
+                                        width: 38,
+                                        height: 38,
                                         decoration: BoxDecoration(
                                           color: AppTheme.primary.withValues(alpha: 0.1),
                                           borderRadius: BorderRadius.circular(10),
                                         ),
-                                        child: Icon(_resolveIcon(cat.icon), color: AppTheme.primary, size: 22),
+                                        child: Icon(_resolveIcon(cat.icon), color: AppTheme.primary, size: 20),
                                       ),
-                                      const SizedBox(width: 12),
+                                      const SizedBox(width: 10),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,7 +294,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                                             Text(
                                               cat.name,
                                               style: GoogleFonts.plusJakartaSans(
-                                                fontSize: 15,
+                                                fontSize: 14.5,
                                                 fontWeight: FontWeight.bold,
                                                 color: AppTheme.onSurface,
                                               ),
@@ -303,23 +303,80 @@ class _CategoriesViewState extends State<CategoriesView> {
                                             ),
                                             Text(
                                               'Order #${cat.sortOrder}',
-                                              style: GoogleFonts.inter(fontSize: 11.5, color: AppTheme.onSurfaceVariant),
+                                              style: GoogleFonts.inter(fontSize: 11, color: AppTheme.onSurfaceVariant),
                                             ),
                                           ],
                                         ),
                                       ),
                                       IconButton(
+                                        icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primary),
+                                        tooltip: 'Edit Category',
+                                        onPressed: () => _showAddEditCategoryModal(existing: cat),
+                                      ),
+                                      IconButton(
                                         icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.error),
+                                        tooltip: 'Delete Category',
                                         onPressed: () => _deleteCategory(cat),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 8),
                                   Text(
                                     cat.description.isNotEmpty ? cat.description : 'No description provided.',
-                                    style: GoogleFonts.inter(fontSize: 12.5, color: AppTheme.onSurfaceVariant),
+                                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const Spacer(),
+                                  Divider(height: 12, color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            cat.showInAppointment ? Icons.event_available : Icons.event_busy,
+                                            size: 15,
+                                            color: cat.showInAppointment ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            cat.showInAppointment ? 'Show in Appointment' : 'Hidden in Appointment',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: cat.showInAppointment ? const Color(0xFF047857) : const Color(0xFF64748B),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Transform.scale(
+                                        scale: 0.8,
+                                        child: Switch(
+                                          value: cat.showInAppointment,
+                                          activeThumbColor: const Color(0xFF10B981),
+                                          onChanged: (val) async {
+                                            setState(() {
+                                              final i = _categories.indexWhere((c) => c.id == cat.id);
+                                              if (i != -1) {
+                                                _categories[i] = CategoryModel(
+                                                  id: cat.id,
+                                                  businessId: cat.businessId,
+                                                  name: cat.name,
+                                                  description: cat.description,
+                                                  icon: cat.icon,
+                                                  sortOrder: cat.sortOrder,
+                                                  showInAppointment: val,
+                                                  isActive: cat.isActive,
+                                                  createdAt: cat.createdAt,
+                                                );
+                                              }
+                                            });
+                                            await ApiService.updateCategory(cat.id, {'show_in_appointment': val});
+                                          },
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

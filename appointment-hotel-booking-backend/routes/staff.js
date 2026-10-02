@@ -34,7 +34,7 @@ router.get('/:id', async (req, res) => {
 // Create staff
 router.post('/', async (req, res) => {
   try {
-    const { name, email, phone, role, color_code } = req.body;
+    const { name, email, phone, role, color_code, image } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, message: 'Staff name is required.' });
     }
@@ -46,6 +46,7 @@ router.post('/', async (req, res) => {
       phone,
       role: role || 'Staff',
       color_code: color_code || '#B42907',
+      image: image || null,
     });
     res.status(201).json({ success: true, message: 'Staff member created successfully', data: staff });
   } catch (err) {

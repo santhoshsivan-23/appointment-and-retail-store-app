@@ -86,8 +86,8 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
       backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
+        child: SizedBox(
+          width: double.infinity,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -96,6 +96,7 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
               const SizedBox(height: 24),
 
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: AppTheme.surfaceContainerLowest,
@@ -108,49 +109,103 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 1. Time Format Configuration (12-hour AM/PM vs 24-hour)
-                    Text('1. Time Format & Clock Display', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Text('Controls whether appointment times use 12-hour (with AM/PM dropdown) or 24-hour notation:', style: GoogleFonts.inter(fontSize: 12.5, color: AppTheme.onSurfaceVariant)),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        ChoiceChip(
-                          selected: _timeFormat == '12',
-                          label: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Icon(Icons.schedule, size: 16),
-                              SizedBox(width: 6),
-                              Text('12-Hour Format (AM / PM Dropdown)'),
+                    // 1. Time Format Configuration (Redesigned as clean card with no overflow)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.schedule_rounded, color: AppTheme.primary, size: 18),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '1. Time Format & Clock Display',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Controls whether appointment times use 12-hour (with AM/PM dropdown) or 24-hour notation:',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        color: const Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
-                          selectedColor: AppTheme.primaryContainer.withValues(alpha: 0.25),
-                          labelStyle: TextStyle(
-                            color: _timeFormat == '12' ? AppTheme.primary : AppTheme.onSurface,
-                            fontWeight: _timeFormat == '12' ? FontWeight.bold : FontWeight.normal,
+                          const SizedBox(height: 16),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isNarrow = constraints.maxWidth < 500;
+                              final option12 = _buildTimeFormatOptionCard(
+                                value: '12',
+                                icon: Icons.access_time_filled_rounded,
+                                title: '12-Hour Format',
+                                subtitle: 'AM / PM Dropdown Selector',
+                                isSelected: _timeFormat == '12',
+                                onSelect: () => setState(() => _timeFormat = '12'),
+                              );
+                              final option24 = _buildTimeFormatOptionCard(
+                                value: '24',
+                                icon: Icons.timer_rounded,
+                                title: '24-Hour Format',
+                                subtitle: '00:00 - 23:59 Standard Time',
+                                isSelected: _timeFormat == '24',
+                                onSelect: () => setState(() => _timeFormat = '24'),
+                              );
+
+                              if (isNarrow) {
+                                return Column(
+                                  children: [
+                                    option12,
+                                    const SizedBox(height: 10),
+                                    option24,
+                                  ],
+                                );
+                              }
+
+                              return Row(
+                                children: [
+                                  Expanded(child: option12),
+                                  const SizedBox(width: 14),
+                                  Expanded(child: option24),
+                                ],
+                              );
+                            },
                           ),
-                          onSelected: (_) => setState(() => _timeFormat = '12'),
-                        ),
-                        const SizedBox(width: 14),
-                        ChoiceChip(
-                          selected: _timeFormat == '24',
-                          label: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Icon(Icons.timer_outlined, size: 16),
-                              SizedBox(width: 6),
-                              Text('24-Hour Format (00:00 - 23:59)'),
-                            ],
-                          ),
-                          selectedColor: AppTheme.primaryContainer.withValues(alpha: 0.25),
-                          labelStyle: TextStyle(
-                            color: _timeFormat == '24' ? AppTheme.primary : AppTheme.onSurface,
-                            fontWeight: _timeFormat == '24' ? FontWeight.bold : FontWeight.normal,
-                          ),
-                          onSelected: (_) => setState(() => _timeFormat = '24'),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     const Divider(height: 32),
 
@@ -279,6 +334,98 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
                     ),
                   ],
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeFormatOptionCard({
+    required String value,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onSelect,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onSelect,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primary : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? AppTheme.primary : const Color(0xFFCBD5E1),
+              width: isSelected ? 1.5 : 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isSelected
+                    ? AppTheme.primary.withValues(alpha: 0.25)
+                    : Colors.black.withValues(alpha: 0.03),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.white.withValues(alpha: 0.20) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: isSelected ? Colors.white : const Color(0xFF64748B),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                        color: isSelected ? Colors.white.withValues(alpha: 0.90) : const Color(0xFF64748B),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                isSelected ? Icons.check_circle_rounded : Icons.radio_button_off_rounded,
+                color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                size: 20,
               ),
             ],
           ),

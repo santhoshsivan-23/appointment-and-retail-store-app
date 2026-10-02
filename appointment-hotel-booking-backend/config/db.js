@@ -440,6 +440,7 @@ async function initDatabase() {
         phone VARCHAR(50),
         role VARCHAR(100) DEFAULT 'Staff',
         color_code VARCHAR(50) DEFAULT '#B42907',
+        image LONGTEXT,
         is_active BOOLEAN DEFAULT TRUE,
         deleted_at DATETIME NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -465,6 +466,7 @@ async function initDatabase() {
         description TEXT,
         icon VARCHAR(100) DEFAULT 'category',
         sort_order INT DEFAULT 0,
+        show_in_appointment BOOLEAN DEFAULT TRUE,
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -534,6 +536,14 @@ async function initDatabase() {
     for (const sql of statements) {
       await pool.query(sql);
     }
+
+    try {
+      await pool.query('ALTER TABLE categories ADD COLUMN show_in_appointment BOOLEAN DEFAULT TRUE');
+    } catch (_) {}
+
+    try {
+      await pool.query('ALTER TABLE staff ADD COLUMN image LONGTEXT NULL');
+    } catch (_) {}
 
     useFallback = false;
     console.log(`✅ [MySQL] Connected and verified schemas in database: "${database}"`);
@@ -665,8 +675,8 @@ async function createStaff(data) {
   if (!useFallback && pool) {
     try {
       const query = `
-        INSERT INTO staff (business_id, name, email, phone, role, color_code, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, TRUE)
+        INSERT INTO staff (business_id, name, email, phone, role, color_code, image, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)
       `;
       const [res] = await pool.query(query, [
         data.business_id || 1,
@@ -675,6 +685,7 @@ async function createStaff(data) {
         data.phone || '',
         data.role || 'Staff',
         data.color_code || '#B42907',
+        data.image || null,
       ]);
       return { id: res.insertId, ...data, is_active: true, created_at: new Date().toISOString() };
     } catch (e) {
@@ -692,6 +703,7 @@ async function createStaff(data) {
     phone: data.phone || '',
     role: data.role || 'Staff',
     color_code: data.color_code || '#B42907',
+    image: data.image || null,
     is_active: true,
     deleted_at: null,
     created_at: new Date().toISOString(),
@@ -704,19 +716,20 @@ async function createStaff(data) {
 async function updateStaff(id, data) {
   if (!useFallback && pool) {
     try {
-      const query = `
-        UPDATE staff 
-        SET name = ?, email = ?, phone = ?, role = ?, color_code = ?
-        WHERE id = ?
-      `;
-      await pool.query(query, [
-        data.name,
-        data.email,
-        data.phone,
-        data.role,
-        data.color_code,
-        id,
-      ]);
+      const fields = [];
+      const values = [];
+      if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
+      if (data.email !== undefined) { fields.push('email = ?'); values.push(data.email); }
+      if (data.phone !== undefined) { fields.push('phone = ?'); values.push(data.phone); }
+      if (data.role !== undefined) { fields.push('role = ?'); values.push(data.role); }
+      if (data.color_code !== undefined) { fields.push('color_code = ?'); values.push(data.color_code); }
+      if (data.image !== undefined) { fields.push('image = ?'); values.push(data.image); }
+      if (data.is_active !== undefined) { fields.push('is_active = ?'); values.push(Boolean(data.is_active)); }
+
+      if (fields.length > 0) {
+        values.push(id);
+        await pool.query(`UPDATE staff SET ${fields.join(', ')} WHERE id = ?`, values);
+      }
       return await getStaffById(id);
     } catch (e) {
       console.error(e);
@@ -839,11 +852,12 @@ async function getCategories(businessId) {
 }
 
 async function createCategory(data) {
+  const showInAppointment = data.show_in_appointment !== false && data.show_in_appointment !== 'false';
   if (!useFallback && pool) {
     try {
       const query = `
-        INSERT INTO categories (business_id, name, description, icon, sort_order, is_active)
-        VALUES (?, ?, ?, ?, ?, TRUE)
+        INSERT INTO categories (business_id, name, description, icon, sort_order, show_in_appointment, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, TRUE)
       `;
       const [res] = await pool.query(query, [
         data.business_id || 1,
@@ -851,8 +865,9 @@ async function createCategory(data) {
         data.description || '',
         data.icon || 'category',
         data.sort_order || 0,
+        showInAppointment,
       ]);
-      return { id: res.insertId, ...data, is_active: true, created_at: new Date().toISOString() };
+      return { id: res.insertId, ...data, show_in_appointment: showInAppointment, is_active: true, created_at: new Date().toISOString() };
     } catch (e) {
       console.error(e);
     }
@@ -867,6 +882,7 @@ async function createCategory(data) {
     description: data.description || '',
     icon: data.icon || 'category',
     sort_order: Number(data.sort_order) || 0,
+    show_in_appointment: showInAppointment,
     is_active: true,
     created_at: new Date().toISOString(),
   };
@@ -878,10 +894,22 @@ async function createCategory(data) {
 async function updateCategory(id, data) {
   if (!useFallback && pool) {
     try {
-      await pool.query(
-        'UPDATE categories SET name = ?, description = ?, icon = ?, sort_order = ? WHERE id = ?',
-        [data.name, data.description, data.icon, data.sort_order, id]
-      );
+      const fields = [];
+      const values = [];
+      if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
+      if (data.description !== undefined) { fields.push('description = ?'); values.push(data.description); }
+      if (data.icon !== undefined) { fields.push('icon = ?'); values.push(data.icon); }
+      if (data.sort_order !== undefined) { fields.push('sort_order = ?'); values.push(data.sort_order); }
+      if (data.show_in_appointment !== undefined) {
+        fields.push('show_in_appointment = ?');
+        values.push(data.show_in_appointment === true || data.show_in_appointment === 1 || data.show_in_appointment === 'true');
+      }
+      if (data.is_active !== undefined) { fields.push('is_active = ?'); values.push(Boolean(data.is_active)); }
+
+      if (fields.length > 0) {
+        values.push(id);
+        await pool.query(`UPDATE categories SET ${fields.join(', ')} WHERE id = ?`, values);
+      }
       const [rows] = await pool.query('SELECT * FROM categories WHERE id = ?', [id]);
       return rows[0] || null;
     } catch (e) {
@@ -892,7 +920,10 @@ async function updateCategory(id, data) {
   const list = readJson('categories');
   const idx = list.findIndex((c) => String(c.id) === String(id));
   if (idx === -1) return null;
-  list[idx] = { ...list[idx], ...data };
+  const showInAppointment = data.show_in_appointment !== undefined
+    ? (data.show_in_appointment === true || data.show_in_appointment === 1 || data.show_in_appointment === 'true')
+    : (list[idx].show_in_appointment !== false);
+  list[idx] = { ...list[idx], ...data, show_in_appointment: showInAppointment };
   writeJson('categories', list);
   return list[idx];
 }
@@ -1062,20 +1093,38 @@ async function deleteProduct(id) {
 }
 
 // ----------------- Appointments Helpers -----------------
-async function getAppointments(date = null, staffId = null) {
+async function getAppointments(date = null, staffId = null, search = null, status = null) {
   if (!useFallback && pool) {
     try {
-      let query = 'SELECT * FROM appointments WHERE business_id = 1';
+      let query = `
+        SELECT a.*, COALESCE(NULLIF(a.staff_name, ''), s.name, '') AS staff_name
+        FROM appointments a
+        LEFT JOIN staff s ON a.staff_id = s.id
+        WHERE a.business_id = 1
+      `;
       const params = [];
       if (date) {
-        query += ' AND appointment_date = ?';
+        query += ' AND a.appointment_date = ?';
         params.push(date);
       }
       if (staffId) {
-        query += ' AND staff_id = ?';
+        query += ' AND a.staff_id = ?';
         params.push(staffId);
       }
-      query += ' ORDER BY start_time ASC';
+      if (status) {
+        query += ' AND a.status = ?';
+        params.push(status);
+      }
+      if (search && search.trim().length > 0) {
+        const term = `%${search.trim()}%`;
+        query += ' AND (a.customer_name LIKE ? OR a.customer_phone LIKE ? OR a.staff_name LIKE ? OR s.name LIKE ?)';
+        params.push(term, term, term, term);
+      }
+      if (date) {
+        query += ' ORDER BY a.start_time ASC';
+      } else {
+        query += ' ORDER BY a.appointment_date DESC, a.start_time DESC';
+      }
       const [rows] = await pool.query(query, params);
       return rows.map((r) => {
         if (r.services && typeof r.services === 'string') {
@@ -1089,13 +1138,41 @@ async function getAppointments(date = null, staffId = null) {
   }
 
   let list = readJson('appointments');
+  const staffList = readJson('staff');
+  const staffMap = {};
+  staffList.forEach((st) => { staffMap[String(st.id)] = st.name; });
+
+  list = list.map((a) => ({
+    ...a,
+    staff_name: a.staff_name || staffMap[String(a.staff_id)] || '',
+  }));
+
   if (date) {
     list = list.filter((a) => a.appointment_date === date);
   }
   if (staffId) {
     list = list.filter((a) => String(a.staff_id) === String(staffId));
   }
-  return list.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+  if (status) {
+    list = list.filter((a) => String(a.status).toLowerCase() === String(status).toLowerCase());
+  }
+  if (search && search.trim().length > 0) {
+    const q = search.trim().toLowerCase();
+    list = list.filter((a) => {
+      const cName = (a.customer_name || '').toLowerCase();
+      const cPhone = (a.customer_phone || '').toLowerCase();
+      const sName = (a.staff_name || staffMap[String(a.staff_id)] || '').toLowerCase();
+      return cName.includes(q) || cPhone.includes(q) || sName.includes(q);
+    });
+  }
+  if (date) {
+    return list.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+  }
+  return list.sort((a, b) => {
+    const dCmp = (b.appointment_date || '').localeCompare(a.appointment_date || '');
+    if (dCmp !== 0) return dCmp;
+    return (b.start_time || '').localeCompare(a.start_time || '');
+  });
 }
 
 async function getAppointmentById(id) {
@@ -1142,6 +1219,14 @@ async function getAppointmentStats(date = null) {
 }
 
 async function createAppointment(data) {
+  let resolvedStaffName = data.staff_name || '';
+  if (!resolvedStaffName && data.staff_id) {
+    try {
+      const staffMember = await getStaffById(data.staff_id);
+      if (staffMember) resolvedStaffName = staffMember.name || '';
+    } catch (_) {}
+  }
+
   if (!useFallback && pool) {
     try {
       const query = `
@@ -1155,7 +1240,7 @@ async function createAppointment(data) {
         data.customer_id || null,
         data.customer_name || '',
         data.customer_phone || '',
-        data.staff_name || '',
+        resolvedStaffName,
         data.appointment_date,
         data.start_time,
         data.end_time,
@@ -1164,7 +1249,7 @@ async function createAppointment(data) {
         JSON.stringify(data.services || []),
         data.notes || '',
       ]);
-      return { id: res.insertId, ...data, created_at: new Date().toISOString() };
+      return { id: res.insertId, ...data, staff_name: resolvedStaffName, created_at: new Date().toISOString() };
     } catch (e) {
       console.error(e);
     }
@@ -1179,7 +1264,7 @@ async function createAppointment(data) {
     customer_id: data.customer_id || null,
     customer_name: data.customer_name || '',
     customer_phone: data.customer_phone || '',
-    staff_name: data.staff_name || '',
+    staff_name: resolvedStaffName,
     appointment_date: data.appointment_date,
     start_time: data.start_time,
     end_time: data.end_time,
@@ -1268,22 +1353,33 @@ async function deleteAppointment(id) {
 async function getSales(filters = {}) {
   if (!useFallback && pool) {
     try {
-      let sql = 'SELECT * FROM sales';
+      let sql = `
+        SELECT sales.*, COALESCE(NULLIF(sales.staff_name, ''), s.name, '') AS staff_name
+        FROM sales
+        LEFT JOIN staff s ON sales.staff_id = s.id
+      `;
       const conditions = [];
       const values = [];
       if (filters.appointment_id) {
-        conditions.push('appointment_id = ?');
+        conditions.push('sales.appointment_id = ?');
         values.push(filters.appointment_id);
       }
       if (filters.customer_id) {
-        conditions.push('customer_id = ?');
+        conditions.push('sales.customer_id = ?');
         values.push(filters.customer_id);
       }
+      if (filters.search && filters.search.trim().length > 0) {
+        const term = `%${filters.search.trim()}%`;
+        conditions.push('(sales.customer_name LIKE ? OR sales.customer_phone LIKE ? OR sales.staff_name LIKE ? OR s.name LIKE ?)');
+        values.push(term, term, term, term);
+      }
       if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
-      sql += ' ORDER BY created_at DESC';
+      sql += ' ORDER BY sales.created_at DESC';
       const [rows] = await pool.query(sql, values);
       return rows.map((r) => {
-        if (r.items && typeof r.items === 'string') r.items = JSON.parse(r.items);
+        if (r.items && typeof r.items === 'string') {
+          try { r.items = JSON.parse(r.items); } catch (_) { r.items = []; }
+        }
         return r;
       });
     } catch (e) {
@@ -1291,8 +1387,26 @@ async function getSales(filters = {}) {
     }
   }
   let list = readJson('sales');
+  const staffList = readJson('staff');
+  const staffMap = {};
+  staffList.forEach((st) => { staffMap[String(st.id)] = st.name; });
+
+  list = list.map((s) => ({
+    ...s,
+    staff_name: s.staff_name || staffMap[String(s.staff_id)] || '',
+  }));
+
   if (filters.appointment_id) list = list.filter((s) => String(s.appointment_id) === String(filters.appointment_id));
   if (filters.customer_id) list = list.filter((s) => String(s.customer_id) === String(filters.customer_id));
+  if (filters.search && filters.search.trim().length > 0) {
+    const q = filters.search.trim().toLowerCase();
+    list = list.filter((s) => {
+      const cName = (s.customer_name || '').toLowerCase();
+      const cPhone = (s.customer_phone || '').toLowerCase();
+      const sName = (s.staff_name || staffMap[String(s.staff_id)] || '').toLowerCase();
+      return cName.includes(q) || cPhone.includes(q) || sName.includes(q);
+    });
+  }
   return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }
 
@@ -1313,6 +1427,14 @@ async function getSaleById(id) {
 }
 
 async function createSale(data) {
+  let resolvedStaffName = data.staff_name || '';
+  if (!resolvedStaffName && data.staff_id) {
+    try {
+      const staffMember = await getStaffById(data.staff_id);
+      if (staffMember) resolvedStaffName = staffMember.name || '';
+    } catch (_) {}
+  }
+
   if (!useFallback && pool) {
     try {
       const query = `
@@ -1329,7 +1451,7 @@ async function createSale(data) {
         data.customer_name || '',
         data.customer_phone || '',
         data.staff_id || null,
-        data.staff_name || '',
+        resolvedStaffName,
         data.subtotal || 0,
         data.item_discount_total || 0,
         data.overall_discount || 0,
@@ -1357,7 +1479,7 @@ async function createSale(data) {
     customer_name: data.customer_name || '',
     customer_phone: data.customer_phone || '',
     staff_id: data.staff_id || null,
-    staff_name: data.staff_name || '',
+    staff_name: resolvedStaffName,
     subtotal: data.subtotal || 0,
     item_discount_total: data.item_discount_total || 0,
     overall_discount: data.overall_discount || 0,

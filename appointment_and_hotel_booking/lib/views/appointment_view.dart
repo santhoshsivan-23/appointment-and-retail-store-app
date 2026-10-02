@@ -9,6 +9,7 @@ import '../models/product_model.dart';
 import '../models/staff_model.dart';
 import '../services/api_service.dart';
 import '../services/auth_storage.dart';
+import '../widgets/staff_avatar.dart';
 
 class AppointmentView extends StatefulWidget {
   final void Function(CustomerModel customer, List<ProductModel> products, {AppointmentModel? appointment})? onStartService;
@@ -19,11 +20,12 @@ class AppointmentView extends StatefulWidget {
   State<AppointmentView> createState() => _AppointmentViewState();
 }
 
-class _AppointmentViewState extends State<AppointmentView> {
+class _AppointmentViewState extends State<AppointmentView> with SingleTickerProviderStateMixin {
+  late AnimationController _calendarAnimCtrl;
+  late Animation<double> _calendarAnim;
   // Data
   List<AppointmentModel> _appointments = [];
   List<StaffModel> _staffList = [];
-  List<CustomerModel> _customers = [];
   List<CategoryModel> _categories = [];
   List<ProductModel> _products = [];
   bool _isLoading = true;
@@ -46,16 +48,14 @@ class _AppointmentViewState extends State<AppointmentView> {
   final String _searchQuery = '';
   bool _isCalendarHidden = false;
 
+  // Drag and Drop Rescheduling State
+  int? _draggingAppointmentId;
+
   // Customer Search
   final TextEditingController _customerSearchCtrl = TextEditingController();
   final FocusNode _customerSearchFocus = FocusNode();
   final LayerLink _customerSearchLayerLink = LayerLink();
   String _customerSearchQuery = '';
-
-  // Drag to extend appointment duration state
-  int? _resizingApptId;
-  double _resizingDeltaY = 0.0;
-  int? _activeHandleApptId;
 
   // Scroll Controllers
   final ScrollController _timelineScrollCtrl = ScrollController();
@@ -63,6 +63,7 @@ class _AppointmentViewState extends State<AppointmentView> {
   final ScrollController _bodyHorizontalScrollCtrl = ScrollController();
   bool _isSyncingHScroll = false;
   Timer? _timeUpdateTimer;
+  final ValueNotifier<DateTime> _currentTimeNotifier = ValueNotifier<DateTime>(DateTime.now());
 
   // Colors for staff badges
   static const List<Color> _staffColors = [
@@ -97,6 +98,17 @@ class _AppointmentViewState extends State<AppointmentView> {
   @override
   void initState() {
     super.initState();
+    _calendarAnimCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    _calendarAnim = CurvedAnimation(
+      parent: _calendarAnimCtrl,
+      curve: Curves.easeInOutCubic,
+    );
+    if (!_isCalendarHidden) {
+      _calendarAnimCtrl.value = 1.0;
+    }
     _calendarMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
     _loadConfig();
     _loadData();
@@ -117,21 +129,36 @@ class _AppointmentViewState extends State<AppointmentView> {
       }
     });
 
-    // Timer updates the "NOW" indicator continuously with running seconds
+    // Timer updates the current time indicator continuously with running seconds
     _timeUpdateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
+      if (mounted) {
+        _currentTimeNotifier.value = DateTime.now();
+      }
     });
   }
 
   @override
   void dispose() {
+    _calendarAnimCtrl.dispose();
     _timelineScrollCtrl.dispose();
     _headerHorizontalScrollCtrl.dispose();
     _bodyHorizontalScrollCtrl.dispose();
     _timeUpdateTimer?.cancel();
+    _currentTimeNotifier.dispose();
     _customerSearchCtrl.dispose();
     _customerSearchFocus.dispose();
     super.dispose();
+  }
+
+  void _toggleCalendar() {
+    setState(() {
+      _isCalendarHidden = !_isCalendarHidden;
+      if (_isCalendarHidden) {
+        _calendarAnimCtrl.reverse();
+      } else {
+        _calendarAnimCtrl.forward();
+      }
+    });
   }
 
   Future<void> _loadConfig() async {
@@ -261,7 +288,6 @@ class _AppointmentViewState extends State<AppointmentView> {
     final results = await Future.wait([
       ApiService.getAppointments(date: dateStr),
       ApiService.getStaff(),
-      ApiService.getCustomers(),
       ApiService.getCategories(),
       ApiService.getProducts(),
       ApiService.getAppointmentStats(date: dateStr),
@@ -270,10 +296,9 @@ class _AppointmentViewState extends State<AppointmentView> {
     setState(() {
       _appointments = results[0] as List<AppointmentModel>;
       _staffList = results[1] as List<StaffModel>;
-      _customers = results[2] as List<CustomerModel>;
-      _categories = results[3] as List<CategoryModel>;
-      _products = results[4] as List<ProductModel>;
-      _overviewStats = results[5] as Map<String, int>;
+      _categories = results[2] as List<CategoryModel>;
+      _products = results[3] as List<ProductModel>;
+      _overviewStats = results[4] as Map<String, int>;
       _computeGridBounds();
       _isLoading = false;
     });
@@ -405,35 +430,46 @@ class _AppointmentViewState extends State<AppointmentView> {
                     final totalWidth = constraints.maxWidth;
                     final availableHeight = constraints.maxHeight;
 
-                    if (_isCalendarHidden) {
-                      // Calendar hidden: Staff/Time Slot uses 100% width
-                      return SizedBox(
-                        width: totalWidth,
-                        height: availableHeight,
-                        child: _buildTimetableArea(totalWidth),
-                      );
-                    }
+                    return AnimatedBuilder(
+                      animation: _calendarAnim,
+                      builder: (context, child) {
+                        final double openProgress = _calendarAnim.value;
+                        final double targetCalendarWidth = totalWidth * 0.30;
+                        final double currentCalendarWidth = targetCalendarWidth * openProgress;
+                        final double currentTimelineWidth = totalWidth - currentCalendarWidth;
 
-                    // User requirement: Left 70% fixed, Right 30% fixed, no overlapping
-                    final double leftWidth = totalWidth * 0.70;
-                    final double rightWidth = totalWidth * 0.30;
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Left: Staff and Time Slot section (smoothly transitions between 100% and 70%)
+                            SizedBox(
+                              width: currentTimelineWidth,
+                              height: availableHeight,
+                              child: _buildTimetableArea(currentTimelineWidth),
+                            ),
 
-                    return Row(
-                      children: [
-                        // Left 70%: Staff and Time Slot section
-                        SizedBox(
-                          width: leftWidth,
-                          height: availableHeight,
-                          child: _buildTimetableArea(leftWidth),
-                        ),
-
-                        // Right 30%: Calendar and Booking Overview section (Fixed on right)
-                        SizedBox(
-                          width: rightWidth,
-                          height: availableHeight,
-                          child: _buildRightCalendarAndBookingSection(rightWidth),
-                        ),
-                      ],
+                            // Right: Calendar and Booking Overview section (smoothly slides in/out from right)
+                            if (openProgress > 0.0)
+                              ClipRect(
+                                child: SizedBox(
+                                  width: currentCalendarWidth,
+                                  height: availableHeight,
+                                  child: OverflowBox(
+                                    minWidth: targetCalendarWidth,
+                                    maxWidth: targetCalendarWidth,
+                                    minHeight: availableHeight,
+                                    maxHeight: availableHeight,
+                                    alignment: Alignment.topRight,
+                                    child: Transform.translate(
+                                      offset: Offset(targetCalendarWidth * (1.0 - openProgress), 0),
+                                      child: _buildRightCalendarAndBookingSection(targetCalendarWidth),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
                     );
                   },
                 ),
@@ -600,43 +636,9 @@ class _AppointmentViewState extends State<AppointmentView> {
       ),
       child: Row(
         children: [
-          // Left Side: Brand + Date nav + Refresh button
+          // Left Side: Date nav + Refresh button
           Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  gradient: const LinearGradient(colors: [Color(0xFFF43F5E), Color(0xFFF59E0B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                ),
-                child: const Center(child: Text('🐾', style: TextStyle(fontSize: 18))),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text('Omopet', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF1F2),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0xFFFFE4E6)),
-                        ),
-                        child: Text('PRO', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFFE11D48))),
-                      ),
-                    ],
-                  ),
-                  Text('Care & Grooming Hub', style: GoogleFonts.inter(fontSize: 10, color: Colors.grey.shade400, fontWeight: FontWeight.w500)),
-                ],
-              ),
-              const SizedBox(width: 20),
-              Container(height: 24, width: 1, color: Colors.grey.shade200),
-              const SizedBox(width: 16),
               // Date controls
               _buildDateBtn('Today', _goToday),
               const SizedBox(width: 8),
@@ -820,7 +822,7 @@ class _AppointmentViewState extends State<AppointmentView> {
           ),
           // Hide Calendar toggle button
           InkWell(
-            onTap: () => setState(() => _isCalendarHidden = !_isCalendarHidden),
+            onTap: _toggleCalendar,
             borderRadius: BorderRadius.circular(20),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1039,14 +1041,17 @@ class _AppointmentViewState extends State<AppointmentView> {
                                           left: idx > 0 ? BorderSide(color: Colors.grey.shade200) : BorderSide.none,
                                         ),
                                       ),
-                                      child: _buildStaffLane(s, idx),
+                                      child: _buildStaffLane(s, idx, staffColWidth),
                                     ),
                                   );
                                 }).toList(),
                               ),
 
                               // Current time red line indicator across full width
-                              _buildCurrentTimeIndicator(),
+                              ListenableBuilder(
+                                listenable: Listenable.merge([_bodyHorizontalScrollCtrl, _currentTimeNotifier]),
+                                builder: (context, _) => _buildCurrentTimeIndicator(staffAreaWidth, totalStaffWidth),
+                              ),
                             ],
                           ),
                         ),
@@ -1076,13 +1081,12 @@ class _AppointmentViewState extends State<AppointmentView> {
           children: [
             Stack(
               children: [
-                CircleAvatar(
+                StaffAvatar(
+                  staff: s,
                   radius: 16,
                   backgroundColor: color,
-                  child: Text(
-                    s.name.isNotEmpty ? s.name[0].toUpperCase() : '?',
-                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
-                  ),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
                 ),
                 Positioned(
                   bottom: 0,
@@ -1144,56 +1148,86 @@ class _AppointmentViewState extends State<AppointmentView> {
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(
-          width: 360,
+          width: 380,
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Stack(
             children: [
-              CircleAvatar(
-                radius: 32,
-                backgroundColor: color,
-                child: Text(
-                  s.name.isNotEmpty ? s.name[0].toUpperCase() : '?',
-                  style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white),
+              Positioned(
+                right: 0,
+                top: 0,
+                child: IconButton(
+                  icon: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
+                  onPressed: () => Navigator.pop(ctx),
+                  tooltip: 'Close',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(s.name, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(s.role.isNotEmpty ? s.role : 'Staff', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
-              ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              if (s.email.isNotEmpty)
-                _staffInfoRow(Icons.email_outlined, 'Email', s.email),
-              if (s.phone.isNotEmpty)
-                _staffInfoRow(Icons.phone_outlined, 'Phone', s.phone),
-              _staffInfoRow(Icons.event_available, 'Booked Today', '$bookedCount'),
-              _staffInfoRow(Icons.play_circle_outline, 'In Service', '$inServiceCount'),
-              _staffInfoRow(Icons.check_circle_outline, 'Completed', '$completedCount'),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  StaffAvatar(
+                    staff: s,
+                    radius: 32,
                     backgroundColor: color,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
                   ),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    setState(() => _selectedStaffFilter = s.id);
-                  },
-                  child: Text('View Schedule', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
-                ),
+                  const SizedBox(height: 12),
+                  Text(s.name, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(s.role.isNotEmpty ? s.role : 'Staff', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  if (s.email.isNotEmpty)
+                    _staffInfoRow(Icons.email_outlined, 'Email', s.email),
+                  if (s.phone.isNotEmpty)
+                    _staffInfoRow(Icons.phone_outlined, 'Phone', s.phone),
+                  _staffInfoRow(Icons.event_available, 'Booked Today', '$bookedCount'),
+                  _staffInfoRow(Icons.play_circle_outline, 'In Service', '$inServiceCount'),
+                  _staffInfoRow(Icons.check_circle_outline, 'Completed', '$completedCount'),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF64748B),
+                            side: BorderSide(color: Colors.grey.shade300),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onPressed: () => Navigator.pop(ctx),
+                          child: Text('Close', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: color,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            setState(() => _selectedStaffFilter = s.id);
+                          },
+                          child: Text('View Schedule', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
@@ -1379,6 +1413,19 @@ class _AppointmentViewState extends State<AppointmentView> {
                   child: const Padding(
                     padding: EdgeInsets.all(4),
                     child: Icon(Icons.chevron_right, size: 20, color: Color(0xFF64748B)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: _toggleCalendar,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(Icons.close, size: 16, color: Color(0xFF64748B)),
                   ),
                 ),
               ],
@@ -1592,7 +1639,236 @@ class _AppointmentViewState extends State<AppointmentView> {
     );
   }
 
-  Widget _buildStaffLane(StaffModel staff, int staffIndex) {
+  Future<void> _handleDragDropReschedule(
+    AppointmentModel appt,
+    StaffModel targetStaff,
+    String targetSlot,
+  ) async {
+    // 1. Calculate duration and new end time
+    final durationM = appt.durationMinutes > 0 ? appt.durationMinutes : _configuredSlotDuration;
+    final newEndTime = _addMinutesTo24h(targetSlot, durationM);
+
+    // 2. Check if anything actually changed
+    final isSameStaff = appt.staffId == targetStaff.id;
+    final isSameTime = appt.startTime == targetSlot;
+    if (isSameStaff && isSameTime) {
+      return; // Dropped on the exact same slot; nothing to do
+    }
+
+    // 3. Business hours check
+    final isOutside = _isSlotOutsideBusinessHours(targetSlot);
+    final targetStartM = _timeToMinutes(targetSlot);
+    final targetEndM = _timeToMinutes(newEndTime);
+    final closeM = _timeToMinutes(_configCloseTime);
+    final openM = _timeToMinutes(_configOpenTime);
+
+    if (isOutside || targetStartM < openM) {
+      final openLabel = _formatSlotLabel(_configOpenTime);
+      final closeLabel = _formatSlotLabel(_configCloseTime);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFE11D48),
+          content: Row(
+            children: [
+              const Icon(Icons.schedule, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Cannot reschedule: Time slot ${_formatSlotLabel(targetSlot)} is outside business hours ($openLabel - $closeLabel).',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    if (targetEndM > closeM) {
+      final closeLabel = _formatSlotLabel(_configCloseTime);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFE11D48),
+          content: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Cannot reschedule: Appointment duration ends at ${_formatSlotLabel(newEndTime)}, which exceeds closing time ($closeLabel).',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // 4. Save original appointment state for rollback if needed
+    final originalAppt = appt;
+    final dateStr = appt.appointmentDate.isNotEmpty
+        ? appt.appointmentDate
+        : '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
+
+    // 5. Construct updated appointment preserving all customer, services, notes, totalAmount
+    final updatedAppt = appt.copyWith(
+      staffId: targetStaff.id,
+      staffName: targetStaff.name,
+      appointmentDate: dateStr,
+      startTime: targetSlot,
+      endTime: newEndTime,
+    );
+
+    // 6. Immediate optimistic UI update (zero delay reflection!)
+    setState(() {
+      final idx = _appointments.indexWhere((a) => a.id == appt.id);
+      if (idx != -1) {
+        _appointments[idx] = updatedAppt;
+      }
+      _computeGridBounds();
+    });
+
+    // 7. Check for scheduling conflict with other active appointments
+    try {
+      final conflict = await ApiService.checkAppointmentConflict(
+        staffId: targetStaff.id,
+        appointmentDate: dateStr,
+        startTime: targetSlot,
+        endTime: newEndTime,
+        excludeId: appt.id,
+      );
+
+      if (conflict['has_conflict'] == true) {
+        // Rollback optimistic update
+        if (mounted) {
+          setState(() {
+            final idx = _appointments.indexWhere((a) => a.id == appt.id);
+            if (idx != -1) {
+              _appointments[idx] = originalAppt;
+            }
+            _computeGridBounds();
+          });
+
+          final conf = conflict['conflicting_appointment'];
+          final range = conf != null
+              ? ' (${_formatSlotLabel(conf['start_time']?.toString() ?? '')} - ${_formatSlotLabel(conf['end_time']?.toString() ?? '')})'
+              : '';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFFE11D48),
+              content: Row(
+                children: [
+                  const Icon(Icons.event_busy_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Booking Conflict: ${targetStaff.name} already has an appointment$range.',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+    } catch (e) {
+      debugPrint('Conflict check error: $e');
+    }
+
+    // 8. Update in backend database (preserves customer & services)
+    final updatePayload = <String, dynamic>{
+      'staff_id': targetStaff.id,
+      'staff_name': targetStaff.name,
+      'appointment_date': dateStr,
+      'start_time': targetSlot,
+      'end_time': newEndTime,
+    };
+
+    final success = await ApiService.updateAppointment(appt.id, updatePayload);
+
+    if (!mounted) return;
+
+    if (success) {
+      final startLabel = _formatSlotLabel(targetSlot);
+      final endLabel = _formatSlotLabel(newEndTime);
+      final changeDesc = isSameStaff
+          ? 'time to $startLabel - $endLabel'
+          : 'to ${targetStaff.name} at $startLabel - $endLabel';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF10B981),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Rescheduled "${appt.customerName}" $changeDesc',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      // Silently refresh in background without full loading spinner
+      final refreshed = await ApiService.getAppointments(date: dateStr);
+      final stats = await ApiService.getAppointmentStats(date: dateStr);
+      if (mounted) {
+        setState(() {
+          _appointments = refreshed;
+          _overviewStats = stats;
+          _computeGridBounds();
+        });
+      }
+    } else {
+      // Rollback optimistic update
+      setState(() {
+        final idx = _appointments.indexWhere((a) => a.id == appt.id);
+        if (idx != -1) {
+          _appointments[idx] = originalAppt;
+        }
+        _computeGridBounds();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFE11D48),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Failed to reschedule appointment on server. Reverted back to previous slot.',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  Widget _buildStaffLane(StaffModel staff, int staffIndex, [double staffColWidth = 200.0]) {
     final appts = _appointmentsForStaff(staff.id);
     final filteredAppts = _searchQuery.isEmpty
         ? appts
@@ -1614,115 +1890,36 @@ class _AppointmentViewState extends State<AppointmentView> {
       return a.startMinutes.compareTo(b.startMinutes);
     });
 
-    return DragTarget<AppointmentModel>(
-      onWillAcceptWithDetails: (details) => details.data.status != 'completed',
-      onAcceptWithDetails: (details) async {
-        final key = _getLaneKey(staff.id);
-        final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
-        if (renderBox == null) return;
-        final localOffset = renderBox.globalToLocal(details.offset);
+    return Container(
+      key: _getLaneKey(staff.id),
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
+      ),
+      child: SizedBox(
+        height: _gridTotalHeight,
+        child: Stack(
+          children: [
+            // Clickable & Drag-droppable time slots with business hours validation
+            Column(
+              children: _timeSlots.map((slot) {
+                final isOutside = _isSlotOutsideBusinessHours(slot);
+                final endSlot = _addMinutesTo24h(slot, _configuredSlotDuration);
+                final slotLabel = _formatSlotLabel(slot);
 
-        // Convert vertical drop coordinate to timetable minutes
-        final double dropMinutesFromBase = (localOffset.dy / _slotHeight) * 30.0;
-        final int rawStartMinutes = _gridBaseMinutes + dropMinutesFromBase.round();
-        int snappedStart = ((rawStartMinutes / 15).round() * 15);
-        snappedStart = snappedStart.clamp(_gridBaseMinutes, (_gridEndHour * 60) - 30);
-
-        final int duration = details.data.endMinutes - details.data.startMinutes;
-        final int finalDuration = duration > 0 ? duration : 30;
-        final int snappedEnd = snappedStart + finalDuration;
-
-        final String newStartTime = '${(snappedStart ~/ 60).toString().padLeft(2, '0')}:${(snappedStart % 60).toString().padLeft(2, '0')}';
-        final String newEndTime = '${(snappedEnd ~/ 60).toString().padLeft(2, '0')}:${(snappedEnd % 60).toString().padLeft(2, '0')}';
-
-        // Check active collision via backend API
-        // NOTE: cancelled & no_show are ignored by checkAppointmentConflict, permitting drops over them!
-        final conflict = await ApiService.checkAppointmentConflict(
-          staffId: staff.id,
-          appointmentDate: details.data.appointmentDate,
-          startTime: newStartTime,
-          endTime: newEndTime,
-          excludeId: details.data.id,
-        );
-
-        if (conflict['has_conflict'] == true) {
-          if (!mounted) return;
-          final confAppt = conflict['conflicting_appointment'];
-          final confRange = confAppt != null ? ' (${confAppt['start_time']} - ${confAppt['end_time']})' : '';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: const Color(0xFFE11D48),
-              content: Row(
-                children: [
-                  const Icon(Icons.block, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Collision detected: ${staff.name} already has an active appointment$confRange. Drop cancelled.',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-          return;
-        }
-
-        // Successfully move appointment
-        final success = await ApiService.updateAppointment(details.data.id, {
-          'staff_id': staff.id,
-          'staff_name': staff.name,
-          'start_time': newStartTime,
-          'end_time': newEndTime,
-        });
-
-        if (success) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: const Color(0xFF10B981),
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Rescheduled ${details.data.customerName} to ${staff.name} at $newStartTime - $newEndTime',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-          _loadData();
-        }
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isHovered = candidateData.isNotEmpty;
-        return Container(
-          key: _getLaneKey(staff.id),
-          decoration: BoxDecoration(
-            color: isHovered ? const Color(0xFFFFF1F2).withValues(alpha: 0.5) : Colors.transparent,
-          ),
-          child: SizedBox(
-            height: _gridTotalHeight,
-            child: Stack(
-              children: [
-                // Clickable time slots with business hours validation
-                Column(
-                  children: _timeSlots.map((slot) {
-                    final isOutside = _isSlotOutsideBusinessHours(slot);
-                    final endSlot = _addMinutesTo24h(slot, _configuredSlotDuration);
-                    final slotLabel = _formatSlotLabel(slot);
+                return DragTarget<AppointmentModel>(
+                  onWillAcceptWithDetails: (details) {
+                    return details.data.id != 0;
+                  },
+                  onAcceptWithDetails: (details) {
+                    _handleDragDropReschedule(details.data, staff, slot);
+                  },
+                  builder: (context, candidateData, rejectedData) {
+                    final isHovered = candidateData.isNotEmpty;
 
                     return Material(
-                      color: isOutside ? const Color(0xFFF8FAFC).withValues(alpha: 0.5) : Colors.transparent,
+                      color: isHovered
+                          ? const Color(0xFF3B82F6).withValues(alpha: 0.15)
+                          : (isOutside ? const Color(0xFFF8FAFC).withValues(alpha: 0.5) : Colors.transparent),
                       child: InkWell(
                         onTap: () {
                           if (isOutside) {
@@ -1765,49 +1962,79 @@ class _AppointmentViewState extends State<AppointmentView> {
                         child: Container(
                           height: _slotHeight,
                           decoration: BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(
-                                color: Colors.grey.shade200.withValues(alpha: 0.7),
-                                style: BorderStyle.solid,
-                              ),
-                            ),
+                            border: isHovered
+                                ? Border.all(
+                                    color: const Color(0xFF2563EB),
+                                    width: 2.0,
+                                    strokeAlign: BorderSide.strokeAlignInside,
+                                  )
+                                : Border(
+                                    bottom: BorderSide(
+                                      color: Colors.grey.shade200.withValues(alpha: 0.7),
+                                      style: BorderStyle.solid,
+                                    ),
+                                  ),
                           ),
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: isOutside
-                                  ? const Icon(Icons.lock_clock_outlined, size: 12, color: Color(0xFFCBD5E1))
-                                  : null,
-                            ),
-                          ),
+                          child: isHovered
+                              ? Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF2563EB),
+                                      borderRadius: BorderRadius.circular(4),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF2563EB).withValues(alpha: 0.35),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.file_download_outlined, size: 12, color: Colors.white),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Drop at $slotLabel',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              : Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: isOutside
+                                        ? const Icon(Icons.lock_clock_outlined, size: 12, color: Color(0xFFCBD5E1))
+                                        : null,
+                                  ),
+                                ),
                         ),
                       ),
                     );
-                  }).toList(),
-                ),
-                // Appointment cards (rendered with inactive cards first, active on top)
-                ...sortedAppts.map((appt) => _buildAppointmentCard(appt)),
-              ],
+                  },
+                );
+              }).toList(),
             ),
-          ),
-        );
-      },
+            // Appointment cards (rendered with inactive cards first, active on top)
+            ...sortedAppts.map((appt) => _buildAppointmentCard(appt, staffColWidth)),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildAppointmentCard(AppointmentModel appt) {
+
+  Widget _buildAppointmentCard(AppointmentModel appt, [double cardWidth = 200.0]) {
     final top = ((appt.startMinutes - _gridBaseMinutes) / 30.0) * _slotHeight;
     final height = ((appt.endMinutes - appt.startMinutes) / 30.0) * _slotHeight;
-
-    final bool isResizing = _resizingApptId == appt.id;
-    final bool isHolding = _activeHandleApptId == appt.id;
-    final double extraHeight = isResizing ? _resizingDeltaY : 0.0;
-    final double effectiveHeight = height + extraHeight;
-
-    // Check if appointment can be dragged to other slots / staff
-    final bool canDrag = !isResizing && !isHolding && (appt.status == 'booked' || appt.status == 'in_service');
-    final bool showExtendIndicator = (appt.status == 'booked' || appt.status == 'in_service');
 
     // Status colors
     Color bgColor, borderColor, textColor, badgeBg, badgeText;
@@ -1873,21 +2100,16 @@ class _AppointmentViewState extends State<AppointmentView> {
 
     // Build the visual card content
     Widget cardBody = Container(
-      padding: EdgeInsets.fromLTRB(
-        height > 60 ? 10 : 8,
-        height > 60 ? 8 : 6,
-        height > 60 ? 10 : 8,
-        showExtendIndicator ? 2 : (height > 60 ? 8 : 6),
-      ),
+      padding: EdgeInsets.all(height > 60 ? 10 : 8),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(8),
         border: Border(left: BorderSide(color: borderColor, width: 4)),
         boxShadow: [
           BoxShadow(
-            color: (isResizing || isHolding) ? const Color(0xFFE11D48).withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.04),
-            blurRadius: (isResizing || isHolding) ? 8 : 4,
-            spreadRadius: (isResizing || isHolding) ? 1 : 0,
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 4,
+            spreadRadius: 0,
           ),
         ],
       ),
@@ -1900,11 +2122,10 @@ class _AppointmentViewState extends State<AppointmentView> {
               Expanded(
                 child: Row(
                   children: [
-                    if (canDrag)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Icon(Icons.drag_indicator, size: 12, color: textColor.withValues(alpha: 0.5)),
-                      ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Icon(Icons.schedule, size: 11, color: textColor.withValues(alpha: 0.7)),
+                    ),
                     Flexible(
                       child: Text(
                         _formatApptTimeRange(appt),
@@ -1953,7 +2174,7 @@ class _AppointmentViewState extends State<AppointmentView> {
               ),
             ],
           ),
-          if (effectiveHeight > 50) ...[
+          if (height > 50) ...[
             const SizedBox(height: 2),
             Text(
               serviceName,
@@ -1967,7 +2188,7 @@ class _AppointmentViewState extends State<AppointmentView> {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          if (effectiveHeight > 80 && appt.notes.isNotEmpty) ...[
+          if (height > 80 && appt.notes.isNotEmpty) ...[
             const SizedBox(height: 2),
             Text(
               appt.status == 'no_show' ? '⚠️ ${appt.notes}' : appt.notes,
@@ -1976,7 +2197,7 @@ class _AppointmentViewState extends State<AppointmentView> {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          if (effectiveHeight > 90 && appt.totalAmount > 0 && appt.status == 'completed') ...[
+          if (height > 90 && appt.totalAmount > 0 && appt.status == 'completed') ...[
             const SizedBox(height: 2),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1986,58 +2207,72 @@ class _AppointmentViewState extends State<AppointmentView> {
               ],
             ),
           ],
-          const Spacer(),
-          if (showExtendIndicator)
-            _buildExtendIndicator(appt, borderColor),
         ],
       ),
     );
 
-    Widget interactiveCard;
+    final canDrag = appt.status != 'cancelled';
+    final isDraggingThis = _draggingAppointmentId == appt.id;
+    final isDraggingAny = _draggingAppointmentId != null;
+
+    Widget cardWidget;
     if (canDrag) {
-      interactiveCard = LongPressDraggable<AppointmentModel>(
+      cardWidget = LongPressDraggable<AppointmentModel>(
         data: appt,
-        delay: const Duration(milliseconds: 180),
+        delay: const Duration(milliseconds: 200),
+        hapticFeedbackOnStart: true,
+        onDragStarted: () {
+          setState(() {
+            _draggingAppointmentId = appt.id;
+          });
+        },
+        onDragEnd: (_) {
+          if (_draggingAppointmentId != null) {
+            setState(() {
+              _draggingAppointmentId = null;
+            });
+          }
+        },
+        onDraggableCanceled: (velocity, offset) {
+          if (_draggingAppointmentId != null) {
+            setState(() {
+              _draggingAppointmentId = null;
+            });
+          }
+        },
+        onDragCompleted: () {
+          if (_draggingAppointmentId != null) {
+            setState(() {
+              _draggingAppointmentId = null;
+            });
+          }
+        },
         feedback: Material(
           color: Colors.transparent,
-          elevation: 8,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            width: 220,
-            height: (height - 6).clamp(60.0, 110.0),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: borderColor, width: 2),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 16, offset: const Offset(0, 6)),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(_formatApptTimeRange(appt), style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: textColor)),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(4)),
-                      child: Text(appt.statusLabel, style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w700, color: badgeText)),
+          elevation: 12,
+          shadowColor: Colors.black45,
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            width: (cardWidth - 12).clamp(140.0, 340.0),
+            height: (height - 6).clamp(36.0, 160.0),
+            child: Opacity(
+              opacity: 0.95,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: borderColor, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: borderColor.withValues(alpha: 0.35),
+                      blurRadius: 14,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
-                Text(appt.customerName, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: textColor), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Row(
-                  children: [
-                    const Icon(Icons.drag_handle, size: 12, color: Color(0xFFE11D48)),
-                    const SizedBox(width: 4),
-                    Text('Drop on any staff lane & time', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFFE11D48))),
-                  ],
-                ),
-              ],
+                child: cardBody,
+              ),
             ),
           ),
         ),
@@ -2051,7 +2286,7 @@ class _AppointmentViewState extends State<AppointmentView> {
         ),
       );
     } else {
-      interactiveCard = GestureDetector(
+      cardWidget = GestureDetector(
         onTap: () => _showAppointmentDetails(appt),
         child: cardBody,
       );
@@ -2061,266 +2296,16 @@ class _AppointmentViewState extends State<AppointmentView> {
       left: 6,
       right: 6,
       top: top + 2,
-      height: (effectiveHeight - 6).clamp(30.0, double.infinity),
-      child: interactiveCard,
-    );
-  }
-
-  /// 5. Booked / In-Service Appointment Slot Indicator & 6. Drag to Extend Appointment Time
-  Widget _buildExtendIndicator(AppointmentModel appt, Color borderColor) {
-    final bool isResizing = _resizingApptId == appt.id;
-    final bool isHolding = _activeHandleApptId == appt.id;
-    final bool isProminent = isResizing || isHolding;
-
-    // 15 minutes = _slotHeight / 2.0 = 28.0 px
-    const double pxPer15Min = _slotHeight / 2.0;
-    final int previewAddedMinutes = isResizing ? math.max(0, (_resizingDeltaY / pxPer15Min).round() * 15) : 0;
-    final Color activeColor = const Color(0xFFE11D48);
-    final Color indicatorColor = isProminent ? activeColor : borderColor;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.resizeUpDown,
-      child: Listener(
-        onPointerDown: (_) {
-          setState(() {
-            _activeHandleApptId = appt.id;
-          });
-        },
-        onPointerUp: (_) {
-          if (_resizingApptId == null) {
-            setState(() {
-              _activeHandleApptId = null;
-            });
-          }
-        },
-        onPointerCancel: (_) {
-          if (_resizingApptId == null) {
-            setState(() {
-              _activeHandleApptId = null;
-            });
-          }
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onVerticalDragStart: (_) {
-            setState(() {
-              _activeHandleApptId = appt.id;
-              _resizingApptId = appt.id;
-              _resizingDeltaY = 0.0;
-            });
-          },
-          onVerticalDragUpdate: (details) {
-            setState(() {
-              _resizingDeltaY = math.max(0.0, _resizingDeltaY + details.delta.dy);
-            });
-          },
-          onVerticalDragEnd: (_) async {
-            final int addedIntervals = (_resizingDeltaY / pxPer15Min).round();
-            final int addedMinutes = addedIntervals * 15;
-            setState(() {
-              _activeHandleApptId = null;
-              _resizingApptId = null;
-              _resizingDeltaY = 0.0;
-            });
-            if (addedMinutes >= 15) {
-              await _applyDirectExtend(appt, addedMinutes);
-            }
-          },
-          onVerticalDragCancel: () {
-            setState(() {
-              _activeHandleApptId = null;
-              _resizingApptId = null;
-              _resizingDeltaY = 0.0;
-            });
-          },
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isResizing && previewAddedMinutes > 0)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 2),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: activeColor,
-                      borderRadius: BorderRadius.circular(4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: activeColor.withValues(alpha: 0.3),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      '+$previewAddedMinutes min (${_formatExtendedEnd(appt, previewAddedMinutes)})',
-                      style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.w700, color: Colors.white),
-                    ),
-                  )
-                else if (isHolding && !isResizing)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 2),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: activeColor,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.arrow_downward, size: 8, color: Colors.white),
-                        const SizedBox(width: 2),
-                        Text(
-                          'Drag down to extend',
-                          style: GoogleFonts.inter(fontSize: 8.0, fontWeight: FontWeight.w600, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  ),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  curve: Curves.easeOutCubic,
-                  height: isProminent ? 10 : 7,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // 2px full-width horizontal base line
-                      Container(
-                        height: 2,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: indicatorColor.withValues(alpha: isProminent ? 0.5 : 0.35),
-                          borderRadius: BorderRadius.circular(1),
-                        ),
-                      ),
-                      // Center indicator line: 5px normal -> 8px when holding/dragging, 40% -> 55% width
-                      FractionallySizedBox(
-                        widthFactor: isProminent ? 0.55 : 0.40,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          curve: Curves.easeOutCubic,
-                          height: isProminent ? 8 : 5,
-                          decoration: BoxDecoration(
-                            color: indicatorColor,
-                            borderRadius: BorderRadius.circular(isProminent ? 4.0 : 2.5),
-                            boxShadow: [
-                              BoxShadow(
-                                color: indicatorColor.withValues(alpha: isProminent ? 0.5 : 0.35),
-                                blurRadius: isProminent ? 5 : 2,
-                                spreadRadius: isProminent ? 1 : 0,
-                                offset: Offset(0, isProminent ? 1.0 : 0.5),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: isProminent
-                                ? Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(width: 3, height: 3, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-                                      const SizedBox(width: 3),
-                                      Container(width: 3, height: 3, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-                                      const SizedBox(width: 3),
-                                      Container(width: 3, height: 3, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-                                    ],
-                                  )
-                                : null,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      height: (height - 6).clamp(30.0, double.infinity),
+      child: IgnorePointer(
+        ignoring: isDraggingAny && !isDraggingThis,
+        child: cardWidget,
       ),
     );
+
   }
 
-  String _formatExtendedEnd(AppointmentModel appt, int addMinutes) {
-    final int newMinutes = appt.endMinutes + addMinutes;
-    final int h = ((newMinutes ~/ 60) % 24).clamp(0, 23);
-    final int m = (newMinutes % 60).clamp(0, 59);
-    final String time24 = '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
-    return _formatSlotLabel(time24);
-  }
-
-  Future<void> _applyDirectExtend(AppointmentModel appt, int addMinutes) async {
-    final int newEndMinutes = appt.endMinutes + addMinutes;
-    final int closeMinutes = _timeToMinutes(_configCloseTime);
-
-    if (newEndMinutes > closeMinutes) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFFE11D48),
-            content: Text('Cannot extend past business hours closing time (${_formatSlotLabel(_configCloseTime)}).'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-      return;
-    }
-
-    final int newEndH = ((newEndMinutes ~/ 60) % 24).clamp(0, 23);
-    final int newEndM = (newEndMinutes % 60).clamp(0, 59);
-    final String newEndTime = '${newEndH.toString().padLeft(2, '0')}:${newEndM.toString().padLeft(2, '0')}';
-
-    // Conflict check for extended window
-    final conflict = await ApiService.checkAppointmentConflict(
-      staffId: appt.staffId,
-      appointmentDate: appt.appointmentDate,
-      startTime: appt.endTime,
-      endTime: newEndTime,
-      excludeId: appt.id,
-    );
-
-    if (conflict['has_conflict'] == true) {
-      final conf = conflict['conflicting_appointment'];
-      final range = conf != null ? ' (${conf['start_time']} - ${conf['end_time']})' : '';
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFFE11D48),
-            content: Text('Cannot extend: ${appt.staffName} already has an active appointment$range.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-      return;
-    }
-
-    final success = await ApiService.updateAppointment(appt.id, {'end_time': newEndTime});
-    if (success) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF10B981),
-            content: Text('Appointment extended to ${_formatSlotLabel(newEndTime)} (+${addMinutes}m) successfully!'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        _loadData();
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Color(0xFFE11D48),
-            content: Text('Failed to extend appointment duration.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
-
-  Widget _buildCurrentTimeIndicator() {
+  Widget _buildCurrentTimeIndicator(double visibleStaffWidth, double totalWidth) {
     final now = DateTime.now();
     final nowMinutes = now.hour * 60 + now.minute + (now.second / 60.0);
     final isToday = _selectedDate.year == now.year &&
@@ -2334,53 +2319,115 @@ class _AppointmentViewState extends State<AppointmentView> {
     final top = ((nowMinutes - _gridBaseMinutes) / 30.0) * _slotHeight;
     final hour12 = now.hour == 0 ? 12 : (now.hour > 12 ? now.hour - 12 : now.hour);
     final ampm = now.hour >= 12 ? 'PM' : 'AM';
-    final timeStr = 'NOW ${hour12.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')} $ampm';
+    final String timeDigits;
+    if (_timeFormat == '24') {
+      timeDigits = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    } else {
+      timeDigits = '${hour12.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    }
+
+    final double scrollX = _bodyHorizontalScrollCtrl.hasClients ? _bodyHorizontalScrollCtrl.offset : 0.0;
+    final double badgeWidth = _timeFormat == '12' ? 134.0 : 100.0;
+    // Position the badge so it stays visible within the current visible screen view:
+    // It hugs the right edge of the visible viewport (e.g. 4th column area),
+    // but never goes past totalWidth, never goes behind the calendar, and never jumps to the last column.
+    final double badgeX = (scrollX + visibleStaffWidth - badgeWidth - 14).clamp(scrollX + 6, totalWidth - badgeWidth - 8);
 
     return Positioned(
       left: 0,
       right: 0,
       top: top - 5,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE11D48),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(color: const Color(0xFFE11D48).withValues(alpha: 0.4), blurRadius: 4, spreadRadius: 1),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Container(
-              height: 2,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFE11D48), Color(0xFFFDA4AF)],
+      child: SizedBox(
+        width: totalWidth,
+        height: 22,
+        child: Stack(
+          alignment: Alignment.centerLeft,
+          children: [
+            // 1. Full continuous red line across entire grid
+            Positioned(
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 2,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFE11D48), Color(0xFFFDA4AF)],
+                  ),
                 ),
               ),
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE11D48),
-              borderRadius: BorderRadius.circular(4),
-              boxShadow: [
-                BoxShadow(color: const Color(0xFFE11D48).withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 1)),
-              ],
+            // 2. Left anchor pulse dot
+            Positioned(
+              left: 0,
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE11D48),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(color: const Color(0xFFE11D48).withValues(alpha: 0.4), blurRadius: 4, spreadRadius: 1),
+                  ],
+                ),
+              ),
             ),
-            child: Text(
-              timeStr,
-              style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.3),
+            // 3. Floating current-time badge with proper AM/PM alignment on the right side
+            Positioned(
+              left: badgeX,
+              child: Container(
+                width: badgeWidth,
+                height: 22,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE11D48),
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(color: const Color(0xFFE11D48).withValues(alpha: 0.35), blurRadius: 4, offset: const Offset(0, 1)),
+                  ],
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.access_time_filled, size: 11, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Text(
+                        timeDigits,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      if (_timeFormat == '12') ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.22),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            ampm,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2403,7 +2450,13 @@ class _AppointmentViewState extends State<AppointmentView> {
       selStaff = _staffList.first;
     }
 
-    CustomerModel? selCustomer = _customers.isNotEmpty ? _customers.first : null;
+    CustomerModel? selCustomer;
+    final customerSearchCtrl = TextEditingController();
+    List<CustomerModel> searchCustomers = [];
+    bool isSearchingCustomers = false;
+    bool showCustomerDropdown = false;
+    Timer? customerSearchDebounce;
+
     bool isWalkIn = false;
     final walkInNameCtrl = TextEditingController();
     final walkInPhoneCtrl = TextEditingController();
@@ -2433,22 +2486,142 @@ class _AppointmentViewState extends State<AppointmentView> {
     final selectedProducts = <ProductModel>[];
     int? selectedCategoryId;
     String? validationOrConflictError;
+    final categoryScrollCtrl = ScrollController();
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
+          final allowedCategories = _categories.where((c) => c.showInAppointment).toList();
+          final allowedCategoryIds = allowedCategories.map((c) => c.id).toSet();
+
           final filteredProds = selectedCategoryId == null
-              ? _products
-              : _products.where((p) => p.categoryId == selectedCategoryId).toList();
+              ? _products.where((p) => p.categoryId != null && allowedCategoryIds.contains(p.categoryId)).toList()
+              : (allowedCategoryIds.contains(selectedCategoryId)
+                  ? _products.where((p) => p.categoryId == selectedCategoryId).toList()
+                  : <ProductModel>[]);
           final totalPrice = selectedProducts.fold<double>(0, (sum, p) => sum + p.price);
+
+          void onCustomerSearchChanged(String val) {
+            customerSearchDebounce?.cancel();
+            final query = val.trim();
+            if (query.isEmpty) {
+              setDialogState(() {
+                isSearchingCustomers = false;
+                searchCustomers = [];
+                showCustomerDropdown = false;
+                selCustomer = null;
+              });
+              return;
+            }
+
+            setDialogState(() {
+              isSearchingCustomers = true;
+              showCustomerDropdown = true;
+            });
+
+            customerSearchDebounce = Timer(const Duration(milliseconds: 250), () async {
+              try {
+                final results = await ApiService.getCustomers(search: query);
+                setDialogState(() {
+                  searchCustomers = results;
+                  isSearchingCustomers = false;
+                });
+              } catch (_) {
+                setDialogState(() {
+                  searchCustomers = [];
+                  isSearchingCustomers = false;
+                });
+              }
+            });
+          }
+
+          void selectCustomer(CustomerModel c) {
+            setDialogState(() {
+              selCustomer = c;
+              customerSearchCtrl.text = c.name;
+              showCustomerDropdown = false;
+              validationOrConflictError = null;
+            });
+          }
+
+          void clearSelectedCustomer() {
+            setDialogState(() {
+              selCustomer = null;
+              customerSearchCtrl.clear();
+              searchCustomers = [];
+              showCustomerDropdown = false;
+            });
+          }
+
+          Future<void> pickTime({required bool isStart}) async {
+            TimeOfDay initial;
+            final curText = isStart ? startCtrl.text.trim() : endCtrl.text.trim();
+            final p = curText.split(':');
+            int h = int.tryParse(p.isNotEmpty ? p[0] : '9') ?? 9;
+            final int m = int.tryParse(p.length > 1 ? p[1] : '0') ?? 0;
+
+            if (_timeFormat == '12') {
+              final curPeriod = isStart ? startPeriod : endPeriod;
+              if (curPeriod == 'PM' && h < 12) h += 12;
+              if (curPeriod == 'AM' && h == 12) h = 0;
+            }
+            initial = TimeOfDay(hour: h.clamp(0, 23), minute: m.clamp(0, 59));
+
+            final picked = await showTimePicker(
+              context: context,
+              initialTime: initial,
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.light(
+                      primary: Color(0xFFE11D48),
+                      onPrimary: Colors.white,
+                      onSurface: Color(0xFF0F172A),
+                    ),
+                    textButtonTheme: TextButtonThemeData(
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFE11D48),
+                      ),
+                    ),
+                  ),
+                  child: child!,
+                );
+              },
+            );
+
+            if (picked != null) {
+              setDialogState(() {
+                validationOrConflictError = null;
+                if (_timeFormat == '12') {
+                  final int h12 = picked.hourOfPeriod == 0 ? 12 : picked.hourOfPeriod;
+                  final String formatted = '${h12.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                  final String period = picked.period == DayPeriod.am ? 'AM' : 'PM';
+                  if (isStart) {
+                    startCtrl.text = formatted;
+                    startPeriod = period;
+                  } else {
+                    endCtrl.text = formatted;
+                    endPeriod = period;
+                  }
+                } else {
+                  final String formatted = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                  if (isStart) {
+                    startCtrl.text = formatted;
+                  } else {
+                    endCtrl.text = formatted;
+                  }
+                }
+              });
+            }
+          }
 
           return Dialog(
             backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Container(
-              width: 800,
-              constraints: const BoxConstraints(maxHeight: 620),
+              width: 980,
+              constraints: const BoxConstraints(maxWidth: 1040, maxHeight: 650),
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2468,8 +2641,9 @@ class _AppointmentViewState extends State<AppointmentView> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // LEFT: Staff, Customer, Date, Time
+                        // LEFT: Staff, Customer, Date, Time (flex: 12 for ample field width)
                         Expanded(
+                          flex: 12,
                           child: SingleChildScrollView(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2484,7 +2658,18 @@ class _AppointmentViewState extends State<AppointmentView> {
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                   ),
-                                  items: _staffList.map((s) => DropdownMenuItem(value: s, child: Text('${s.name} (${s.role})', style: const TextStyle(fontSize: 13)))).toList(),
+                                  items: _staffList.map((s) => DropdownMenuItem(
+                                    value: s,
+                                    child: Row(
+                                      children: [
+                                        StaffAvatar(staff: s, radius: 11, fontSize: 10),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text('${s.name} (${s.role})', style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
+                                        ),
+                                      ],
+                                    ),
+                                  )).toList(),
                                   onChanged: (v) => setDialogState(() {
                                     selStaff = v;
                                     validationOrConflictError = null;
@@ -2503,12 +2688,19 @@ class _AppointmentViewState extends State<AppointmentView> {
                                         Switch(
                                           value: isWalkIn,
                                           activeThumbColor: const Color(0xFFE11D48),
-                                          onChanged: (v) => setDialogState(() => isWalkIn = v),
+                                          onChanged: (v) {
+                                            setDialogState(() {
+                                              isWalkIn = v;
+                                              showCustomerDropdown = false;
+                                              validationOrConflictError = null;
+                                            });
+                                          },
                                         ),
                                       ],
                                     ),
                                   ],
                                 ),
+                                const SizedBox(height: 6),
                                 if (isWalkIn) ...[
                                   TextField(
                                     controller: walkInNameCtrl,
@@ -2516,6 +2708,7 @@ class _AppointmentViewState extends State<AppointmentView> {
                                       labelText: 'Walk-in Name',
                                       filled: true, fillColor: const Color(0xFFF1F5F9),
                                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                     ),
                                     style: const TextStyle(fontSize: 13),
                                   ),
@@ -2526,21 +2719,199 @@ class _AppointmentViewState extends State<AppointmentView> {
                                       labelText: 'Phone Number',
                                       filled: true, fillColor: const Color(0xFFF1F5F9),
                                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                     ),
                                     style: const TextStyle(fontSize: 13),
                                   ),
                                 ] else ...[
-                                  DropdownButtonFormField<CustomerModel>(
-                                    initialValue: selCustomer,
-                                    isExpanded: true,
+                                  // API-based Customer Search Field
+                                  TextField(
+                                    controller: customerSearchCtrl,
+                                    onChanged: onCustomerSearchChanged,
+                                    onTap: () {
+                                      if (customerSearchCtrl.text.trim().isNotEmpty && searchCustomers.isNotEmpty) {
+                                        setDialogState(() => showCustomerDropdown = true);
+                                      }
+                                    },
+                                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
                                     decoration: InputDecoration(
-                                      filled: true, fillColor: const Color(0xFFF1F5F9),
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                      hintText: 'Search customer by name...',
+                                      hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
+                                      filled: true,
+                                      fillColor: const Color(0xFFF1F5F9),
+                                      prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF64748B)),
+                                      suffixIcon: isSearchingCustomers
+                                          ? const Padding(
+                                              padding: EdgeInsets.all(12),
+                                              child: SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFE11D48)),
+                                              ),
+                                            )
+                                          : (customerSearchCtrl.text.isNotEmpty || selCustomer != null
+                                              ? IconButton(
+                                                  icon: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
+                                                  onPressed: clearSelectedCustomer,
+                                                )
+                                              : null),
                                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: const BorderSide(color: Color(0xFFE11D48), width: 1.5),
+                                      ),
                                     ),
-                                    items: _customers.map((c) => DropdownMenuItem(value: c, child: Text(c.name, style: const TextStyle(fontSize: 13)))).toList(),
-                                    onChanged: (v) => setDialogState(() => selCustomer = v),
                                   ),
+                                  // Scrollable Dropdown for Customer Search Results (Max 5 items visible at a time)
+                                  if (showCustomerDropdown && customerSearchCtrl.text.trim().isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      constraints: const BoxConstraints(maxHeight: 220),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.08),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: isSearchingCustomers && searchCustomers.isEmpty
+                                            ? Container(
+                                                padding: const EdgeInsets.symmetric(vertical: 20),
+                                                alignment: Alignment.center,
+                                                child: Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    const SizedBox(
+                                                      width: 16,
+                                                      height: 16,
+                                                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFE11D48)),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Text(
+                                                      'Searching customers...',
+                                                      style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B)),
+                                                    ),
+                                                  ],
+                                                ),
+                                              )
+                                            : searchCustomers.isEmpty
+                                                ? Container(
+                                                    padding: const EdgeInsets.all(14),
+                                                    alignment: Alignment.center,
+                                                    child: Text(
+                                                      'No customers found matching "${customerSearchCtrl.text.trim()}"',
+                                                      style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B)),
+                                                    ),
+                                                  )
+                                                : Scrollbar(
+                                                    thumbVisibility: searchCustomers.length > 5,
+                                                    child: ListView.separated(
+                                                      shrinkWrap: true,
+                                                      padding: EdgeInsets.zero,
+                                                      itemCount: searchCustomers.length,
+                                                      separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                                                      itemBuilder: (context, index) {
+                                                        final cust = searchCustomers[index];
+                                                        final isSel = selCustomer?.id == cust.id;
+                                                        return InkWell(
+                                                          onTap: () => selectCustomer(cust),
+                                                          child: Container(
+                                                            height: 44,
+                                                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                                                            color: isSel ? const Color(0xFFFFF1F2) : Colors.transparent,
+                                                            child: Row(
+                                                              children: [
+                                                                CircleAvatar(
+                                                                  radius: 13,
+                                                                  backgroundColor: isSel ? const Color(0xFFE11D48) : const Color(0xFFE2E8F0),
+                                                                  child: Text(
+                                                                    cust.name.isNotEmpty ? cust.name[0].toUpperCase() : 'C',
+                                                                    style: GoogleFonts.inter(
+                                                                      fontSize: 11,
+                                                                      fontWeight: FontWeight.bold,
+                                                                      color: isSel ? Colors.white : const Color(0xFF334155),
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(width: 10),
+                                                                Expanded(
+                                                                  child: Column(
+                                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                                    children: [
+                                                                      Text(
+                                                                        cust.name,
+                                                                        style: GoogleFonts.inter(
+                                                                          fontSize: 12.5,
+                                                                          fontWeight: FontWeight.w600,
+                                                                          color: const Color(0xFF0F172A),
+                                                                        ),
+                                                                        overflow: TextOverflow.ellipsis,
+                                                                      ),
+                                                                      if (cust.phone.isNotEmpty)
+                                                                        Text(
+                                                                          cust.phone,
+                                                                          style: GoogleFonts.inter(
+                                                                            fontSize: 11,
+                                                                            color: const Color(0xFF64748B),
+                                                                          ),
+                                                                          overflow: TextOverflow.ellipsis,
+                                                                        ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                                if (isSel)
+                                                                  const Icon(Icons.check, size: 16, color: Color(0xFFE11D48)),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                      ),
+                                    ),
+                                  ],
+                                  // Selected Customer confirmation badge
+                                  if (selCustomer != null && !showCustomerDropdown) ...[
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF0FDF4),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.check_circle, size: 16, color: Color(0xFF16A34A)),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              'Selected: ${selCustomer!.name}${selCustomer!.phone.isNotEmpty ? ' (${selCustomer!.phone})' : ''}',
+                                              style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFF15803D)),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          InkWell(
+                                            onTap: clearSelectedCustomer,
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(2),
+                                              child: Icon(Icons.close, size: 14, color: Color(0xFF15803D)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ],
                                 const SizedBox(height: 16),
 
@@ -2579,7 +2950,7 @@ class _AppointmentViewState extends State<AppointmentView> {
                                 ),
                                 const SizedBox(height: 16),
 
-                                // Start & End Time (12-hour AM/PM Dropdown vs 24-hour direct input)
+                                // Start & End Time (Neat red clock icon on left side - select time clock instead of typing)
                                 Row(
                                   children: [
                                     // START TIME
@@ -2598,73 +2969,211 @@ class _AppointmentViewState extends State<AppointmentView> {
                                             ],
                                           ),
                                           const SizedBox(height: 6),
-                                          if (_timeFormat == '12')
-                                            Container(
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFF1F5F9),
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(color: Colors.grey.shade300),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: TextFormField(
-                                                      controller: startCtrl,
-                                                      decoration: const InputDecoration(
-                                                        border: InputBorder.none,
-                                                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                                        hintText: 'hh:mm',
-                                                        isDense: true,
+                                          Container(
+                                            height: 44,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF8FAFC),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: Colors.grey.shade300),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                            child: Row(
+                                              children: [
+                                                // Neat Red Clock Icon on the left side of the time
+                                                Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    onTap: () => pickTime(isStart: true),
+                                                    child: Container(
+                                                      width: 34,
+                                                      height: 34,
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFFFEE2E2),
+                                                        borderRadius: BorderRadius.circular(6),
                                                       ),
-                                                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                                                      onChanged: (_) => setDialogState(() => validationOrConflictError = null),
+                                                      child: const Center(
+                                                        child: Icon(
+                                                          Icons.access_time_filled,
+                                                          color: Color(0xFFE11D48),
+                                                          size: 18,
+                                                        ),
+                                                      ),
                                                     ),
                                                   ),
-                                                  Container(
-                                                    height: 24,
-                                                    width: 1,
-                                                    color: Colors.grey.shade300,
+                                                ),
+                                                const SizedBox(width: 10),
+                                                // Click to select time on clock instead of typing
+                                                Expanded(
+                                                  child: InkWell(
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    onTap: () => pickTime(isStart: true),
+                                                    child: Container(
+                                                      height: 34,
+                                                      alignment: Alignment.centerLeft,
+                                                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                      child: Text(
+                                                        startCtrl.text.isNotEmpty ? startCtrl.text : 'Select time',
+                                                        style: GoogleFonts.inter(
+                                                          fontSize: 14,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: startCtrl.text.isNotEmpty ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+                                                          letterSpacing: 0.5,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
                                                   ),
-                                                  Padding(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                                                    child: DropdownButtonHideUnderline(
-                                                      child: DropdownButton<String>(
-                                                        value: startPeriod,
-                                                        isDense: true,
-                                                        icon: const Icon(Icons.arrow_drop_down, size: 20, color: Color(0xFF475569)),
-                                                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
-                                                        items: const [
-                                                          DropdownMenuItem(value: 'AM', child: Text('AM')),
-                                                          DropdownMenuItem(value: 'PM', child: Text('PM')),
-                                                        ],
-                                                        onChanged: (val) {
-                                                          if (val != null) {
-                                                            setDialogState(() {
-                                                              startPeriod = val;
-                                                              validationOrConflictError = null;
-                                                            });
-                                                          }
-                                                        },
+                                                ),
+                                                if (_timeFormat == '12') ...[
+                                                  const SizedBox(width: 8),
+                                                  Container(width: 1, height: 22, color: const Color(0xFFCBD5E1)),
+                                                  const SizedBox(width: 8),
+                                                  Theme(
+                                                    data: Theme.of(context).copyWith(
+                                                      popupMenuTheme: PopupMenuThemeData(
+                                                        color: Colors.white,
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(10),
+                                                          side: BorderSide(color: Colors.grey.shade200),
+                                                        ),
+                                                        elevation: 8,
+                                                      ),
+                                                    ),
+                                                    child: PopupMenuButton<String>(
+                                                      tooltip: 'Select AM or PM',
+                                                      offset: const Offset(0, 38),
+                                                      padding: EdgeInsets.zero,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(10),
+                                                        side: BorderSide(color: Colors.grey.shade200),
+                                                      ),
+                                                      elevation: 8,
+                                                      onSelected: (val) {
+                                                        setDialogState(() {
+                                                          startPeriod = val;
+                                                          validationOrConflictError = null;
+                                                        });
+                                                      },
+                                                      itemBuilder: (context) => [
+                                                        PopupMenuItem<String>(
+                                                          value: 'AM',
+                                                          height: 38,
+                                                          child: Row(
+                                                            children: [
+                                                              Container(
+                                                                width: 26,
+                                                                height: 26,
+                                                                decoration: BoxDecoration(
+                                                                  color: startPeriod == 'AM'
+                                                                      ? const Color(0xFFE11D48).withValues(alpha: 0.1)
+                                                                      : const Color(0xFFF1F5F9),
+                                                                  borderRadius: BorderRadius.circular(6),
+                                                                ),
+                                                                child: Center(
+                                                                  child: Icon(
+                                                                    Icons.wb_sunny_rounded,
+                                                                    size: 14,
+                                                                    color: startPeriod == 'AM'
+                                                                        ? const Color(0xFFE11D48)
+                                                                        : const Color(0xFF64748B),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(width: 10),
+                                                              Text(
+                                                                'AM',
+                                                                style: GoogleFonts.inter(
+                                                                  fontSize: 13,
+                                                                  fontWeight: startPeriod == 'AM' ? FontWeight.w700 : FontWeight.w500,
+                                                                  color: startPeriod == 'AM' ? const Color(0xFFE11D48) : const Color(0xFF1E293B),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(width: 16),
+                                                              if (startPeriod == 'AM')
+                                                                const Icon(Icons.check_rounded, size: 16, color: Color(0xFFE11D48)),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        PopupMenuItem<String>(
+                                                          value: 'PM',
+                                                          height: 38,
+                                                          child: Row(
+                                                            children: [
+                                                              Container(
+                                                                width: 26,
+                                                                height: 26,
+                                                                decoration: BoxDecoration(
+                                                                  color: startPeriod == 'PM'
+                                                                      ? const Color(0xFFE11D48).withValues(alpha: 0.1)
+                                                                      : const Color(0xFFF1F5F9),
+                                                                  borderRadius: BorderRadius.circular(6),
+                                                                ),
+                                                                child: Center(
+                                                                  child: Icon(
+                                                                    Icons.nightlight_round,
+                                                                    size: 14,
+                                                                    color: startPeriod == 'PM'
+                                                                        ? const Color(0xFFE11D48)
+                                                                        : const Color(0xFF64748B),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(width: 10),
+                                                              Text(
+                                                                'PM',
+                                                                style: GoogleFonts.inter(
+                                                                  fontSize: 13,
+                                                                  fontWeight: startPeriod == 'PM' ? FontWeight.w700 : FontWeight.w500,
+                                                                  color: startPeriod == 'PM' ? const Color(0xFFE11D48) : const Color(0xFF1E293B),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(width: 16),
+                                                              if (startPeriod == 'PM')
+                                                                const Icon(Icons.check_rounded, size: 16, color: Color(0xFFE11D48)),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ],
+                                                      child: Container(
+                                                        height: 34,
+                                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.white,
+                                                          borderRadius: BorderRadius.circular(6),
+                                                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: Colors.black.withValues(alpha: 0.04),
+                                                              blurRadius: 2,
+                                                              offset: const Offset(0, 1),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Text(
+                                                              startPeriod,
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 12.5,
+                                                                fontWeight: FontWeight.w700,
+                                                                color: const Color(0xFF0F172A),
+                                                                letterSpacing: 0.5,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(width: 4),
+                                                            const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF64748B)),
+                                                          ],
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
                                                 ],
-                                              ),
-                                            )
-                                          else
-                                            TextFormField(
-                                              controller: startCtrl,
-                                              decoration: InputDecoration(
-                                                filled: true,
-                                                fillColor: const Color(0xFFF1F5F9),
-                                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-                                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                                hintText: 'HH:mm (e.g. 14:30)',
-                                                isDense: true,
-                                              ),
-                                              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                                              onChanged: (_) => setDialogState(() => validationOrConflictError = null),
+                                              ],
                                             ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -2685,73 +3194,211 @@ class _AppointmentViewState extends State<AppointmentView> {
                                             ],
                                           ),
                                           const SizedBox(height: 6),
-                                          if (_timeFormat == '12')
-                                            Container(
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFF1F5F9),
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(color: Colors.grey.shade300),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: TextFormField(
-                                                      controller: endCtrl,
-                                                      decoration: const InputDecoration(
-                                                        border: InputBorder.none,
-                                                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                                        hintText: 'hh:mm',
-                                                        isDense: true,
+                                          Container(
+                                            height: 44,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF8FAFC),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: Colors.grey.shade300),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                            child: Row(
+                                              children: [
+                                                // Neat Red Clock Icon on the left side of the time
+                                                Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    onTap: () => pickTime(isStart: false),
+                                                    child: Container(
+                                                      width: 34,
+                                                      height: 34,
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFFFEE2E2),
+                                                        borderRadius: BorderRadius.circular(6),
                                                       ),
-                                                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                                                      onChanged: (_) => setDialogState(() => validationOrConflictError = null),
+                                                      child: const Center(
+                                                        child: Icon(
+                                                          Icons.access_time_filled,
+                                                          color: Color(0xFFE11D48),
+                                                          size: 18,
+                                                        ),
+                                                      ),
                                                     ),
                                                   ),
-                                                  Container(
-                                                    height: 24,
-                                                    width: 1,
-                                                    color: Colors.grey.shade300,
+                                                ),
+                                                const SizedBox(width: 10),
+                                                // Click to select time on clock instead of typing
+                                                Expanded(
+                                                  child: InkWell(
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    onTap: () => pickTime(isStart: false),
+                                                    child: Container(
+                                                      height: 34,
+                                                      alignment: Alignment.centerLeft,
+                                                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                      child: Text(
+                                                        endCtrl.text.isNotEmpty ? endCtrl.text : 'Select time',
+                                                        style: GoogleFonts.inter(
+                                                          fontSize: 14,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: endCtrl.text.isNotEmpty ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+                                                          letterSpacing: 0.5,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
                                                   ),
-                                                  Padding(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                                                    child: DropdownButtonHideUnderline(
-                                                      child: DropdownButton<String>(
-                                                        value: endPeriod,
-                                                        isDense: true,
-                                                        icon: const Icon(Icons.arrow_drop_down, size: 20, color: Color(0xFF475569)),
-                                                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
-                                                        items: const [
-                                                          DropdownMenuItem(value: 'AM', child: Text('AM')),
-                                                          DropdownMenuItem(value: 'PM', child: Text('PM')),
-                                                        ],
-                                                        onChanged: (val) {
-                                                          if (val != null) {
-                                                            setDialogState(() {
-                                                              endPeriod = val;
-                                                              validationOrConflictError = null;
-                                                            });
-                                                          }
-                                                        },
+                                                ),
+                                                if (_timeFormat == '12') ...[
+                                                  const SizedBox(width: 8),
+                                                  Container(width: 1, height: 22, color: const Color(0xFFCBD5E1)),
+                                                  const SizedBox(width: 8),
+                                                  Theme(
+                                                    data: Theme.of(context).copyWith(
+                                                      popupMenuTheme: PopupMenuThemeData(
+                                                        color: Colors.white,
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(10),
+                                                          side: BorderSide(color: Colors.grey.shade200),
+                                                        ),
+                                                        elevation: 8,
+                                                      ),
+                                                    ),
+                                                    child: PopupMenuButton<String>(
+                                                      tooltip: 'Select AM or PM',
+                                                      offset: const Offset(0, 38),
+                                                      padding: EdgeInsets.zero,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(10),
+                                                        side: BorderSide(color: Colors.grey.shade200),
+                                                      ),
+                                                      elevation: 8,
+                                                      onSelected: (val) {
+                                                        setDialogState(() {
+                                                          endPeriod = val;
+                                                          validationOrConflictError = null;
+                                                        });
+                                                      },
+                                                      itemBuilder: (context) => [
+                                                        PopupMenuItem<String>(
+                                                          value: 'AM',
+                                                          height: 38,
+                                                          child: Row(
+                                                            children: [
+                                                              Container(
+                                                                width: 26,
+                                                                height: 26,
+                                                                decoration: BoxDecoration(
+                                                                  color: endPeriod == 'AM'
+                                                                      ? const Color(0xFFE11D48).withValues(alpha: 0.1)
+                                                                      : const Color(0xFFF1F5F9),
+                                                                  borderRadius: BorderRadius.circular(6),
+                                                                ),
+                                                                child: Center(
+                                                                  child: Icon(
+                                                                    Icons.wb_sunny_rounded,
+                                                                    size: 14,
+                                                                    color: endPeriod == 'AM'
+                                                                        ? const Color(0xFFE11D48)
+                                                                        : const Color(0xFF64748B),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(width: 10),
+                                                              Text(
+                                                                'AM',
+                                                                style: GoogleFonts.inter(
+                                                                  fontSize: 13,
+                                                                  fontWeight: endPeriod == 'AM' ? FontWeight.w700 : FontWeight.w500,
+                                                                  color: endPeriod == 'AM' ? const Color(0xFFE11D48) : const Color(0xFF1E293B),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(width: 16),
+                                                              if (endPeriod == 'AM')
+                                                                const Icon(Icons.check_rounded, size: 16, color: Color(0xFFE11D48)),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        PopupMenuItem<String>(
+                                                          value: 'PM',
+                                                          height: 38,
+                                                          child: Row(
+                                                            children: [
+                                                              Container(
+                                                                width: 26,
+                                                                height: 26,
+                                                                decoration: BoxDecoration(
+                                                                  color: endPeriod == 'PM'
+                                                                      ? const Color(0xFFE11D48).withValues(alpha: 0.1)
+                                                                      : const Color(0xFFF1F5F9),
+                                                                  borderRadius: BorderRadius.circular(6),
+                                                                ),
+                                                                child: Center(
+                                                                  child: Icon(
+                                                                    Icons.nightlight_round,
+                                                                    size: 14,
+                                                                    color: endPeriod == 'PM'
+                                                                        ? const Color(0xFFE11D48)
+                                                                        : const Color(0xFF64748B),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(width: 10),
+                                                              Text(
+                                                                'PM',
+                                                                style: GoogleFonts.inter(
+                                                                  fontSize: 13,
+                                                                  fontWeight: endPeriod == 'PM' ? FontWeight.w700 : FontWeight.w500,
+                                                                  color: endPeriod == 'PM' ? const Color(0xFFE11D48) : const Color(0xFF1E293B),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(width: 16),
+                                                              if (endPeriod == 'PM')
+                                                                const Icon(Icons.check_rounded, size: 16, color: Color(0xFFE11D48)),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ],
+                                                      child: Container(
+                                                        height: 34,
+                                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.white,
+                                                          borderRadius: BorderRadius.circular(6),
+                                                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: Colors.black.withValues(alpha: 0.04),
+                                                              blurRadius: 2,
+                                                              offset: const Offset(0, 1),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Text(
+                                                              endPeriod,
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 12.5,
+                                                                fontWeight: FontWeight.w700,
+                                                                color: const Color(0xFF0F172A),
+                                                                letterSpacing: 0.5,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(width: 4),
+                                                            const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF64748B)),
+                                                          ],
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
                                                 ],
-                                              ),
-                                            )
-                                          else
-                                            TextFormField(
-                                              controller: endCtrl,
-                                              decoration: InputDecoration(
-                                                filled: true,
-                                                fillColor: const Color(0xFFF1F5F9),
-                                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-                                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                                hintText: 'HH:mm (e.g. 15:00)',
-                                                isDense: true,
-                                              ),
-                                              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                                              onChanged: (_) => setDialogState(() => validationOrConflictError = null),
+                                              ],
                                             ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -2778,18 +3425,36 @@ class _AppointmentViewState extends State<AppointmentView> {
 
                         // RIGHT: Categories + Products
                         Expanded(
+                          flex: 11,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text('Category', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
                               const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  _buildCategoryChip('All', selectedCategoryId == null, () => setDialogState(() => selectedCategoryId = null)),
-                                  ..._categories.map((c) => _buildCategoryChip(c.name, selectedCategoryId == c.id, () => setDialogState(() => selectedCategoryId = c.id))),
-                                ],
+                              Container(
+                                constraints: const BoxConstraints(maxHeight: 110),
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade200),
+                                ),
+                                child: Scrollbar(
+                                  controller: categoryScrollCtrl,
+                                  thumbVisibility: true,
+                                  child: SingleChildScrollView(
+                                    controller: categoryScrollCtrl,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                    child: Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: [
+                                        _buildCategoryChip('All', selectedCategoryId == null, () => setDialogState(() => selectedCategoryId = null)),
+                                        ...allowedCategories.map((c) => _buildCategoryChip(c.name, selectedCategoryId == c.id, () => setDialogState(() => selectedCategoryId = c.id))),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
                               const SizedBox(height: 12),
                               Text('Products & Services', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -2881,6 +3546,16 @@ class _AppointmentViewState extends State<AppointmentView> {
                             return;
                           }
 
+                          if (!isWalkIn && selCustomer == null) {
+                            setDialogState(() => validationOrConflictError = 'Please search and select a customer, or switch to Walk-in.');
+                            return;
+                          }
+
+                          if (isWalkIn && walkInNameCtrl.text.trim().isEmpty) {
+                            setDialogState(() => validationOrConflictError = 'Please enter a name for the walk-in customer.');
+                            return;
+                          }
+
                           final rawStartInput = startCtrl.text.trim();
                           final rawEndInput = endCtrl.text.trim();
 
@@ -2966,8 +3641,8 @@ class _AppointmentViewState extends State<AppointmentView> {
                             return;
                           }
 
-                          final custName = isWalkIn ? walkInNameCtrl.text : (selCustomer?.name ?? 'Walk-in');
-                          final custPhone = isWalkIn ? walkInPhoneCtrl.text : (selCustomer?.phone ?? '');
+                          final custName = isWalkIn ? walkInNameCtrl.text.trim() : (selCustomer?.name ?? '');
+                          final custPhone = isWalkIn ? walkInPhoneCtrl.text.trim() : (selCustomer?.phone ?? '');
 
                           final result = await ApiService.createAppointment({
                             'staff_id': selStaff!.id,
@@ -3018,7 +3693,15 @@ class _AppointmentViewState extends State<AppointmentView> {
           );
         },
       ),
-    );
+    ).then((_) {
+      categoryScrollCtrl.dispose();
+      customerSearchDebounce?.cancel();
+      customerSearchCtrl.dispose();
+      walkInNameCtrl.dispose();
+      walkInPhoneCtrl.dispose();
+      startCtrl.dispose();
+      endCtrl.dispose();
+    });
   }
 
   Widget _buildCategoryChip(String label, bool isSelected, VoidCallback onTap) {
@@ -3054,12 +3737,13 @@ class _AppointmentViewState extends State<AppointmentView> {
     );
     final List<ProductModel> products = [];
     for (final s in appt.services) {
-      final pid = s['product_id'] as int?;
+      final pid = int.tryParse(s['product_id']?.toString() ?? s['id']?.toString() ?? '');
       final price = (s['price'] as num?)?.toDouble() ?? 0.0;
-      final name = s['name']?.toString() ?? 'Service';
-      final existing = pid != null ? _products.where((p) => p.id == pid).firstOrNull : null;
+      final name = s['name']?.toString() ?? s['product_name']?.toString() ?? 'Service';
+      final existing = _products.where((p) => (pid != null && p.id == pid) || p.name.trim().toLowerCase() == name.trim().toLowerCase()).firstOrNull;
+      final ProductModel prodToAdd;
       if (existing != null) {
-        products.add(ProductModel(
+        prodToAdd = ProductModel(
           id: existing.id,
           businessId: existing.businessId,
           categoryId: existing.categoryId,
@@ -3072,14 +3756,18 @@ class _AppointmentViewState extends State<AppointmentView> {
           comboItems: existing.comboItems,
           isActive: existing.isActive,
           createdAt: existing.createdAt,
-        ));
+        );
       } else {
-        products.add(ProductModel(
+        prodToAdd = ProductModel(
           id: pid ?? (math.Random().nextInt(900000) + 10000),
           businessId: appt.businessId,
           name: name,
           price: price,
-        ));
+        );
+      }
+      final qty = (s['quantity'] as num?)?.toInt() ?? 1;
+      for (int i = 0; i < (qty > 0 ? qty : 1); i++) {
+        products.add(prodToAdd);
       }
     }
     widget.onStartService!(customer, products, appointment: appt);
@@ -3179,7 +3867,11 @@ class _AppointmentViewState extends State<AppointmentView> {
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Container(
-            width: 440,
+            width: 485,
+            constraints: BoxConstraints(
+              maxWidth: 485,
+              maxHeight: MediaQuery.of(ctx).size.height * 0.88,
+            ),
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -3195,106 +3887,204 @@ class _AppointmentViewState extends State<AppointmentView> {
                 ),
                 const Divider(),
                 const SizedBox(height: 8),
-                // Details
-                _detailRow(Icons.person, 'Customer', appt.customerName),
-                _detailRow(Icons.phone, 'Phone', appt.customerPhone),
-                _detailRow(Icons.badge, 'Staff', appt.staffName),
-                _detailRow(Icons.calendar_today, 'Date', appt.appointmentDate),
-                _detailRow(Icons.schedule, 'Time', _formatApptTimeRange(appt)),
-                _detailRow(Icons.info_outline, 'Status', appt.statusLabel),
-                if (appt.services.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text('Services:', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
-                  ...appt.services.map((s) => Padding(
-                    padding: const EdgeInsets.only(left: 8, top: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('• ${s['name'] ?? ''}', style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade700)),
-                        if (s['price'] != null) Text('\$${(s['price'] as num).toStringAsFixed(2)}', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  )),
-                ],
-                if (appt.totalAmount > 0) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Total Amount:', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700)),
-                      Text('\$${appt.totalAmount.toStringAsFixed(2)}', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w800, color: const Color(0xFFE11D48))),
-                    ],
-                  ),
-                ],
-
-                // Non-destructive Layering Notice (Phase 9)
-                if (underlyingInactive != null) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.layers_outlined, size: 16, color: Color(0xFF64748B)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Slot Layering: Booked over previously ${underlyingInactive.statusLabel.toLowerCase()} slot (${underlyingInactive.customerName} - ${underlyingInactive.timeRange}). The cancelled record remains safely preserved in DB.',
-                            style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF475569)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                // Duration Extension Section (Phase 9)
-                if (appt.status == 'booked' || appt.status == 'in_service') ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
+                // Scrollable Body (Ensures content stays completely inside popup)
+                Flexible(
+                  child: SingleChildScrollView(
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
+                        // Details
+                        _detailRow(Icons.person, 'Customer', appt.customerName),
+                        _detailRow(Icons.phone, 'Phone', appt.customerPhone),
+                        _detailRow(Icons.badge, 'Staff', appt.staffName),
+                        _detailRow(Icons.calendar_today, 'Date', appt.appointmentDate),
+                        _detailRow(Icons.schedule, 'Time', _formatApptTimeRange(appt)),
+                        _detailRow(Icons.info_outline, 'Status', appt.statusLabel),
+                        // Services section: Fixed height displaying up to 4 services with internal scrollbar
+                        if (appt.services.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Services (${appt.services.length}):',
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                              ),
+                              if (appt.services.length > 4)
+                                Text(
+                                  'Scroll to view all',
+                                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B), fontStyle: FontStyle.italic),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            height: appt.services.length >= 4 ? 140 : null,
+                            constraints: const BoxConstraints(maxHeight: 140),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Scrollbar(
+                              thumbVisibility: appt.services.length > 4,
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                itemCount: appt.services.length,
+                                separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey.shade200),
+                                itemBuilder: (ctx, idx) {
+                                  final s = appt.services[idx];
+                                  final sName = (s['name'] ?? s['product_name'] ?? 'Service').toString();
+                                  final sPrice = s['price'] != null ? (s['price'] as num).toDouble() : null;
+                                  return Container(
+                                    height: 32,
+                                    alignment: Alignment.center,
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 5,
+                                          height: 5,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFFE11D48),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            sName,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w500,
+                                              color: const Color(0xFF334155),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (sPrice != null)
+                                          Text(
+                                            '\$${sPrice.toStringAsFixed(2)}',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: const Color(0xFF0F172A),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (appt.totalAmount > 0) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF1F2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFFECDD3)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Icon(Icons.more_time, size: 16, color: Color(0xFFE11D48)),
-                                const SizedBox(width: 6),
-                                Text('Extend Duration', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                                Text(
+                                  'Total Amount:',
+                                  style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w700, color: const Color(0xFF9F1239)),
+                                ),
+                                Text(
+                                  '\$${appt.totalAmount.toStringAsFixed(2)}',
+                                  style: GoogleFonts.inter(fontSize: 14.5, fontWeight: FontWeight.w800, color: const Color(0xFFE11D48)),
+                                ),
                               ],
                             ),
-                            Text('${appt.endMinutes - appt.startMinutes}m currently', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: [
-                            _extendDurationBtn(ctx, appt, 15),
-                            _extendDurationBtn(ctx, appt, 30),
-                            _extendDurationBtn(ctx, appt, 45),
-                            _extendDurationBtn(ctx, appt, 60),
-                            _customExtendDurationBtn(ctx, appt),
-                          ],
-                        ),
+                          ),
+                        ],
+
+                        // Non-destructive Layering Notice (Phase 9)
+                        if (underlyingInactive != null) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.layers_outlined, size: 16, color: Color(0xFF64748B)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Slot Layering: Booked over previously ${underlyingInactive.statusLabel.toLowerCase()} slot (${underlyingInactive.customerName} - ${underlyingInactive.timeRange}). The cancelled record remains safely preserved in DB.',
+                                    style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF475569)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        // Duration Extension Section (Phase 9)
+                        if (appt.status == 'booked' || appt.status == 'in_service') ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.more_time, size: 16, color: Color(0xFFE11D48)),
+                                        const SizedBox(width: 6),
+                                        Text('Extend Duration', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                                      ],
+                                    ),
+                                    Text('${appt.endMinutes - appt.startMinutes}m currently', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                // Preset increment options
+                                Center(
+                                  child: Wrap(
+                                    alignment: WrapAlignment.center,
+                                    spacing: 8,
+                                    runSpacing: 6,
+                                    children: [
+                                      _extendDurationBtn(ctx, appt, 15),
+                                      _extendDurationBtn(ctx, appt, 30),
+                                      _extendDurationBtn(ctx, appt, 45),
+                                      _extendDurationBtn(ctx, appt, 60),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                // Horizontally centered Custom button
+                                Center(
+                                  child: _customExtendDurationBtn(ctx, appt),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                ],
-
+                ),
                 const SizedBox(height: 16),
                 const Divider(),
                 const SizedBox(height: 8),
@@ -3429,50 +4219,69 @@ class _AppointmentViewState extends State<AppointmentView> {
     );
   }
 
-  // Custom time extension button
+  // Custom time extension button (Light blue background, blue border, black text, clean card appearance)
   Widget _customExtendDurationBtn(BuildContext dialogCtx, AppointmentModel appt) {
-    return InkWell(
-      onTap: () async {
-        final initialH = (appt.endMinutes ~/ 60) % 24;
-        final initialM = appt.endMinutes % 60;
-        final picked = await showTimePicker(
-          context: context,
-          initialTime: TimeOfDay(hour: initialH, minute: initialM),
-        );
-        if (picked != null) {
-          final newEndMinutes = picked.hour * 60 + picked.minute;
-          final addM = newEndMinutes - appt.endMinutes;
-          if (addM <= 0) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('New end time must be after current end time.'),
-                  backgroundColor: Color(0xFFE11D48),
-                ),
-              );
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () async {
+          final initialH = (appt.endMinutes ~/ 60) % 24;
+          final initialM = appt.endMinutes % 60;
+          final picked = await showTimePicker(
+            context: context,
+            initialTime: TimeOfDay(hour: initialH, minute: initialM),
+          );
+          if (picked != null) {
+            final newEndMinutes = picked.hour * 60 + picked.minute;
+            final addM = newEndMinutes - appt.endMinutes;
+            if (addM <= 0) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('New end time must be after current end time.'),
+                    backgroundColor: Color(0xFFE11D48),
+                  ),
+                );
+              }
+              return;
             }
-            return;
+            if (dialogCtx.mounted) {
+              await _handleExtendAppointment(dialogCtx, appt, addM);
+            }
           }
-          if (dialogCtx.mounted) {
-            await _handleExtendAppointment(dialogCtx, appt, addM);
-          }
-        }
-      },
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.schedule, size: 12, color: Color(0xFF64748B)),
-            const SizedBox(width: 4),
-            Text('Custom...', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
-          ],
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8.5),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF6FF), // Light blue background
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF2563EB), width: 1.5), // Blue border
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                blurRadius: 4,
+                offset: const Offset(0, 1.5),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.schedule, size: 14, color: Color(0xFF2563EB)),
+              const SizedBox(width: 8),
+              Text(
+                'Custom Duration',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black, // Black text
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3618,7 +4427,18 @@ class _AppointmentViewState extends State<AppointmentView> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
-                    items: _staffList.map((s) => DropdownMenuItem(value: s, child: Text('${s.name} (${s.role})', style: GoogleFonts.inter(fontSize: 13)))).toList(),
+                    items: _staffList.map((s) => DropdownMenuItem(
+                      value: s,
+                      child: Row(
+                        children: [
+                          StaffAvatar(staff: s, radius: 11, fontSize: 10),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text('${s.name} (${s.role})', style: GoogleFonts.inter(fontSize: 13), overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
+                    )).toList(),
                     onChanged: (v) {
                       if (v != null) setModalState(() { targetStaff = v; errorMessage = null; });
                     },
@@ -3681,8 +4501,8 @@ class _AppointmentViewState extends State<AppointmentView> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                 hintText: 'e.g. 11:43',
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.schedule, size: 18, color: Color(0xFF64748B)),
+                                prefixIcon: IconButton(
+                                  icon: const Icon(Icons.access_time_filled, size: 18, color: Color(0xFFE11D48)),
                                   onPressed: () async {
                                     final t = await showTimePicker(
                                       context: context,
@@ -3716,8 +4536,8 @@ class _AppointmentViewState extends State<AppointmentView> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                 hintText: 'e.g. 12:57',
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.schedule, size: 18, color: Color(0xFF64748B)),
+                                prefixIcon: IconButton(
+                                  icon: const Icon(Icons.access_time_filled, size: 18, color: Color(0xFFE11D48)),
                                   onPressed: () async {
                                     final t = await showTimePicker(
                                       context: context,

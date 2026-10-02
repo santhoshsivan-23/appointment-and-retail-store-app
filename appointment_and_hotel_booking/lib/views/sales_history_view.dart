@@ -13,15 +13,28 @@ class SalesHistoryView extends StatefulWidget {
 
 class _SalesHistoryViewState extends State<SalesHistoryView> {
   List<SaleModel> _allSales = [];
+  List<SaleModel> _baselineSales = [];
   bool _isLoading = true;
-  String _searchQuery = '';
-  // Filter: 'all', 'cart_only' (normal orders from cart), 'appointment_only'
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _activeSearchQuery = '';
+  // Payment method filter: 'all', 'cash', 'card', 'qr'
   String _activeFilter = 'all';
+
+  // Pagination: 20 records per page
+  int _currentPage = 1;
+  static const int _pageSize = 20;
 
   @override
   void initState() {
     super.initState();
     _loadSales();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSales() async {
@@ -30,6 +43,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
       final sales = await ApiService.getSales();
       if (!mounted) return;
       setState(() {
+        _baselineSales = sales;
         _allSales = sales;
         // Sort newest first
         _allSales.sort((a, b) {
@@ -37,8 +51,11 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
           final dtB = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
           return dtB.compareTo(dtA);
         });
+        _currentPage = 1;
         _isLoading = false;
+        _activeSearchQuery = '';
       });
+      _searchController.clear();
     } catch (e) {
       debugPrint('Error loading sales history: $e');
       if (mounted) {
@@ -47,59 +64,80 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
     }
   }
 
+  Future<void> _performSearch() async {
+    final query = _searchController.text.trim();
+    setState(() {
+      _isSearching = true;
+      _activeSearchQuery = query;
+    });
+
+    try {
+      final sales = await ApiService.getSales(
+        search: query.isNotEmpty ? query : null,
+      );
+      if (!mounted) return;
+      setState(() {
+        _allSales = sales;
+        _allSales.sort((a, b) {
+          final dtA = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final dtB = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return dtB.compareTo(dtA);
+        });
+        _currentPage = 1;
+        _isSearching = false;
+      });
+    } catch (e) {
+      debugPrint('Error searching sales: $e');
+      if (mounted) {
+        setState(() => _isSearching = false);
+      }
+    }
+  }
+
+  void _resetSearch() {
+    _searchController.clear();
+    _performSearch();
+  }
+
   List<SaleModel> get _filteredSales {
     var list = _allSales;
 
-    // Apply category filter
-    if (_activeFilter == 'cart_only') {
-      // Normal orders placed directly from cart have appointmentId == null
-      list = list.where((s) => s.appointmentId == null).toList();
-    } else if (_activeFilter == 'appointment_only') {
-      list = list.where((s) => s.appointmentId != null).toList();
-    }
-
-    // Apply search query
-    if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase().trim();
-      list = list.where((s) {
-        final matchesReceipt = s.receiptNumber.toLowerCase().contains(q);
-        final matchesCustomer = s.customerName.toLowerCase().contains(q);
-        final matchesPhone = s.customerPhone.toLowerCase().contains(q);
-        final matchesStaff = s.staffName.toLowerCase().contains(q);
-        final matchesItem = s.items.any((it) =>
-            (it['product_name'] ?? it['name'] ?? '')
-                .toString()
-                .toLowerCase()
-                .contains(q));
-        return matchesReceipt ||
-            matchesCustomer ||
-            matchesPhone ||
-            matchesStaff ||
-            matchesItem;
-      }).toList();
+    // Apply payment method filter
+    if (_activeFilter == 'cash') {
+      list = list.where((s) => s.paymentMethod.toLowerCase() == 'cash').toList();
+    } else if (_activeFilter == 'card') {
+      list = list.where((s) => s.paymentMethod.toLowerCase() == 'card').toList();
+    } else if (_activeFilter == 'qr') {
+      list = list.where((s) => s.paymentMethod.toLowerCase() == 'qr').toList();
     }
 
     return list;
   }
 
   // Summary counts
-  int get _cartOrdersCount => _allSales.where((s) => s.appointmentId == null).length;
-  double get _cartOrdersRevenue => _allSales
-      .where((s) => s.appointmentId == null)
-      .fold(0.0, (acc, s) => acc + s.totalAmount);
-
-  int get _appointmentOrdersCount =>
-      _allSales.where((s) => s.appointmentId != null).length;
-  double get _appointmentOrdersRevenue => _allSales
-      .where((s) => s.appointmentId != null)
-      .fold(0.0, (acc, s) => acc + s.totalAmount);
+  int get _cashOrdersCount =>
+      _baselineSales.where((s) => s.paymentMethod.toLowerCase() == 'cash').length;
+  int get _cardOrdersCount =>
+      _baselineSales.where((s) => s.paymentMethod.toLowerCase() == 'card').length;
 
   double get _totalRevenue =>
-      _allSales.fold(0.0, (acc, s) => acc + s.totalAmount);
+      _baselineSales.fold(0.0, (acc, s) => acc + s.totalAmount);
+  double get _avgOrderValue =>
+      _baselineSales.isEmpty ? 0.0 : _totalRevenue / _baselineSales.length;
 
   @override
   Widget build(BuildContext context) {
     final displaySales = _filteredSales;
+    final totalItems = displaySales.length;
+    final totalPages = totalItems == 0 ? 1 : ((totalItems - 1) ~/ _pageSize) + 1;
+    final validPage = _currentPage.clamp(1, totalPages);
+    final startIndex = (validPage - 1) * _pageSize;
+    final endIndex = (startIndex + _pageSize > totalItems)
+        ? totalItems
+        : startIndex + _pageSize;
+    final pageSales = totalItems == 0
+        ? <SaleModel>[]
+        : displaySales.sublist(startIndex, endIndex);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -130,8 +168,14 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                     )
                   : displaySales.isEmpty
                       ? _buildEmptyState()
-                      : _buildSalesList(displaySales),
+                      : _buildSalesList(pageSales),
             ),
+
+            // 5. Pagination Controls at Bottom
+            if (!_isLoading && displaySales.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _buildPaginationControls(totalItems, totalPages),
+            ],
           ],
         ),
       ),
@@ -176,14 +220,6 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Track and audit normal orders placed directly from the cart and appointment checkout receipts.',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: AppTheme.onSurfaceVariant,
-              ),
             ),
           ],
         ),
@@ -234,28 +270,28 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
     return Row(
       children: [
         _buildMetricCard(
-          title: '🛒 Normal Cart Orders',
-          value: '$_cartOrdersCount Orders',
-          sub: 'Direct POS cart sales: \$${_cartOrdersRevenue.toStringAsFixed(2)}',
-          icon: Icons.shopping_cart_checkout,
+          title: 'Total Completed Orders',
+          value: '${_allSales.length} Orders',
+          sub: 'Total completed sales transactions',
+          icon: Icons.receipt_long,
           color: const Color(0xFF4F46E5), // Indigo
           bgColor: const Color(0xFFEEF2FF),
         ),
         const SizedBox(width: 14),
         _buildMetricCard(
-          title: '📅 Appointment Orders',
-          value: '$_appointmentOrdersCount Orders',
-          sub: 'Service checkouts: \$${_appointmentOrdersRevenue.toStringAsFixed(2)}',
-          icon: Icons.calendar_month,
+          title: 'Total Revenue',
+          value: '\$${_totalRevenue.toStringAsFixed(2)}',
+          sub: 'Combined sales across all payment modes',
+          icon: Icons.payments_outlined,
           color: const Color(0xFF059669), // Emerald
           bgColor: const Color(0xFFECFDF5),
         ),
         const SizedBox(width: 14),
         _buildMetricCard(
-          title: '💰 Total Revenue',
-          value: '\$${_totalRevenue.toStringAsFixed(2)}',
-          sub: 'Combined sales across all channels',
-          icon: Icons.payments_outlined,
+          title: 'Average Order Value',
+          value: '\$${_avgOrderValue.toStringAsFixed(2)}',
+          sub: 'Average checkout transaction ticket',
+          icon: Icons.analytics_outlined,
           color: const Color(0xFFE11D48), // Rose
           bgColor: const Color(0xFFFFF1F2),
         ),
@@ -273,16 +309,16 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   }) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: AppTheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
               color: AppTheme.outlineVariant.withValues(alpha: 0.35)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 8,
+              blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
@@ -290,22 +326,23 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: bgColor,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: color, size: 24),
+              child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     title,
                     style: GoogleFonts.inter(
-                      fontSize: 12,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.onSurfaceVariant,
                     ),
@@ -314,16 +351,16 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                   Text(
                     value,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF0F172A),
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     sub,
                     style: GoogleFonts.inter(
-                      fontSize: 11,
+                      fontSize: 10.5,
                       color: Colors.grey.shade500,
                     ),
                     maxLines: 1,
@@ -342,60 +379,138 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   // FILTER BAR & SEARCH
   // =========================================================================
   Widget _buildFilterAndSearchBar() {
-    return Row(
-      children: [
-        // Category Filters
-        _buildFilterChip('all', 'All Orders (${_allSales.length})'),
-        const SizedBox(width: 8),
-        _buildFilterChip(
-          'cart_only',
-          '🛒 Direct Cart Orders ($_cartOrdersCount)',
-          highlightColor: const Color(0xFF4F46E5),
-        ),
-        const SizedBox(width: 8),
-        _buildFilterChip(
-          'appointment_only',
-          '📅 Appointment Orders ($_appointmentOrdersCount)',
-          highlightColor: const Color(0xFF059669),
-        ),
-        const Spacer(),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Category Filters
+          _buildFilterChip('all', 'All Sales (${_allSales.length})'),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            'cash',
+            'Cash ($_cashOrdersCount)',
+            highlightColor: const Color(0xFF059669),
+          ),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            'card',
+            'Card ($_cardOrdersCount)',
+            highlightColor: const Color(0xFF2563EB),
+          ),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            'qr',
+            'QR Payment',
+            highlightColor: const Color(0xFF9333EA),
+          ),
+          const Spacer(),
 
-        // Search Input
-        SizedBox(
-          width: 280,
-          height: 38,
-          child: TextField(
-            onChanged: (v) => setState(() => _searchQuery = v),
-            style: GoogleFonts.inter(fontSize: 13),
-            decoration: InputDecoration(
-              hintText: 'Search receipt, customer, item...',
-              hintStyle: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade400),
-              prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey.shade400),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 16),
-                      onPressed: () => setState(() => _searchQuery = ''),
-                    )
-                  : null,
-              filled: true,
-              fillColor: AppTheme.surfaceContainerLowest,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.5)),
+          // Search Input
+          SizedBox(
+            width: 280,
+            height: 38,
+            child: TextField(
+              controller: _searchController,
+              onSubmitted: (_) => _performSearch(),
+              style: GoogleFonts.inter(fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'Search customer, phone, staff...',
+                hintStyle: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade400),
+                prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey.shade400),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 16),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {});
+                          if (_activeSearchQuery.isNotEmpty) _performSearch();
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.4)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.4)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                ),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.5)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE11D48), width: 1.5),
-              ),
+              onChanged: (_) => setState(() {}),
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 10),
+          SizedBox(
+            height: 38,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              icon: _isSearching
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.search, size: 16),
+              label: Text(
+                'Apply',
+                style: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              onPressed: _isSearching ? null : _performSearch,
+            ),
+          ),
+          if (_activeSearchQuery.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 38,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey.shade700,
+                  side: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.close, size: 14),
+                label: Text(
+                  'Reset',
+                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                onPressed: _resetSearch,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -404,7 +519,10 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
     final color = highlightColor ?? const Color(0xFFE11D48);
 
     return InkWell(
-      onTap: () => setState(() => _activeFilter = filterKey),
+      onTap: () => setState(() {
+        _activeFilter = filterKey;
+        _currentPage = 1;
+      }),
       borderRadius: BorderRadius.circular(20),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
@@ -438,63 +556,53 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   }
 
   // =========================================================================
-  // SALES LIST
+  // SALES LIST - SIMPLIFIED DISPLAY (NORMAL SALES INFO ONLY)
   // =========================================================================
   Widget _buildSalesList(List<SaleModel> sales) {
     return ListView.separated(
       itemCount: sales.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (context, idx) {
         final sale = sales[idx];
-        final isCartOrder = sale.appointmentId == null;
 
         return InkWell(
           onTap: () => _showReceiptDetails(sale),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
             decoration: BoxDecoration(
               color: AppTheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: isCartOrder
-                    ? const Color(0xFF4F46E5).withValues(alpha: 0.25)
-                    : AppTheme.outlineVariant.withValues(alpha: 0.35),
-                width: isCartOrder ? 1.5 : 1,
+                color: AppTheme.outlineVariant.withValues(alpha: 0.35),
               ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 8,
+                  blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Row(
               children: [
-                // Order Type & Receipt Icon
+                // Clean Receipt Icon
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 42,
+                  height: 42,
                   decoration: BoxDecoration(
-                    color: isCartOrder
-                        ? const Color(0xFFEEF2FF)
-                        : const Color(0xFFECFDF5),
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
-                    isCartOrder
-                        ? Icons.shopping_cart_outlined
-                        : Icons.calendar_month_outlined,
-                    color: isCartOrder
-                        ? const Color(0xFF4F46E5)
-                        : const Color(0xFF059669),
-                    size: 24,
+                  child: const Icon(
+                    Icons.receipt_long_outlined,
+                    color: Color(0xFF475569),
+                    size: 22,
                   ),
                 ),
                 const SizedBox(width: 16),
 
-                // Order Details
+                // Order details: Invoice Number, Status, Customer, Date/Time
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,68 +617,38 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                               color: const Color(0xFF0F172A),
                             ),
                           ),
-                          const SizedBox(width: 8),
-
-                          // Direct Cart Order Badge vs Appointment Badge
-                          if (isCartOrder)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEEF2FF),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                    color: const Color(0xFFC7D2FE)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.shopping_cart,
-                                      size: 11, color: Color(0xFF4F46E5)),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'DIRECT CART ORDER',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF4F46E5),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFECFDF5),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                    color: const Color(0xFFA7F3D0)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.event,
-                                      size: 11, color: Color(0xFF059669)),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'APPOINTMENT #${sale.appointmentId}',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF059669),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          const SizedBox(width: 10),
+                          // Status Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFF86EFAC)),
                             ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.check_circle,
+                                    size: 11, color: Color(0xFF166534)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Completed',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF166534),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 5),
 
-                      // Customer & Date
+                      // Customer Information & Date/Time
                       Row(
                         children: [
                           Icon(Icons.person_outline,
@@ -587,15 +665,41 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                             ),
                           ),
                           if (sale.customerPhone.isNotEmpty) ...[
+                            const SizedBox(width: 4),
                             Text(
-                              ' (${sale.customerPhone})',
+                              '(${sale.customerPhone})',
                               style: GoogleFonts.inter(
                                 fontSize: 11.5,
                                 color: Colors.grey.shade500,
                               ),
                             ),
                           ],
-                          const SizedBox(width: 12),
+                          if (sale.staffName.isNotEmpty) ...[
+                            const SizedBox(width: 14),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.badge_outlined, size: 12, color: Colors.grey.shade600),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    sale.staffName,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF334155),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(width: 16),
                           Icon(Icons.access_time,
                               size: 14, color: Colors.grey.shade400),
                           const SizedBox(width: 4),
@@ -608,70 +712,26 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-
-                      // Items summary pills
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: sale.items.take(4).map((it) {
-                          final name = (it['product_name'] ?? it['name'] ?? 'Item').toString();
-                          final qty = it['quantity'] ?? 1;
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              '$name ×$qty',
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                color: const Color(0xFF475569),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          );
-                        }).toList()
-                          ..addAll(sale.items.length > 4
-                              ? [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF1F5F9),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '+${sale.items.length - 4} more',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade600,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  )
-                                ]
-                              : []),
-                      ),
                     ],
                   ),
                 ),
 
-                // Payment Method & Total
+                // Sales Amount & Payment Information
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
                       '\$${sale.totalAmount.toStringAsFixed(2)}',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 18,
+                        fontSize: 17,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: _paymentBadgeColor(sale.paymentMethod),
                         borderRadius: BorderRadius.circular(6),
@@ -685,23 +745,10 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'View Details',
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFFE11D48),
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right, size: 14, color: Color(0xFFE11D48)),
-                      ],
-                    ),
                   ],
                 ),
+                const SizedBox(width: 12),
+                const Icon(Icons.chevron_right, size: 18, color: Color(0xFF94A3B8)),
               ],
             ),
           ),
@@ -711,11 +758,171 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   }
 
   // =========================================================================
-  // RECEIPT DETAIL MODAL
+  // PAGINATION CONTROLS (20 RECORDS PER PAGE)
+  // =========================================================================
+  Widget _buildPaginationControls(int totalItems, int totalPages) {
+    if (totalItems == 0) return const SizedBox.shrink();
+
+    final startItem = (_currentPage - 1) * _pageSize + 1;
+    final endItem = (_currentPage * _pageSize > totalItems)
+        ? totalItems
+        : _currentPage * _pageSize;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Text(
+            'Showing $startItem - $endItem of $totalItems records (Page $_currentPage of $totalPages)',
+            style: GoogleFonts.inter(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF64748B),
+            ),
+          ),
+          const Spacer(),
+          // Previous Button
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              side: BorderSide(color: Colors.grey.shade300),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: _currentPage > 1
+                ? () => setState(() => _currentPage--)
+                : null,
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.chevron_left, size: 16),
+                SizedBox(width: 2),
+                Text('Prev', style: TextStyle(fontSize: 12)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Page number buttons
+          ..._buildPageNumberButtons(totalPages),
+          const SizedBox(width: 8),
+          // Next Button
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              side: BorderSide(color: Colors.grey.shade300),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: _currentPage < totalPages
+                ? () => setState(() => _currentPage++)
+                : null,
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Next', style: TextStyle(fontSize: 12)),
+                SizedBox(width: 2),
+                Icon(Icons.chevron_right, size: 16),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildPageNumberButtons(int totalPages) {
+    List<Widget> buttons = [];
+
+    Widget pageBtn(int p) {
+      final isSel = p == _currentPage;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: InkWell(
+          onTap: () => setState(() => _currentPage = p),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: isSel ? const Color(0xFFE11D48) : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isSel ? const Color(0xFFE11D48) : Colors.grey.shade300,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                '$p',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                  color: isSel ? Colors.white : const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (totalPages <= 7) {
+      for (int i = 1; i <= totalPages; i++) {
+        buttons.add(pageBtn(i));
+      }
+    } else {
+      buttons.add(pageBtn(1));
+      if (_currentPage > 3) {
+        buttons.add(const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Text('...'),
+        ));
+      }
+
+      int start = (_currentPage - 1).clamp(2, totalPages - 1);
+      int end = (_currentPage + 1).clamp(2, totalPages - 1);
+
+      if (_currentPage <= 3) {
+        start = 2;
+        end = 4;
+      } else if (_currentPage >= totalPages - 2) {
+        start = totalPages - 3;
+        end = totalPages - 1;
+      }
+
+      for (int i = start; i <= end; i++) {
+        buttons.add(pageBtn(i));
+      }
+
+      if (_currentPage < totalPages - 2) {
+        buttons.add(const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Text('...'),
+        ));
+      }
+      buttons.add(pageBtn(totalPages));
+    }
+
+    return buttons;
+  }
+
+  // =========================================================================
+  // RECEIPT DETAIL MODAL (SHOWS COMPLETE INFO INCLUDING APPOINTMENT IF APPLICABLE)
   // =========================================================================
   void _showReceiptDetails(SaleModel sale) {
-    final isCartOrder = sale.appointmentId == null;
-
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -736,7 +943,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Tax Receipt',
+                        'Tax Receipt & Order Details',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -748,6 +955,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -755,21 +963,67 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isCartOrder ? const Color(0xFFEEF2FF) : const Color(0xFFECFDF5),
+                      color: const Color(0xFFDCFCE7),
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF86EFAC)),
                     ),
-                    child: Text(
-                      isCartOrder ? '🛒 Direct Cart Order' : '📅 Appointment Order',
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: isCartOrder ? const Color(0xFF4F46E5) : const Color(0xFF059669),
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.check_circle, size: 12, color: Color(0xFF166534)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Completed',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF166534),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
               const Divider(height: 24),
+
+              // Appointment Link Information (if applicable)
+              if (sale.appointmentId != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.event_available, size: 15, color: Color(0xFF059669)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Linked Appointment: #${sale.appointmentId}',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF059669),
+                        ),
+                      ),
+                      if (sale.staffName.isNotEmpty) ...[
+                        const Spacer(),
+                        Text(
+                          'Attendant: ${sale.staffName}',
+                          style: GoogleFonts.inter(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF065F46),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // Customer & Timestamp
               Row(
@@ -792,7 +1046,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                     children: [
                       Text('Date & Time', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500)),
                       Text(_formatDateTime(sale.createdAt), style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
-                      if (sale.staffName.isNotEmpty)
+                      if (sale.staffName.isNotEmpty && sale.appointmentId == null)
                         Text('Attendant: ${sale.staffName}', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500)),
                     ],
                   ),
@@ -807,7 +1061,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
               ),
               const SizedBox(height: 8),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 180),
+                constraints: const BoxConstraints(maxHeight: 160),
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: sale.items.length,
@@ -838,7 +1092,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                   },
                 ),
               ),
-              const Divider(height: 24),
+              const Divider(height: 20),
 
               // Financial Summary
               _modalRow('Subtotal', '\$${sale.subtotal.toStringAsFixed(2)}'),
@@ -876,7 +1130,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
               ],
               const SizedBox(height: 20),
 
-              // Close
+              // Close Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -935,14 +1189,14 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
           ),
           const SizedBox(height: 16),
           Text(
-            _searchQuery.isNotEmpty
+            _activeSearchQuery.isNotEmpty
                 ? 'No orders match your search'
                 : 'No sales records found',
             style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B)),
           ),
           const SizedBox(height: 6),
           Text(
-            _searchQuery.isNotEmpty
+            _activeSearchQuery.isNotEmpty
                 ? 'Try searching with a different keyword or reset filters.'
                 : 'Orders completed in the Cart POS will immediately appear here.',
             style: GoogleFonts.inter(fontSize: 13, color: AppTheme.onSurfaceVariant),

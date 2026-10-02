@@ -152,4 +152,41 @@ class AppointmentModel {
         return status.toUpperCase();
     }
   }
+
+  AppointmentModel copyWith({
+    int? id,
+    int? businessId,
+    int? staffId,
+    int? customerId,
+    String? customerName,
+    String? customerPhone,
+    String? staffName,
+    String? appointmentDate,
+    String? startTime,
+    String? endTime,
+    String? status,
+    double? totalAmount,
+    List<Map<String, dynamic>>? services,
+    String? notes,
+    DateTime? createdAt,
+  }) {
+    return AppointmentModel(
+      id: id ?? this.id,
+      businessId: businessId ?? this.businessId,
+      staffId: staffId ?? this.staffId,
+      customerId: customerId ?? this.customerId,
+      customerName: customerName ?? this.customerName,
+      customerPhone: customerPhone ?? this.customerPhone,
+      staffName: staffName ?? this.staffName,
+      appointmentDate: appointmentDate ?? this.appointmentDate,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      status: status ?? this.status,
+      totalAmount: totalAmount ?? this.totalAmount,
+      services: services ?? this.services,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }
+
