@@ -1644,6 +1644,11 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
     StaffModel targetStaff,
     String targetSlot,
   ) async {
+    // 0. Only allow rescheduling for 'booked' and 'in_service' appointments
+    if (appt.status != 'booked' && appt.status != 'in_service') {
+      return;
+    }
+
     // 1. Calculate duration and new end time
     final durationM = appt.durationMinutes > 0 ? appt.durationMinutes : _configuredSlotDuration;
     final newEndTime = _addMinutesTo24h(targetSlot, durationM);
@@ -1711,11 +1716,45 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
       return;
     }
 
+    // 3b. In-memory local conflict pre-check (prevents optimistic-update jitter)
+    final hasLocalConflict = _appointments.any((a) {
+      if (a.id == appt.id || a.staffId != targetStaff.id) return false;
+      // Cancelled and no_show appointments don't block slots
+      if (a.status == 'cancelled' || a.status == 'no_show') return false;
+      // Overlap: [targetStart, targetEnd) ∩ [aStart, aEnd) != ∅
+      return targetStartM < a.endMinutes && a.startMinutes < targetEndM;
+    });
+
+    if (hasLocalConflict) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFE11D48),
+          content: Row(
+            children: [
+              const Icon(Icons.event_busy_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Booking Conflict: ${targetStaff.name} already has an appointment at ${_formatSlotLabel(targetSlot)}.',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     // 4. Save original appointment state for rollback if needed
     final originalAppt = appt;
+    // Normalize date string — strip any ISO timestamp suffix (e.g. '2026-10-04T00:00:00.000Z' → '2026-10-04')
+    final selectedDateStr = '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
     final dateStr = appt.appointmentDate.isNotEmpty
-        ? appt.appointmentDate
-        : '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
+        ? appt.appointmentDate.split('T')[0]
+        : selectedDateStr;
 
     // 5. Construct updated appointment preserving all customer, services, notes, totalAmount
     final updatedAppt = appt.copyWith(
@@ -1735,58 +1774,7 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
       _computeGridBounds();
     });
 
-    // 7. Check for scheduling conflict with other active appointments
-    try {
-      final conflict = await ApiService.checkAppointmentConflict(
-        staffId: targetStaff.id,
-        appointmentDate: dateStr,
-        startTime: targetSlot,
-        endTime: newEndTime,
-        excludeId: appt.id,
-      );
-
-      if (conflict['has_conflict'] == true) {
-        // Rollback optimistic update
-        if (mounted) {
-          setState(() {
-            final idx = _appointments.indexWhere((a) => a.id == appt.id);
-            if (idx != -1) {
-              _appointments[idx] = originalAppt;
-            }
-            _computeGridBounds();
-          });
-
-          final conf = conflict['conflicting_appointment'];
-          final range = conf != null
-              ? ' (${_formatSlotLabel(conf['start_time']?.toString() ?? '')} - ${_formatSlotLabel(conf['end_time']?.toString() ?? '')})'
-              : '';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: const Color(0xFFE11D48),
-              content: Row(
-                children: [
-                  const Icon(Icons.event_busy_rounded, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Booking Conflict: ${targetStaff.name} already has an appointment$range.',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-        return;
-      }
-    } catch (e) {
-      debugPrint('Conflict check error: $e');
-    }
-
-    // 8. Update in backend database (preserves customer & services)
+    // 7. Update in backend database (preserves customer & services)
     final updatePayload = <String, dynamic>{
       'staff_id': targetStaff.id,
       'staff_name': targetStaff.name,
@@ -1868,6 +1856,23 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
     }
   }
 
+  bool _isSlotBlockedForDrag(AppointmentModel draggedAppt, StaffModel targetStaff, String slot) {
+    final slotStartM = _timeToMinutes(slot);
+    final dragDuration = draggedAppt.durationMinutes > 0 ? draggedAppt.durationMinutes : _configuredSlotDuration;
+    final slotEndM = slotStartM + dragDuration;
+
+    // Block if slot is outside business hours or if appointment ends after closing time
+    if (_isSlotOutsideBusinessHours(slot)) return true;
+    if (slotEndM > _timeToMinutes(_configCloseTime)) return true;
+
+    // Block if overlaps with another active appointment for this staff (excluding itself)
+    return _appointments.any((a) {
+      if (a.id == draggedAppt.id || a.staffId != targetStaff.id) return false;
+      if (a.status == 'cancelled' || a.status == 'no_show') return false;
+      return slotStartM < a.endMinutes && a.startMinutes < slotEndM;
+    });
+  }
+
   Widget _buildStaffLane(StaffModel staff, int staffIndex, [double staffColWidth = 200.0]) {
     final appts = _appointmentsForStaff(staff.id);
     final filteredAppts = _searchQuery.isEmpty
@@ -1908,17 +1913,40 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
 
                 return DragTarget<AppointmentModel>(
                   onWillAcceptWithDetails: (details) {
-                    return details.data.id != 0;
+                    final d = details.data;
+                    // Only accept 'booked' or 'in_service' appointments for drag-and-drop rescheduling
+                    if (d.id == 0 || (d.status != 'booked' && d.status != 'in_service')) {
+                      return false;
+                    }
+                    // Reject drop if slot is occupied or outside business hours (not allowed!)
+                    if (_isSlotBlockedForDrag(d, staff, slot)) {
+                      return false;
+                    }
+                    return true;
                   },
                   onAcceptWithDetails: (details) {
                     _handleDragDropReschedule(details.data, staff, slot);
                   },
                   builder: (context, candidateData, rejectedData) {
-                    final isHovered = candidateData.isNotEmpty;
+                    // Extract dragged appointment from candidateData or rejectedData
+                    final draggedAppt = candidateData.isNotEmpty
+                        ? candidateData.first
+                        : (rejectedData.isNotEmpty && rejectedData.first is AppointmentModel
+                            ? rejectedData.first as AppointmentModel
+                            : null);
+                    final isHovered = draggedAppt != null;
+
+                    // Check if this slot is occupied or invalid for this staff
+                    final isSlotOccupied = isHovered && _isSlotBlockedForDrag(draggedAppt, staff, slot);
+
+                    // Blue for available, red for occupied / not allowed
+                    final highlightColor = isSlotOccupied
+                        ? const Color(0xFFE11D48)
+                        : const Color(0xFF3B82F6);
 
                     return Material(
                       color: isHovered
-                          ? const Color(0xFF3B82F6).withValues(alpha: 0.15)
+                          ? highlightColor.withValues(alpha: isSlotOccupied ? 0.20 : 0.15)
                           : (isOutside ? const Color(0xFFF8FAFC).withValues(alpha: 0.5) : Colors.transparent),
                       child: InkWell(
                         onTap: () {
@@ -1964,7 +1992,7 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
                           decoration: BoxDecoration(
                             border: isHovered
                                 ? Border.all(
-                                    color: const Color(0xFF2563EB),
+                                    color: highlightColor,
                                     width: 2.0,
                                     strokeAlign: BorderSide.strokeAlignInside,
                                   )
@@ -1980,11 +2008,11 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF2563EB),
+                                      color: highlightColor,
                                       borderRadius: BorderRadius.circular(4),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFF2563EB).withValues(alpha: 0.35),
+                                          color: highlightColor.withValues(alpha: 0.35),
                                           blurRadius: 4,
                                           offset: const Offset(0, 2),
                                         ),
@@ -1993,10 +2021,14 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.file_download_outlined, size: 12, color: Colors.white),
+                                        Icon(
+                                          isSlotOccupied ? Icons.block : Icons.file_download_outlined,
+                                          size: 12,
+                                          color: Colors.white,
+                                        ),
                                         const SizedBox(width: 4),
                                         Text(
-                                          'Drop at $slotLabel',
+                                          isSlotOccupied ? 'Not Allowed' : 'Drop at $slotLabel',
                                           style: GoogleFonts.inter(
                                             fontSize: 10,
                                             fontWeight: FontWeight.w700,
@@ -2211,8 +2243,8 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
       ),
     );
 
-    final canDrag = appt.status != 'cancelled';
-    final isDraggingThis = _draggingAppointmentId == appt.id;
+    // Only 'booked' and 'in_service' appointments can be rescheduled via drag & drop
+    final canDrag = appt.status == 'booked' || appt.status == 'in_service';
     final isDraggingAny = _draggingAppointmentId != null;
 
     Widget cardWidget;
@@ -2298,7 +2330,9 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
       top: top + 2,
       height: (height - 6).clamp(30.0, double.infinity),
       child: IgnorePointer(
-        ignoring: isDraggingAny && !isDraggingThis,
+        // When ANY drag is active, ALL cards (including the dragged card's placeholder)
+        // MUST ignore pointer events so DragTargets beneath receive 100% of hit tests.
+        ignoring: isDraggingAny,
         child: cardWidget,
       ),
     );
