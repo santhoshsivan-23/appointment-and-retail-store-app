@@ -90,10 +90,10 @@ export default function Header({ onLogoutClick }: HeaderProps) {
       {/* Right Corner: Station Status + Time & Date + Gray Carded User Info + Sign Out */}
       <div className="terminal-header__right">
         {/* Station Indicator */}
-        <div className="terminal-station-badge" title="Station 01 Live Connected">
+        {/* <div className="terminal-station-badge" title="Station 01 Live Connected">
           <span className="terminal-station-badge__dot" />
           <span>Station #01</span>
-        </div>
+        </div> */}
 
         {/* System Time & Date */}
         <div className="terminal-clock-box">

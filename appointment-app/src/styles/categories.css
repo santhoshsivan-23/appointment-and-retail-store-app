@@ -1,0 +1,468 @@
+/* ================================================================
+   Categories View – Premium Material 3 Styling
+   ================================================================ */
+
+/* ─── Container ────────────────────────────────────────── */
+.categories-view {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  animation: cv-fadeIn 0.35s ease;
+}
+
+@keyframes cv-fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Header Row ───────────────────────────────────────── */
+.categories-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.categories-header__info h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--on-surface);
+}
+
+.categories-header__info p {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--on-surface-variant);
+  margin-top: 2px;
+}
+
+.categories-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  min-width: 160px;
+  padding: 0 20px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 14px;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  flex-shrink: 0;
+}
+
+.categories-add-btn:hover {
+  background: #9E2306;
+  box-shadow: 0 4px 16px rgba(180, 41, 7, 0.25);
+  transform: translateY(-1px);
+}
+
+.categories-add-btn:active {
+  transform: translateY(0);
+}
+
+/* ─── Grid ─────────────────────────────────────────────── */
+.categories-grid-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding-top: 20px;
+}
+
+.categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+/* ─── Category Card ────────────────────────────────────── */
+.category-card {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: var(--surface-container-lowest);
+  border: 1px solid rgba(227, 190, 182, 0.35);
+  border-radius: 18px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.02);
+  min-height: 180px;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  animation: cv-cardIn 0.35s ease backwards;
+}
+
+.category-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-color: rgba(227, 190, 182, 0.6);
+}
+
+@keyframes cv-cardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.category-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.category-card__icon-box {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(180, 41, 7, 0.1);
+  border-radius: 10px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.category-card__meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.category-card__name {
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--on-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-card__sort-order {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--on-surface-variant);
+}
+
+.category-card__actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.category-card__edit-btn,
+.category-card__delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  transition: background 0.2s;
+}
+
+.category-card__edit-btn {
+  color: var(--primary);
+}
+
+.category-card__edit-btn:hover {
+  background: rgba(180, 41, 7, 0.08);
+}
+
+.category-card__delete-btn {
+  color: var(--error);
+}
+
+.category-card__delete-btn:hover {
+  background: var(--error-container);
+}
+
+/* ─── Description ──────────────────────────────────────── */
+.category-card__desc {
+  margin-top: 8px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--on-surface-variant);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ─── Footer: Appointment Toggle ───────────────────────── */
+.category-card__footer {
+  margin-top: auto;
+}
+
+.category-card__divider {
+  height: 1px;
+  background: rgba(227, 190, 182, 0.25);
+  margin: 10px 0;
+}
+
+.category-card__appointment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.category-card__appointment-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.category-card__appointment-label--active {
+  color: #047857;
+}
+
+.category-card__appointment-label--active svg {
+  color: #10B981;
+}
+
+.category-card__appointment-label--hidden {
+  color: #64748B;
+}
+
+.category-card__appointment-label--hidden svg {
+  color: #94A3B8;
+}
+
+/* ─── Toggle Switch ────────────────────────────────────── */
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-switch__slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #CBD5E1;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.toggle-switch__slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  top: 3px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.3s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.toggle-switch input:checked + .toggle-switch__slider {
+  background: #10B981;
+}
+
+.toggle-switch input:checked + .toggle-switch__slider::before {
+  transform: translateX(18px);
+}
+
+/* ─── Loading & Empty States ───────────────────────────── */
+.categories-loading,
+.categories-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.categories-loading .spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(180, 41, 7, 0.15);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: cv-spin 0.7s linear infinite;
+}
+
+@keyframes cv-spin {
+  to { transform: rotate(360deg); }
+}
+
+.categories-empty svg {
+  color: rgba(90, 65, 59, 0.35);
+}
+
+.categories-empty__title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--on-surface);
+}
+
+/* ─── Category Modal ───────────────────────────────────── */
+.category-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(19, 27, 46, 0.45);
+  backdrop-filter: blur(4px);
+  animation: cv-overlayIn 0.2s ease;
+}
+
+@keyframes cv-overlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.category-modal {
+  width: 500px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--surface-container-lowest);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  padding: 28px;
+  animation: cv-modalIn 0.3s ease;
+}
+
+@keyframes cv-modalIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.category-modal__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin-bottom: 4px;
+}
+
+.category-modal__subtitle {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--on-surface-variant);
+  margin-bottom: 14px;
+}
+
+.category-modal__field {
+  margin-bottom: 12px;
+}
+
+.category-modal__field label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--on-surface);
+  margin-bottom: 6px;
+}
+
+.category-modal__field input,
+.category-modal__field textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: none;
+  background: var(--surface-container-low);
+  font-size: 14px;
+  transition: box-shadow 0.2s;
+}
+
+.category-modal__field input:focus,
+.category-modal__field textarea:focus {
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.category-modal__field textarea {
+  resize: vertical;
+  min-height: 50px;
+}
+
+/* ─── Show in Appointment Toggle Box ───────────────────── */
+.category-modal__toggle-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--surface-container-low);
+  border: 1px solid rgba(227, 190, 182, 0.35);
+  border-radius: 12px;
+  margin-top: 14px;
+}
+
+.category-modal__toggle-info {
+  flex: 1;
+}
+
+.category-modal__toggle-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--on-surface);
+}
+
+.category-modal__toggle-desc {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--on-surface-variant);
+  margin-top: 2px;
+}
+
+/* ─── Modal Actions ────────────────────────────────────── */
+.category-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.category-modal__cancel-btn {
+  padding: 10px 20px;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--on-surface-variant);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.category-modal__cancel-btn:hover {
+  background: var(--surface-container-low);
+}
+
+.category-modal__save-btn {
+  padding: 10px 24px;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.category-modal__save-btn:hover {
+  background: #9E2306;
+}
+
+.category-modal__save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

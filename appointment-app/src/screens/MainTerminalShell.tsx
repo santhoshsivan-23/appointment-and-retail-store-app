@@ -4,6 +4,10 @@ import { toast } from 'react-toastify';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import DashboardView from '../views/DashboardView';
+import CartView from '../views/CartView';
+import SalesHistoryView from '../views/SalesHistoryView';
+import CategoriesView from '../views/CategoriesView';
+import ProductsView from '../views/ProductsView';
 import TabPlaceholderView from '../views/TabPlaceholderView';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logout } from '../features/auth/authSlice';
@@ -44,6 +48,14 @@ export default function MainTerminalShell() {
         <main className="terminal-viewport">
           {currentTab === 0 ? (
             <DashboardView onNavigate={(idx) => setCurrentTab(idx)} />
+          ) : currentTab === 4 ? (
+            <CartView onNavigateToSalesHistory={() => setCurrentTab(5)} />
+          ) : currentTab === 5 ? (
+            <SalesHistoryView />
+          ) : currentTab === 6 ? (
+            <CategoriesView />
+          ) : currentTab === 7 ? (
+            <ProductsView />
           ) : (
             <TabPlaceholderView
               tabIndex={currentTab}
