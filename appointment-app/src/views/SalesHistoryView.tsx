@@ -42,7 +42,9 @@ export default function SalesHistoryView() {
 
   /* ── Helper to Normalize API Sales ────────────────────── */
   const normalizeSalesList = (rawList: any[]): Sale[] => {
-    return rawList.map((s) => {
+    // Strictly normal POS/Cart transactions only (appointment_id must be null or 0)
+    const posSales = rawList.filter((s) => !s.appointment_id || s.appointment_id === 0);
+    return posSales.map((s) => {
       let parsedItems: any[] = [];
       if (s.items) {
         if (Array.isArray(s.items)) {

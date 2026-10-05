@@ -1,0 +1,694 @@
+/* ========================================================
+   Staff Directory & Team Management – Styles
+   (1:1 Design & Interactions with Flutter StaffView)
+   ======================================================== */
+
+.staff-view-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 24px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* ── 1. Top Controls Bar ───────────────────────────────── */
+.staff-top-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.staff-search-box {
+  flex: 1;
+  height: 48px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #E2E8F0;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  gap: 10px;
+}
+
+.staff-search-box:focus-within {
+  border-color: #E11D48;
+}
+
+.staff-search-input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13.5px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  color: #0F172A;
+}
+
+.staff-search-input::placeholder {
+  color: #94A3B8;
+}
+
+.staff-search-clear-btn {
+  background: none;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+}
+
+.staff-search-clear-btn:hover {
+  color: #0F172A;
+}
+
+.staff-add-btn {
+  height: 48px;
+  min-width: 140px;
+  padding: 0 20px;
+  background: #E11D48;
+  color: #ffffff;
+  border: none;
+  border-radius: 14px;
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.25);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.staff-add-btn:hover {
+  background: #BE123C;
+}
+
+/* ── 2. Staff Grid & Scroll Area ───────────────────────── */
+.staff-grid-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.staff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+/* ── 3. Staff Card ─────────────────────────────────────── */
+.staff-card {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #E2E8F0;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  height: 195px;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+
+.staff-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.staff-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.staff-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #E11D48;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.staff-avatar-initial {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  user-select: none;
+}
+
+.staff-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.staff-card-title-box {
+  flex: 1;
+  min-width: 0;
+}
+
+.staff-card-name {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.staff-card-role {
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  color: #E11D48;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.staff-status-badge {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.staff-status-badge--active {
+  background: #DCFCE7;
+  color: #166534;
+}
+
+.staff-status-badge--archived {
+  background: #F1F5F9;
+  color: #64748B;
+}
+
+.staff-card-contact {
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 12.5px;
+  color: #64748B;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.staff-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.staff-card-btn {
+  flex: 1;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid;
+  transition: all 0.15s ease;
+  background: transparent;
+  padding: 0 4px;
+}
+
+.staff-card-btn--primary {
+  background: rgba(225, 29, 72, 0.08);
+  border-color: rgba(225, 29, 72, 0.28);
+  color: #E11D48;
+}
+
+.staff-card-btn--primary:hover {
+  background: rgba(225, 29, 72, 0.15);
+  border-color: #E11D48;
+}
+
+.staff-card-btn--danger {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.28);
+  color: #EF4444;
+}
+
+.staff-card-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #EF4444;
+}
+
+/* ── 4. Empty State & Loading ──────────────────────────── */
+.staff-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.staff-empty-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #F1F5F9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94A3B8;
+  margin-bottom: 16px;
+}
+
+.staff-empty-title {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: #1E293B;
+  margin-bottom: 4px;
+}
+
+.staff-empty-desc {
+  font-size: 13px;
+  color: #64748B;
+  max-width: 360px;
+  line-height: 1.4;
+}
+
+/* ── 5. Modal Dialogs ──────────────────────────────────── */
+.staff-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.staff-modal-dialog {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.staff-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.staff-modal-header-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(225, 29, 72, 0.1);
+  color: #E11D48;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.staff-modal-title {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0;
+}
+
+.staff-modal-divider {
+  height: 1px;
+  background: #F1F5F9;
+  margin: 16px 0;
+}
+
+/* ── Avatar Upload Section in Modals ───────────────────── */
+.staff-avatar-upload-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.staff-avatar-uploader-circle {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: #F1F5F9;
+  border: 2px solid rgba(225, 29, 72, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: visible;
+}
+
+.staff-avatar-preview {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #E11D48;
+}
+
+.staff-avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.staff-avatar-preview-initial {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 32px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.staff-avatar-camera-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #E11D48;
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.staff-avatar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.staff-avatar-btn {
+  background: none;
+  border: none;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.staff-avatar-btn--primary {
+  color: #E11D48;
+}
+
+.staff-avatar-btn--primary:hover {
+  background: rgba(225, 29, 72, 0.08);
+}
+
+.staff-avatar-btn--danger {
+  color: #EF4444;
+}
+
+.staff-avatar-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* ── Form Inputs in Modals ─────────────────────────────── */
+.staff-form-group {
+  margin-bottom: 12px;
+}
+
+.staff-form-label {
+  display: block;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.staff-form-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #CBD5E1;
+  background: #ffffff;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 13px;
+  color: #0F172A;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.staff-form-input:focus {
+  border-color: #E11D48;
+}
+
+.staff-toggle-box {
+  padding: 10px 12px;
+  background: #F8FAFC;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+
+.staff-toggle-info {
+  flex: 1;
+  margin-right: 12px;
+}
+
+.staff-toggle-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0F172A;
+}
+
+.staff-toggle-subtitle {
+  font-size: 11.5px;
+  color: #64748B;
+  margin-top: 1px;
+}
+
+/* Toggle Switch Control */
+.staff-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.staff-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.staff-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #CBD5E1;
+  transition: 0.2s;
+  border-radius: 24px;
+}
+
+.staff-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+}
+
+input:checked + .staff-slider {
+  background-color: #E11D48;
+}
+
+input:checked + .staff-slider:before {
+  transform: translateX(20px);
+}
+
+/* ── Modal Actions ─────────────────────────────────────── */
+.staff-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.staff-modal-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.staff-modal-btn--cancel {
+  background: transparent;
+  border: 1px solid #CBD5E1;
+  color: #475569;
+}
+
+.staff-modal-btn--cancel:hover {
+  background: #F8FAFC;
+  border-color: #94A3B8;
+}
+
+.staff-modal-btn--primary {
+  background: #E11D48;
+  border: none;
+  color: #ffffff;
+}
+
+.staff-modal-btn--primary:hover:not(:disabled) {
+  background: #BE123C;
+}
+
+.staff-modal-btn--danger {
+  background: #EF4444;
+  border: none;
+  color: #ffffff;
+}
+
+.staff-modal-btn--danger:hover:not(:disabled) {
+  background: #DC2626;
+}
+
+.staff-modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Info Rows in Details Modal ────────────────────────── */
+.staff-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.staff-info-icon {
+  color: #64748B;
+  flex-shrink: 0;
+}
+
+.staff-info-label {
+  width: 120px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+  flex-shrink: 0;
+}
+
+.staff-info-value {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0F172A;
+}
+
+.staff-info-value--active {
+  color: #166534;
+}
+
+.staff-info-value--archived {
+  color: #64748B;
+}
+
+/* ── Delete Warning Callout ────────────────────────────── */
+.staff-delete-callout {
+  padding: 12px;
+  background: #F8FAFC;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.staff-delete-callout-icon {
+  color: #0284C7;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.staff-delete-callout-text {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.4;
+}

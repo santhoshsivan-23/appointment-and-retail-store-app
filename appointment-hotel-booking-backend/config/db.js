@@ -1363,6 +1363,9 @@ async function getSales(filters = {}) {
       if (filters.appointment_id) {
         conditions.push('sales.appointment_id = ?');
         values.push(filters.appointment_id);
+      } else if (filters.include_appointments !== 'true' && filters.include_appointments !== true) {
+        // Exclude appointment transactions by default so Sales History has only normal POS/Cart transactions
+        conditions.push('(sales.appointment_id IS NULL OR sales.appointment_id = 0)');
       }
       if (filters.customer_id) {
         conditions.push('sales.customer_id = ?');
@@ -1396,7 +1399,11 @@ async function getSales(filters = {}) {
     staff_name: s.staff_name || staffMap[String(s.staff_id)] || '',
   }));
 
-  if (filters.appointment_id) list = list.filter((s) => String(s.appointment_id) === String(filters.appointment_id));
+  if (filters.appointment_id) {
+    list = list.filter((s) => String(s.appointment_id) === String(filters.appointment_id));
+  } else if (filters.include_appointments !== 'true' && filters.include_appointments !== true) {
+    list = list.filter((s) => !s.appointment_id || s.appointment_id == 0);
+  }
   if (filters.customer_id) list = list.filter((s) => String(s.customer_id) === String(filters.customer_id));
   if (filters.search && filters.search.trim().length > 0) {
     const q = filters.search.trim().toLowerCase();

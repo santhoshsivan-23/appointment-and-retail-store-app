@@ -99,33 +99,59 @@ class _StaffViewState extends State<StaffView> {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.primary,
-              side: const BorderSide(color: AppTheme.primary),
-            ),
-            icon: const Icon(Icons.edit_outlined, size: 16),
-            label: const Text('Edit Staff'),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _showEditStaffModal(staff);
-            },
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.error,
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(Icons.delete_outline, size: 16),
-            label: const Text('Delete Staff'),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _showDeleteConfirmation(staff);
-            },
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.onSurfaceVariant,
+                    side: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Close'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
+                    foregroundColor: AppTheme.primary,
+                    elevation: 0,
+                    side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.3)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Edit Staff'),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showEditStaffModal(staff);
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.error.withValues(alpha: 0.1),
+                    foregroundColor: AppTheme.error,
+                    elevation: 0,
+                    side: BorderSide(color: AppTheme.error.withValues(alpha: 0.3)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text('Delete'),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showDeleteConfirmation(staff);
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -965,7 +991,7 @@ class _StaffViewState extends State<StaffView> {
                             maxCrossAxisExtent: 380,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
-                            mainAxisExtent: 180,
+                            mainAxisExtent: 195,
                           ),
                           itemCount: _staffList.length,
                           itemBuilder: (context, idx) {
@@ -1054,28 +1080,78 @@ class _StaffViewState extends State<StaffView> {
             overflow: TextOverflow.ellipsis,
           ),
           const Spacer(),
+          // 3 Options taking full width with light bg, border, and colored text
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton.icon(
-                icon: const Icon(Icons.info_outline, size: 16),
-                label: const Text('Details'),
-                onPressed: () => _showStaffDetailsPopup(staff),
+              _buildStaffCardAction(
+                label: 'Details',
+                icon: Icons.info_outline,
+                color: AppTheme.primary,
+                onTap: () => _showStaffDetailsPopup(staff),
               ),
-              const SizedBox(width: 4),
-              TextButton.icon(
-                icon: const Icon(Icons.edit_outlined, size: 16),
-                label: const Text('Edit'),
-                onPressed: () => _showEditStaffModal(staff),
+              const SizedBox(width: 8),
+              _buildStaffCardAction(
+                label: 'Edit',
+                icon: Icons.edit_outlined,
+                color: AppTheme.primary,
+                onTap: () => _showEditStaffModal(staff),
               ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.error),
-                tooltip: 'Delete Staff',
-                onPressed: () => _showDeleteConfirmation(staff),
+              const SizedBox(width: 8),
+              _buildStaffCardAction(
+                label: 'Delete',
+                icon: Icons.delete_outline,
+                color: AppTheme.error,
+                onTap: () => _showDeleteConfirmation(staff),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStaffCardAction({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color.withValues(alpha: 0.28), width: 1.0),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: color),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

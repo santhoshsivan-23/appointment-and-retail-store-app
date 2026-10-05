@@ -41,7 +41,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
     setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
-        ApiService.getAppointments(),
+        ApiService.getAppointments(status: 'completed'),
         ApiService.getStaff(),
       ]);
 
@@ -90,6 +90,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
     try {
       final results = await ApiService.getAppointments(
         search: query.isNotEmpty ? query : null,
+        status: 'completed',
       );
 
       if (!mounted) return;

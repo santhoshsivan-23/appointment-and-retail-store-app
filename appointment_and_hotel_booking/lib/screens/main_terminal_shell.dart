@@ -44,6 +44,8 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
   int? _preloadAppointmentId;
   String? _preloadStaffName;
   int _cartKey = 0; // Force CartView rebuild when preloading
+  int _appointmentKey = 1; // Force AppointmentView reload on navigation
+  int _staffKey = 1; // Force StaffView reload on navigation
   int _appointmentHistoryKey = 1; // Force AppointmentHistoryView reload on navigation
   int _salesHistoryKey = 1; // Force SalesHistoryView reload on navigation
 
@@ -150,6 +152,8 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
         _preloadStaffName = null;
         _cartKey++;
       }
+      if (idx == 1) _appointmentKey++;
+      if (idx == 2) _staffKey++;
       if (idx == 3) _appointmentHistoryKey++;
       if (idx == 5) _salesHistoryKey++;
       _currentIndex = idx;
@@ -227,6 +231,7 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                           onNavigate: (idx) => _navigateToTab(idx),
                         ),
                         AppointmentView(
+                          key: ValueKey('appointment_$_appointmentKey'),
                           onStartService: (customer, products, {AppointmentModel? appointment}) {
                             setState(() {
                               _preloadCustomer = customer;
@@ -238,7 +243,9 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                             });
                           },
                         ),
-                        const StaffView(),
+                        StaffView(
+                          key: ValueKey('staff_$_staffKey'),
+                        ),
                         AppointmentHistoryView(
                           key: ValueKey('apt_hist_$_appointmentHistoryKey'),
                         ),

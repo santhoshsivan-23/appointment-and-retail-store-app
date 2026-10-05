@@ -8,7 +8,7 @@ import {
   FolderTree,
   Package,
   Sliders,
-  Settings,
+  // Settings,
   Grid,
   List,
 } from 'lucide-react';
@@ -31,7 +31,7 @@ export const navItems: NavItemConfig[] = [
   { id: 6, title: 'Categories', icon: FolderTree },
   { id: 7, title: 'Products', icon: Package },
   { id: 8, title: 'Appointment Config', icon: Sliders },
-  { id: 9, title: 'Settings', icon: Settings },
+  // { id: 9, title: 'Settings', icon: Settings },
 ];
 
 interface SidebarProps {
@@ -45,9 +45,8 @@ export default function Sidebar({ currentIndex, onSelectTab }: SidebarProps) {
 
   return (
     <aside
-      className={`terminal-sidebar ${
-        isExpanded ? 'terminal-sidebar--expanded' : 'terminal-sidebar--collapsed'
-      }`}
+      className={`terminal-sidebar ${isExpanded ? 'terminal-sidebar--expanded' : 'terminal-sidebar--collapsed'
+        }`}
     >
       {/* Top section: Menu label + View toggle or expand button */}
       <div className="sidebar-top-bar">
@@ -57,9 +56,8 @@ export default function Sidebar({ currentIndex, onSelectTab }: SidebarProps) {
             <div className="sidebar-view-toggle">
               <button
                 type="button"
-                className={`sidebar-view-toggle__btn ${
-                  !isExpanded ? 'sidebar-view-toggle__btn--active' : ''
-                }`}
+                className={`sidebar-view-toggle__btn ${!isExpanded ? 'sidebar-view-toggle__btn--active' : ''
+                  }`}
                 title="Grid View (Icons Only)"
                 onClick={() => dispatch(setSidebarExpanded(false))}
               >
@@ -67,9 +65,8 @@ export default function Sidebar({ currentIndex, onSelectTab }: SidebarProps) {
               </button>
               <button
                 type="button"
-                className={`sidebar-view-toggle__btn ${
-                  isExpanded ? 'sidebar-view-toggle__btn--active' : ''
-                }`}
+                className={`sidebar-view-toggle__btn ${isExpanded ? 'sidebar-view-toggle__btn--active' : ''
+                  }`}
                 title="List View (Full Details)"
                 onClick={() => dispatch(setSidebarExpanded(true))}
               >
@@ -99,9 +96,8 @@ export default function Sidebar({ currentIndex, onSelectTab }: SidebarProps) {
             <button
               key={item.id}
               type="button"
-              className={`sidebar-nav-item ${
-                isSelected ? 'sidebar-nav-item--active' : ''
-              } ${!isExpanded ? 'sidebar-nav-item--collapsed' : ''}`}
+              className={`sidebar-nav-item ${isSelected ? 'sidebar-nav-item--active' : ''
+                } ${!isExpanded ? 'sidebar-nav-item--collapsed' : ''}`}
               title={item.title}
               onClick={() => onSelectTab(item.id)}
             >

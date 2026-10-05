@@ -8,6 +8,10 @@ import CartView from '../views/CartView';
 import SalesHistoryView from '../views/SalesHistoryView';
 import CategoriesView from '../views/CategoriesView';
 import ProductsView from '../views/ProductsView';
+import AppointmentConfigView from '../views/AppointmentConfigView';
+import AppointmentView from '../views/AppointmentView';
+import StaffView from '../views/StaffView';
+import AppointmentHistoryView from '../views/AppointmentHistoryView';
 import TabPlaceholderView from '../views/TabPlaceholderView';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logout } from '../features/auth/authSlice';
@@ -27,6 +31,13 @@ export default function MainTerminalShell() {
     toast.info('Signed out of terminal');
     navigate('/login', { replace: true });
   };
+
+  const [cartPreload, setCartPreload] = useState<{
+    customer?: any;
+    products?: any[];
+    appointmentId?: number | null;
+    staffName?: string | null;
+  } | null>(null);
 
   const businessName =
     business?.business_name?.trim() ||
@@ -48,14 +59,38 @@ export default function MainTerminalShell() {
         <main className="terminal-viewport">
           {currentTab === 0 ? (
             <DashboardView onNavigate={(idx) => setCurrentTab(idx)} />
+          ) : currentTab === 1 ? (
+            <AppointmentView
+              onStartService={(customer, products, appointment) => {
+                setCartPreload({
+                  customer,
+                  products,
+                  appointmentId: appointment?.id,
+                  staffName: appointment?.staff_name,
+                });
+                setCurrentTab(4); // Switch to Cart & POS
+              }}
+            />
+          ) : currentTab === 2 ? (
+            <StaffView />
+          ) : currentTab === 3 ? (
+            <AppointmentHistoryView />
           ) : currentTab === 4 ? (
-            <CartView onNavigateToSalesHistory={() => setCurrentTab(5)} />
+            <CartView
+              preloadCustomer={cartPreload?.customer}
+              preloadProducts={cartPreload?.products}
+              preloadAppointmentId={cartPreload?.appointmentId}
+              preloadStaffName={cartPreload?.staffName}
+              onNavigateToSalesHistory={() => setCurrentTab(5)}
+            />
           ) : currentTab === 5 ? (
             <SalesHistoryView />
           ) : currentTab === 6 ? (
             <CategoriesView />
           ) : currentTab === 7 ? (
             <ProductsView />
+          ) : currentTab === 8 ? (
+            <AppointmentConfigView />
           ) : (
             <TabPlaceholderView
               tabIndex={currentTab}

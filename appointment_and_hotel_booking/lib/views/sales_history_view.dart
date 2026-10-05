@@ -40,8 +40,10 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   Future<void> _loadSales() async {
     setState(() => _isLoading = true);
     try {
-      final sales = await ApiService.getSales();
+      final rawSales = await ApiService.getSales();
       if (!mounted) return;
+      // Strictly POS/Cart transactions only
+      final sales = rawSales.where((s) => s.appointmentId == null || s.appointmentId == 0).toList();
       setState(() {
         _baselineSales = sales;
         _allSales = sales;
@@ -72,10 +74,11 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
     });
 
     try {
-      final sales = await ApiService.getSales(
+      final rawSales = await ApiService.getSales(
         search: query.isNotEmpty ? query : null,
       );
       if (!mounted) return;
+      final sales = rawSales.where((s) => s.appointmentId == null || s.appointmentId == 0).toList();
       setState(() {
         _allSales = sales;
         _allSales.sort((a, b) {

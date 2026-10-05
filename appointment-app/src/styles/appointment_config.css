@@ -1,0 +1,415 @@
+/* ========================================================
+   Appointment Configuration & Rules – Styles
+   1:1 Port of Flutter appointment_config_view.dart
+   ======================================================== */
+
+.appointment-config-view {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.ac-header {
+  margin-bottom: 24px;
+}
+
+.ac-title {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0 0 4px 0;
+}
+
+.ac-subtitle {
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 13px;
+  color: #64748B;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── Main Card ─────────────────────────────────────────── */
+.ac-card {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.02);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.ac-section-title {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0 0 6px 0;
+}
+
+.ac-section-desc {
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 12.5px;
+  color: #64748B;
+  margin: 0 0 14px 0;
+  line-height: 1.4;
+}
+
+.ac-divider {
+  height: 1px;
+  background: #E2E8F0;
+  margin: 28px 0;
+  border: none;
+}
+
+/* ── 1. Time Format Box & Option Cards ─────────────────── */
+.ac-format-box {
+  width: 100%;
+  padding: 18px;
+  background: #F8FAFC;
+  border-radius: 16px;
+  border: 1.2px solid #E2E8F0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  box-sizing: border-box;
+}
+
+.ac-format-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ac-format-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(180, 41, 7, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #B42907;
+  flex-shrink: 0;
+}
+
+.ac-format-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.ac-format-card {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #CBD5E1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+}
+
+.ac-format-card:hover {
+  border-color: #94A3B8;
+  transform: translateY(-1px);
+}
+
+.ac-format-card--active {
+  background: #B42907;
+  border-color: #B42907;
+  border-width: 1.5px;
+  box-shadow: 0 4px 12px rgba(180, 41, 7, 0.25);
+}
+
+.ac-format-card__icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #F1F5F9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  flex-shrink: 0;
+  margin-right: 12px;
+  transition: all 0.15s ease;
+}
+
+.ac-format-card--active .ac-format-card__icon-box {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.ac-format-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ac-format-card__title {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ac-format-card--active .ac-format-card__title {
+  color: #ffffff;
+}
+
+.ac-format-card__sub {
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 11px;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ac-format-card--active .ac-format-card__sub {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.ac-format-card__radio {
+  margin-left: 8px;
+  color: #94A3B8;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ac-format-card--active .ac-format-card__radio {
+  color: #ffffff;
+}
+
+/* ── 2 & 3. Chips Group ────────────────────────────────── */
+.ac-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ac-chip {
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #F8FAFC;
+  border: 1px solid #CBD5E1;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.ac-chip:hover {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+}
+
+/* Primary Chip (Slot Duration) */
+.ac-chip--active-primary {
+  background: rgba(180, 41, 7, 0.15);
+  border-color: #B42907;
+  color: #B42907;
+  font-weight: 700;
+}
+
+/* Secondary Chip (Buffer Time) */
+.ac-chip--active-secondary {
+  background: rgba(133, 83, 0, 0.15);
+  border-color: #855300;
+  color: #855300;
+  font-weight: 700;
+}
+
+/* ── 4. Operating Business Hours ───────────────────────── */
+.ac-hours-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.ac-hour-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ac-hour-label {
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.ac-hour-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ac-hour-input-icon {
+  position: absolute;
+  left: 12px;
+  color: #64748B;
+  pointer-events: none;
+}
+
+.ac-hour-input {
+  width: 100%;
+  height: 44px;
+  border: 1px solid #CBD5E1;
+  border-radius: 10px;
+  padding: 0 12px 0 38px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 14px;
+  color: #0F172A;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.ac-hour-input:focus {
+  border-color: #B42907;
+  box-shadow: 0 0 0 3px rgba(180, 41, 7, 0.1);
+}
+
+/* ── 5 & 6. Switch List Tiles ──────────────────────────── */
+.ac-switch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ac-switch-tile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  transition: all 0.15s ease;
+}
+
+.ac-switch-tile:hover {
+  background: #F1F5F9;
+}
+
+.ac-switch-info {
+  flex: 1;
+  padding-right: 16px;
+}
+
+.ac-switch-title {
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 14px;
+  font-weight: 600;
+  color: #0F172A;
+  margin-bottom: 2px;
+}
+
+.ac-switch-subtitle {
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 12px;
+  color: #64748B;
+  line-height: 1.4;
+}
+
+/* Modern Toggle Switch */
+.ac-toggle {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.ac-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ac-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #CBD5E1;
+  transition: 0.2s;
+  border-radius: 26px;
+}
+
+.ac-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.ac-toggle input:checked + .ac-toggle-slider {
+  background-color: #B42907;
+}
+
+.ac-toggle input:checked + .ac-toggle-slider:before {
+  transform: translateX(22px);
+}
+
+/* Red / Error variant for Delete In-Service */
+.ac-toggle--error input:checked + .ac-toggle-slider {
+  background-color: #BA1A1A;
+}
+
+/* ── Actions Row ───────────────────────────────────────── */
+.ac-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 28px;
+}
+
+.ac-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 26px;
+  border-radius: 12px;
+  background: #B42907;
+  color: #ffffff;
+  border: none;
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 12px rgba(180, 41, 7, 0.25);
+}
+
+.ac-save-btn:hover {
+  background: #962206;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(180, 41, 7, 0.35);
+}
+
+.ac-save-btn:active {
+  transform: translateY(0);
+}

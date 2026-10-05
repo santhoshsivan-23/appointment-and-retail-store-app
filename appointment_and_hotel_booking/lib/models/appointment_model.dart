@@ -74,7 +74,10 @@ class AppointmentModel {
       customerName: json['customer_name'] ?? '',
       customerPhone: json['customer_phone'] ?? '',
       staffName: json['staff_name'] ?? '',
-      appointmentDate: json['appointment_date'] ?? '',
+      // Normalize appointment_date: MySQL DATE fields can arrive as ISO strings
+      // like "2026-10-04T00:00:00.000Z". Strip everything after 'T' and any
+      // trailing whitespace to ensure a clean 'YYYY-MM-DD' format.
+      appointmentDate: ((json['appointment_date'] ?? '') as String).split('T')[0].trim(),
       startTime: json['start_time'] ?? '',
       endTime: json['end_time'] ?? '',
       status: json['status'] ?? 'booked',
@@ -107,11 +110,15 @@ class AppointmentModel {
     };
   }
 
-  /// Parse time string "HH:MM" to total minutes from midnight
+  /// Parse time string "HH:MM" or "HHMM" to total minutes from midnight
   int get startMinutes {
     final parts = startTime.split(':');
     if (parts.length >= 2) {
       return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
+    } else if (startTime.trim().length == 4) {
+      final h = int.tryParse(startTime.trim().substring(0, 2)) ?? 0;
+      final m = int.tryParse(startTime.trim().substring(2)) ?? 0;
+      return h * 60 + m;
     }
     return 0;
   }
@@ -120,6 +127,10 @@ class AppointmentModel {
     final parts = endTime.split(':');
     if (parts.length >= 2) {
       return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
+    } else if (endTime.trim().length == 4) {
+      final h = int.tryParse(endTime.trim().substring(0, 2)) ?? 0;
+      final m = int.tryParse(endTime.trim().substring(2)) ?? 0;
+      return h * 60 + m;
     }
     return 0;
   }

@@ -283,25 +283,61 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    await _loadConfig();
-    final dateStr = '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
-    final results = await Future.wait([
-      ApiService.getAppointments(date: dateStr),
-      ApiService.getStaff(),
-      ApiService.getCategories(),
-      ApiService.getProducts(),
-      ApiService.getAppointmentStats(date: dateStr),
-    ]);
-    if (!mounted) return;
-    setState(() {
-      _appointments = results[0] as List<AppointmentModel>;
-      _staffList = results[1] as List<StaffModel>;
-      _categories = results[2] as List<CategoryModel>;
-      _products = results[3] as List<ProductModel>;
-      _overviewStats = results[4] as Map<String, int>;
-      _computeGridBounds();
-      _isLoading = false;
-    });
+    try {
+      await _loadConfig();
+      final dateStr = '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
+      final results = await Future.wait([
+        ApiService.getAppointments(date: dateStr),
+        ApiService.getStaff(includeDeleted: true),
+        ApiService.getCategories(),
+        ApiService.getProducts(),
+        ApiService.getAppointmentStats(date: dateStr),
+      ]);
+      if (!mounted) return;
+
+      final appointments = results[0] as List<AppointmentModel>;
+      final allStaff = results[1] as List<StaffModel>;
+
+      // Determine staff columns to display:
+      // 1. All active staff
+      // 2. Plus any staff member who has appointments scheduled for this date (so their columns and appointments are visible!)
+      final staffMap = {for (var s in allStaff) s.id: s};
+      final List<StaffModel> resolvedStaff = [];
+      for (final s in allStaff) {
+        if (s.isActive) {
+          resolvedStaff.add(s);
+        }
+      }
+      for (final a in appointments) {
+        if (!resolvedStaff.any((s) => s.id == a.staffId)) {
+          if (staffMap.containsKey(a.staffId)) {
+            resolvedStaff.add(staffMap[a.staffId]!);
+          } else {
+            resolvedStaff.add(StaffModel(
+              id: a.staffId,
+              businessId: a.businessId,
+              name: a.staffName.isNotEmpty ? a.staffName : 'Staff #${a.staffId}',
+              isActive: false,
+            ));
+          }
+        }
+      }
+
+      setState(() {
+        _appointments = appointments;
+        _staffList = resolvedStaff;
+        _categories = results[2] as List<CategoryModel>;
+        _products = results[3] as List<ProductModel>;
+        _overviewStats = results[4] as Map<String, int>;
+        _computeGridBounds();
+      });
+    } catch (e) {
+      debugPrint('Error loading appointment data: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _computeGridBounds() {
@@ -1750,11 +1786,13 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
 
     // 4. Save original appointment state for rollback if needed
     final originalAppt = appt;
-    // Normalize date string — strip any ISO timestamp suffix (e.g. '2026-10-04T00:00:00.000Z' → '2026-10-04')
-    final selectedDateStr = '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
-    final dateStr = appt.appointmentDate.isNotEmpty
-        ? appt.appointmentDate.split('T')[0]
-        : selectedDateStr;
+    // Always use the currently selected calendar date for the drag-drop reschedule.
+    // The grid displays appointments for _selectedDate only, so the rescheduled
+    // appointment must stay on this exact date. Using appt.appointmentDate is
+    // unreliable because MySQL DATE fields can serialize to ISO strings like
+    // "2026-10-04T00:00:00.000Z" which, depending on the server timezone offset,
+    // can shift the date by a day when split at 'T'.
+    final dateStr = '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
 
     // 5. Construct updated appointment preserving all customer, services, notes, totalAmount
     final updatedAppt = appt.copyWith(
@@ -2481,7 +2519,7 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
     if (initialStaff != null) {
       selStaff = _staffList.firstWhere((s) => s.id == initialStaff.id, orElse: () => initialStaff);
     } else if (_staffList.isNotEmpty) {
-      selStaff = _staffList.first;
+      selStaff = _staffList.firstWhere((s) => s.isActive, orElse: () => _staffList.first);
     }
 
     CustomerModel? selCustomer;
