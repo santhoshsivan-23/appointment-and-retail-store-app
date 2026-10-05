@@ -75,9 +75,18 @@ class AppointmentModel {
       customerPhone: json['customer_phone'] ?? '',
       staffName: json['staff_name'] ?? '',
       // Normalize appointment_date: MySQL DATE fields can arrive as ISO strings
-      // like "2026-10-04T00:00:00.000Z". Strip everything after 'T' and any
-      // trailing whitespace to ensure a clean 'YYYY-MM-DD' format.
-      appointmentDate: ((json['appointment_date'] ?? '') as String).split('T')[0].trim(),
+      // like "2026-10-04T18:30:00.000Z". Convert to local date to ensure accurate 'YYYY-MM-DD'.
+      appointmentDate: (() {
+        final raw = (json['appointment_date'] ?? '').toString().trim();
+        if (raw.contains('T')) {
+          final dt = DateTime.tryParse(raw)?.toLocal();
+          if (dt != null) {
+            return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+          }
+          return raw.split('T')[0].trim();
+        }
+        return raw;
+      })(),
       startTime: json['start_time'] ?? '',
       endTime: json['end_time'] ?? '',
       status: json['status'] ?? 'booked',

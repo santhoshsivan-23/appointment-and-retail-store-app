@@ -406,6 +406,10 @@
   flex-direction: column;
 }
 
+.terminal-viewport:has(.appointment-view) {
+  overflow: hidden;
+}
+
 /* ========================================================
    5. Dashboard View
    ======================================================== */
@@ -592,6 +596,380 @@
   transform: translateY(-2px);
   border-color: rgba(180, 41, 7, 0.4);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+}
+
+.kpi-card--clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.kpi-card--clickable:hover {
+  transform: translateY(-2px);
+  border-color: rgba(180, 41, 7, 0.4);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Today's Appointments Section in Dashboard
+   ────────────────────────────────────────────────────────── */
+.dashboard-appts-card {
+  background-color: var(--surface-container-lowest);
+  border-radius: 20px;
+  border: 1px solid rgba(227, 190, 182, 0.45);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dashboard-appts-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dashboard-appts-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-appts-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background-color: rgba(180, 41, 7, 0.1);
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.dashboard-appts-card__subtitle {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--on-surface-variant);
+  margin-top: 4px;
+}
+
+.dashboard-appts-card__header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(227, 190, 182, 0.5);
+  background-color: var(--surface-container-low);
+  color: var(--on-surface-variant);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.dashboard-icon-btn:hover:not(:disabled) {
+  background-color: var(--surface-container-lowest);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.dashboard-icon-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spin-anim {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.dashboard-secondary-btn {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(180, 41, 7, 0.35);
+  background-color: rgba(180, 41, 7, 0.06);
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.dashboard-secondary-btn:hover {
+  background-color: var(--primary);
+  color: #FFFFFF;
+}
+
+.dashboard-cta-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background-color: var(--primary);
+  color: #FFFFFF;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(180, 41, 7, 0.25);
+  transition: all 0.18s ease;
+  margin-top: 12px;
+}
+
+.dashboard-cta-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(180, 41, 7, 0.35);
+}
+
+.dashboard-appts-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 12px;
+  color: var(--on-surface-variant);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+.dashboard-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(180, 41, 7, 0.15);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.dashboard-appts-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 20px;
+  text-align: center;
+}
+
+.dashboard-appts-empty__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: rgba(180, 41, 7, 0.08);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.dashboard-appts-empty h3 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin-bottom: 4px;
+}
+
+.dashboard-appts-empty p {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--on-surface-variant);
+}
+
+.dashboard-appts-table-wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(227, 190, 182, 0.35);
+}
+
+.dashboard-appts-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.dashboard-appts-table th {
+  padding: 12px 16px;
+  background-color: var(--surface-container-low);
+  color: var(--on-surface-variant);
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid rgba(227, 190, 182, 0.35);
+  white-space: nowrap;
+}
+
+.dashboard-appts-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(227, 190, 182, 0.2);
+  vertical-align: middle;
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+.dashboard-appts-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.dashboard-appts-row:hover {
+  background-color: rgba(180, 41, 7, 0.03);
+}
+
+.dashboard-appts-row:last-child td {
+  border-bottom: none;
+}
+
+.appt-time-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background-color: var(--surface-container-low);
+  color: var(--on-surface);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.appt-customer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.appt-customer-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--on-surface);
+  font-size: 13.5px;
+}
+
+.appt-customer-phone {
+  font-size: 11px;
+  color: var(--on-surface-variant);
+}
+
+.appt-staff-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  color: var(--on-surface);
+  white-space: nowrap;
+}
+
+.appt-staff-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--tertiary);
+}
+
+.appt-services-text {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--on-surface-variant);
+  font-size: 12.5px;
+}
+
+.dash-status-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.dash-status-badge--booked {
+  background-color: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.dash-status-badge--in_service,
+.dash-status-badge--inservice {
+  background-color: #FEF3C7;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+.dash-status-badge--completed {
+  background-color: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+.dash-status-badge--no_show,
+.dash-status-badge--noshow {
+  background-color: #FFE4E6;
+  color: #BE123C;
+  border: 1px solid #FECDD3;
+}
+
+.dash-status-badge--cancelled,
+.dash-status-badge--canceled {
+  background-color: #F1F5F9;
+  color: #64748B;
+  border: 1px solid #CBD5E1;
+}
+
+.appt-amount-val {
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--on-surface);
+  white-space: nowrap;
+}
+
+.appt-action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background-color 0.15s ease;
+}
+
+.appt-action-link:hover {
+  background-color: rgba(180, 41, 7, 0.08);
 }
 
 .ops-card__icon-box {

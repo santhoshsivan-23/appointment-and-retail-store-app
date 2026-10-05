@@ -9,6 +9,7 @@ import {
   X,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   User,
   Phone,
   BadgeCheck,
@@ -65,6 +66,7 @@ export default function AppointmentHistoryView() {
 
   const [searchInput, setSearchInput] = useState<string>('');
   const [activeSearchQuery, setActiveSearchQuery] = useState<string>('');
+  const [isPanelExpanded, setIsPanelExpanded] = useState<boolean>(true);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [detailAppointment, setDetailAppointment] = useState<Appointment | null>(null);
 
@@ -188,120 +190,152 @@ export default function AppointmentHistoryView() {
 
   return (
     <div className="appointment-history-container">
-      {/* 1. Header with Refresh */}
-      <div className="apt-history-header">
-        <div className="apt-history-header__left">
-          <h1 className="apt-history-header__title">Appointment History</h1>
-          <div className="apt-history-header__badge">
-            {allAppointments.length} Performed
-          </div>
-        </div>
-        <button
-          type="button"
-          className="apt-history-refresh-btn"
-          onClick={loadHistory}
-          disabled={isLoading}
+      {/* ── Main Collapsible Card Container ────────────────── */}
+      <div className="apt-main-card">
+        {/* Main Header (Always Visible) */}
+        <div
+          className={`apt-main-card__header ${isPanelExpanded ? 'apt-main-card__header--expanded' : ''}`}
+          onClick={() => setIsPanelExpanded((prev) => !prev)}
         >
-          <RotateCw size={16} className={isLoading ? 'apt-spin' : ''} style={{ color: '#E11D48' }} />
-          <span>Refresh</span>
-        </button>
-      </div>
+          <div className="apt-main-card__header-left">
+            <h1 className="apt-main-card__title">Appointment History</h1>
+            <div className="apt-main-card__badge">
+              {allAppointments.length} Performed
+            </div>
+          </div>
 
-      {/* 2. KPI Metrics Summary */}
-      <div className="apt-metrics-row">
-        {/* Total Performed */}
-        <div className="apt-metric-card">
-          <div className="apt-metric-icon" style={{ background: '#ECFDF5', color: '#10B981' }}>
-            <CheckCircle2 size={20} />
-          </div>
-          <div className="apt-metric-info">
-            <div className="apt-metric-title">Total Performed</div>
-            <div className="apt-metric-value">{totalPerformedCount} Appointments</div>
-            <div className="apt-metric-sub">100% completed &amp; fulfilled</div>
-          </div>
-        </div>
-
-        {/* Performed Today */}
-        <div className="apt-metric-card">
-          <div className="apt-metric-icon" style={{ background: '#F0F9FF', color: '#0EA5E9' }}>
-            <Calendar size={20} />
-          </div>
-          <div className="apt-metric-info">
-            <div className="apt-metric-title">Performed Today</div>
-            <div className="apt-metric-value">{todayPerformedCount} Completed</div>
-            <div className="apt-metric-sub">Sessions served today</div>
-          </div>
-        </div>
-
-        {/* Service Revenue */}
-        <div className="apt-metric-card">
-          <div className="apt-metric-icon" style={{ background: '#F5F3FF', color: '#8B5CF6' }}>
-            <DollarSign size={20} />
-          </div>
-          <div className="apt-metric-info">
-            <div className="apt-metric-title">Service Revenue</div>
-            <div className="apt-metric-value">${fmtMoney(totalRevenue)}</div>
-            <div className="apt-metric-sub">Total earned from performed sessions</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Search Bar & Audit Banner */}
-      <div className="apt-search-bar">
-        <div className="apt-search-box">
-          <Search size={18} className="apt-search-box__icon" />
-          <input
-            type="text"
-            className="apt-search-input"
-            placeholder="Search customer name, phone, or staff..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handlePerformSearch();
-            }}
-          />
-          {searchInput && (
+          <div className="apt-main-card__header-right">
             <button
               type="button"
-              className="apt-search-clear-btn"
-              onClick={() => {
-                setSearchInput('');
-                if (activeSearchQuery) handleResetSearch();
+              className="apt-refresh-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                loadHistory();
               }}
+              disabled={isLoading}
+              title="Refresh appointment history"
             >
-              <X size={15} />
+              <RotateCw size={15} className={isLoading ? 'apt-spin' : ''} style={{ color: '#E11D48' }} />
+              <span>Refresh</span>
             </button>
-          )}
+
+            {/* Dropdown / Expand-Collapse Button */}
+            <button
+              type="button"
+              className={`apt-toggle-btn ${!isPanelExpanded ? 'apt-toggle-btn--collapsed' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPanelExpanded((prev) => !prev);
+              }}
+              title={isPanelExpanded ? 'Collapse metrics and search' : 'Expand metrics and search'}
+              aria-label={isPanelExpanded ? 'Collapse section' : 'Expand section'}
+            >
+              <ChevronDown size={18} />
+            </button>
+          </div>
         </div>
 
-        <button
-          type="button"
-          className="apt-btn-apply"
-          onClick={handlePerformSearch}
-          disabled={isSearching}
-        >
-          {isSearching ? (
-            <RotateCw size={14} className="apt-spin" />
-          ) : (
-            <Search size={14} />
-          )}
-          <span>Apply</span>
-        </button>
+        {/* Collapsible Content: 3 KPI Cards + Search & Apply Filter Bar */}
+        <div className={`apt-main-card__collapsible ${!isPanelExpanded ? 'apt-main-card__collapsible--collapsed' : ''}`}>
+          <div className="apt-main-card__collapsible-inner">
+            {/* 2. Compact KPI Metrics Summary */}
+            <div className="apt-metrics-row">
+              {/* Total Performed */}
+              <div className="apt-metric-card">
+                <div className="apt-metric-icon" style={{ background: '#ECFDF5', color: '#10B981' }}>
+                  <CheckCircle2 size={18} />
+                </div>
+                <div className="apt-metric-info">
+                  <div className="apt-metric-title">Total Performed</div>
+                  <div className="apt-metric-value">{totalPerformedCount} Appointments</div>
+                  <div className="apt-metric-sub">100% completed &amp; fulfilled</div>
+                </div>
+              </div>
 
-        {activeSearchQuery && (
-          <button
-            type="button"
-            className="apt-btn-reset"
-            onClick={handleResetSearch}
-          >
-            <X size={14} />
-            <span>Reset</span>
-          </button>
-        )}
+              {/* Performed Today */}
+              <div className="apt-metric-card">
+                <div className="apt-metric-icon" style={{ background: '#F0F9FF', color: '#0EA5E9' }}>
+                  <Calendar size={18} />
+                </div>
+                <div className="apt-metric-info">
+                  <div className="apt-metric-title">Performed Today</div>
+                  <div className="apt-metric-value">{todayPerformedCount} Completed</div>
+                  <div className="apt-metric-sub">Sessions served today</div>
+                </div>
+              </div>
 
-        <div className="apt-audit-badge">
-          <ShieldCheck size={15} />
-          <span>Audit-Safe Performed Retention</span>
+              {/* Service Revenue */}
+              <div className="apt-metric-card">
+                <div className="apt-metric-icon" style={{ background: '#F5F3FF', color: '#8B5CF6' }}>
+                  <DollarSign size={18} />
+                </div>
+                <div className="apt-metric-info">
+                  <div className="apt-metric-title">Service Revenue</div>
+                  <div className="apt-metric-value">${fmtMoney(totalRevenue)}</div>
+                  <div className="apt-metric-sub">Total earned from performed sessions</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Search Bar & Audit Banner */}
+            <div className="apt-search-bar">
+              <div className="apt-search-box">
+                <Search size={16} className="apt-search-box__icon" />
+                <input
+                  type="text"
+                  className="apt-search-input"
+                  placeholder="Search customer name, phone, or staff..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handlePerformSearch();
+                  }}
+                />
+                {searchInput && (
+                  <button
+                    type="button"
+                    className="apt-search-clear-btn"
+                    onClick={() => {
+                      setSearchInput('');
+                      if (activeSearchQuery) handleResetSearch();
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="apt-btn-apply"
+                onClick={handlePerformSearch}
+                disabled={isSearching}
+              >
+                {isSearching ? (
+                  <RotateCw size={13} className="apt-spin" />
+                ) : (
+                  <Search size={13} />
+                )}
+                <span>Apply</span>
+              </button>
+
+              {activeSearchQuery && (
+                <button
+                  type="button"
+                  className="apt-btn-reset"
+                  onClick={handleResetSearch}
+                >
+                  <X size={13} />
+                  <span>Reset</span>
+                </button>
+              )}
+
+              <div className="apt-audit-badge">
+                <ShieldCheck size={14} />
+                <span>Audit-Safe Performed Retention</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

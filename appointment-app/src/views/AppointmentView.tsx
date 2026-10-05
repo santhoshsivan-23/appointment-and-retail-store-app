@@ -268,8 +268,10 @@ export default function AppointmentView({ onStartService }: AppointmentViewProps
 
   // Synchronized scrolling refs
   const headerScrollRef = useRef<HTMLDivElement>(null);
-  const lanesScrollRef = useRef<HTMLDivElement>(null);
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
+  const currentTimeBadgeRef = useRef<HTMLDivElement>(null);
   const isSyncingScrollRef = useRef<boolean>(false);
+  const hasInitialScrolledRef = useRef<boolean>(false);
 
   // Live Current Time Runner (updates every 1s)
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -431,16 +433,6 @@ export default function AppointmentView({ onStartService }: AppointmentViewProps
   const gridBaseMinutes = gridStartHour * 60;
   const gridTotalHeight = timeSlots.length * SLOT_HEIGHT;
 
-  /* ── 4. Scroll Sync ────────────────────────────────────────────────────── */
-  const handleLanesScroll = () => {
-    if (isSyncingScrollRef.current) return;
-    if (lanesScrollRef.current && headerScrollRef.current) {
-      isSyncingScrollRef.current = true;
-      headerScrollRef.current.scrollLeft = lanesScrollRef.current.scrollLeft;
-      isSyncingScrollRef.current = false;
-    }
-  };
-
   /* ── 5. Display Filter Calculations ────────────────────────────────────── */
   const displayedStaff = useMemo(() => {
     if (selectedStaffFilter !== null) {
@@ -448,6 +440,84 @@ export default function AppointmentView({ onStartService }: AppointmentViewProps
     }
     return staffList;
   }, [staffList, selectedStaffFilter]);
+
+  const staffColWidth = Math.max(
+    220,
+    Math.floor(100 / Math.max(1, displayedStaff.length))
+  );
+
+  /* ── 4. Scroll Sync & Current Time Badge Position ──────────────────────── */
+  const updateCurrentTimeBadgePosition = useCallback(() => {
+    if (bodyScrollRef.current && currentTimeBadgeRef.current) {
+      const scrollX = bodyScrollRef.current.scrollLeft;
+      const visibleStaffWidth = Math.max(
+        0,
+        bodyScrollRef.current.clientWidth - 84
+      );
+      const totalStaffWidth = displayedStaff.length * staffColWidth;
+      const badgeWidth = timeFormat === '12' ? 122 : 98;
+
+      const badgeX = Math.min(
+        Math.max(scrollX + 6, scrollX + visibleStaffWidth - badgeWidth - 14),
+        Math.max(totalStaffWidth - badgeWidth - 8, scrollX + 6)
+      );
+
+      currentTimeBadgeRef.current.style.left = `${badgeX}px`;
+    }
+  }, [displayedStaff.length, staffColWidth, timeFormat]);
+
+  const handleBodyScroll = () => {
+    if (isSyncingScrollRef.current) return;
+    if (bodyScrollRef.current) {
+      isSyncingScrollRef.current = true;
+      if (headerScrollRef.current) {
+        headerScrollRef.current.scrollLeft = bodyScrollRef.current.scrollLeft;
+      }
+      updateCurrentTimeBadgePosition();
+      isSyncingScrollRef.current = false;
+    }
+  };
+
+  const handleHeaderScroll = () => {
+    if (isSyncingScrollRef.current) return;
+    if (headerScrollRef.current && bodyScrollRef.current) {
+      isSyncingScrollRef.current = true;
+      bodyScrollRef.current.scrollLeft = headerScrollRef.current.scrollLeft;
+      isSyncingScrollRef.current = false;
+    }
+  };
+
+  // Keep badge in sync when calendar is toggled or window resized
+  useEffect(() => {
+    updateCurrentTimeBadgePosition();
+    const timer = setTimeout(updateCurrentTimeBadgePosition, 320);
+    return () => clearTimeout(timer);
+  }, [isCalendarHidden, updateCurrentTimeBadgePosition]);
+
+  useEffect(() => {
+    window.addEventListener('resize', updateCurrentTimeBadgePosition);
+    return () =>
+      window.removeEventListener('resize', updateCurrentTimeBadgePosition);
+  }, [updateCurrentTimeBadgePosition]);
+
+  // Initial scroll to current time on load
+  useEffect(() => {
+    if (isLoading || hasInitialScrolledRef.current) return;
+    if (bodyScrollRef.current) {
+      const now = new Date();
+      const isToday =
+        selectedDate.getFullYear() === now.getFullYear() &&
+        selectedDate.getMonth() === now.getMonth() &&
+        selectedDate.getDate() === now.getDate();
+      if (isToday) {
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        const top = ((nowMinutes - gridBaseMinutes) / 30) * SLOT_HEIGHT;
+        bodyScrollRef.current.scrollTop = Math.max(0, top - 120);
+      }
+      hasInitialScrolledRef.current = true;
+      updateCurrentTimeBadgePosition();
+    }
+  }, [isLoading, selectedDate, gridBaseMinutes, updateCurrentTimeBadgePosition]);
 
   const staffColor = (index: number) => STAFF_COLORS[index % STAFF_COLORS.length];
 
@@ -724,6 +794,17 @@ export default function AppointmentView({ onStartService }: AppointmentViewProps
             currentTime.getMinutes()
           ).padStart(2, '0')}:${String(currentTime.getSeconds()).padStart(2, '0')}`;
 
+    const initialBadgeX = Math.max(
+      6,
+      (bodyScrollRef.current
+        ? bodyScrollRef.current.scrollLeft +
+          bodyScrollRef.current.clientWidth -
+          84
+        : 700) -
+        (timeFormat === '12' ? 122 : 98) -
+        14
+    );
+
     return (
       <div
         className="current-time-indicator"
@@ -732,8 +813,9 @@ export default function AppointmentView({ onStartService }: AppointmentViewProps
         <div className="current-time-line" />
         <div className="current-time-anchor" />
         <div
+          ref={currentTimeBadgeRef}
           className="current-time-badge"
-          style={{ right: '14px' }}
+          style={{ left: `${initialBadgeX}px` }}
         >
           <Clock size={12} />
           <span>{timeDigits}</span>
@@ -754,8 +836,6 @@ export default function AppointmentView({ onStartService }: AppointmentViewProps
       </div>
     );
   }
-
-  const staffColWidth = Math.max(220, Math.floor(100 / Math.max(1, displayedStaff.length)));
 
   return (
     <div className="appointment-view">
@@ -1003,6 +1083,7 @@ export default function AppointmentView({ onStartService }: AppointmentViewProps
             <div
               className="timetable-staff-headers-scroll"
               ref={headerScrollRef}
+              onScroll={handleHeaderScroll}
             >
               {displayedStaff.map((s, idx) => {
                 const col = staffColor(idx);
@@ -1037,8 +1118,12 @@ export default function AppointmentView({ onStartService }: AppointmentViewProps
           </div>
 
           {/* Scrollable Timetable Body */}
-          <div className="timetable-body-scroll">
-            {/* Left Pinned Time Column */}
+          <div
+            className="timetable-body-scroll"
+            ref={bodyScrollRef}
+            onScroll={handleBodyScroll}
+          >
+            {/* Left Pinned Sticky Time Column */}
             <div
               className="timetable-time-column"
               style={{ height: `${gridTotalHeight}px` }}
@@ -1058,19 +1143,14 @@ export default function AppointmentView({ onStartService }: AppointmentViewProps
               })}
             </div>
 
-            {/* Horizontal Scrollable Staff Lanes */}
+            {/* Staff Lanes Stack */}
             <div
-              className="timetable-lanes-scroll"
-              ref={lanesScrollRef}
-              onScroll={handleLanesScroll}
+              className="timetable-lanes-stack"
+              style={{
+                height: `${gridTotalHeight}px`,
+                minWidth: `${displayedStaff.length * staffColWidth}px`,
+              }}
             >
-              <div
-                className="timetable-lanes-stack"
-                style={{
-                  height: `${gridTotalHeight}px`,
-                  minWidth: `${displayedStaff.length * staffColWidth}px`,
-                }}
-              >
                 {/* Staff Lanes */}
                 {displayedStaff.map((s) => {
                   const staffAppts = appointmentsForStaff(s.id);
@@ -1332,7 +1412,6 @@ export default function AppointmentView({ onStartService }: AppointmentViewProps
                 {/* Live Current Time Red Line Indicator */}
                 {renderCurrentTimeIndicator()}
               </div>
-            </div>
           </div>
         </div>
 
@@ -1747,6 +1826,31 @@ function NewAppointmentModal({
   );
   const [endPeriod, setEndPeriod] = useState<'AM' | 'PM'>(endSplit.period);
 
+  const calculatedDuration = useMemo(() => {
+    try {
+      const s24 =
+        timeFormat === '12'
+          ? convert12To24(startTimeInput.trim(), startPeriod)
+          : startTimeInput.trim();
+      const e24 =
+        timeFormat === '12'
+          ? convert12To24(endTimeInput.trim(), endPeriod)
+          : endTimeInput.trim();
+      const sM = timeToMinutes(s24);
+      const eM = timeToMinutes(e24);
+      if (eM > sM) {
+        const diff = eM - sM;
+        if (diff >= 60) {
+          const hrs = Math.floor(diff / 60);
+          const mins = diff % 60;
+          return mins > 0 ? `${hrs}h ${mins}m` : `${hrs} hr${hrs > 1 ? 's' : ''}`;
+        }
+        return `${diff} mins`;
+      }
+    } catch (_) {}
+    return null;
+  }, [startTimeInput, startPeriod, endTimeInput, endPeriod, timeFormat]);
+
   // Services & Categories Selection
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
     null
@@ -2133,95 +2237,122 @@ function NewAppointmentModal({
                 />
               </div>
 
-              {/* Start & End Time */}
+              {/* Start & End Time (2 Clean Symmetrical Columns) */}
               <div className="appt-form-group">
-                <div className="appt-form-label">
-                  <span>Start & End Time</span>
-                  <span style={{ fontSize: '10.5px', color: '#64748b' }}>
-                    {timeFormat === '12' ? '(12h AM/PM)' : '(24h)'}
-                  </span>
-                </div>
-                <div className="appt-time-input-row">
-                  {/* Start Time */}
-                  <div className="appt-time-field">
-                    <button
-                      type="button"
-                      className="appt-clock-btn"
-                      title="Start Time"
-                    >
-                      <Clock size={16} />
-                    </button>
-                    <input
-                      type="text"
-                      className="appt-time-text-btn"
-                      value={startTimeInput}
-                      onChange={(e) => {
-                        setStartTimeInput(e.target.value);
-                        setErrorBanner(null);
-                      }}
-                      placeholder="09:00"
-                    />
-                    {timeFormat === '12' && (
-                      <select
-                        className="appt-ampm-select"
-                        value={startPeriod}
-                        onChange={(e) =>
-                          setStartPeriod(e.target.value as 'AM' | 'PM')
-                        }
-                      >
-                        <option value="AM">AM</option>
-                        <option value="PM">PM</option>
-                      </select>
-                    )}
+                <div className="appt-time-grid">
+                  {/* START TIME COLUMN */}
+                  <div className="appt-time-col">
+                    <label className="appt-form-label">
+                      <span>Start Time</span>
+                    </label>
+                    <div className="appt-time-field">
+                      <Clock size={16} className="appt-time-clock-icon" />
+                      <input
+                        type="text"
+                        className="appt-time-input"
+                        value={startTimeInput}
+                        onChange={(e) => {
+                          setStartTimeInput(e.target.value);
+                          setErrorBanner(null);
+                        }}
+                        placeholder="09:00"
+                        maxLength={5}
+                      />
+                      {timeFormat === '12' && (
+                        <div className="appt-ampm-switch">
+                          <button
+                            type="button"
+                            className={`appt-ampm-btn ${
+                              startPeriod === 'AM' ? 'appt-ampm-btn--active' : ''
+                            }`}
+                            onClick={() => {
+                              setStartPeriod('AM');
+                              setErrorBanner(null);
+                            }}
+                          >
+                            AM
+                          </button>
+                          <button
+                            type="button"
+                            className={`appt-ampm-btn ${
+                              startPeriod === 'PM' ? 'appt-ampm-btn--active' : ''
+                            }`}
+                            onClick={() => {
+                              setStartPeriod('PM');
+                              setErrorBanner(null);
+                            }}
+                          >
+                            PM
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  {/* End Time */}
-                  <div className="appt-time-field">
-                    <button
-                      type="button"
-                      className="appt-clock-btn"
-                      title="End Time"
-                    >
-                      <Clock size={16} />
-                    </button>
-                    <input
-                      type="text"
-                      className="appt-time-text-btn"
-                      value={endTimeInput}
-                      onChange={(e) => {
-                        setEndTimeInput(e.target.value);
-                        setErrorBanner(null);
-                      }}
-                      placeholder="09:30"
-                    />
-                    {timeFormat === '12' && (
-                      <select
-                        className="appt-ampm-select"
-                        value={endPeriod}
-                        onChange={(e) =>
-                          setEndPeriod(e.target.value as 'AM' | 'PM')
-                        }
-                      >
-                        <option value="AM">AM</option>
-                        <option value="PM">PM</option>
-                      </select>
-                    )}
+                  {/* END TIME COLUMN */}
+                  <div className="appt-time-col">
+                    <label className="appt-form-label">
+                      <span>End Time</span>
+                    </label>
+                    <div className="appt-time-field">
+                      <Clock size={16} className="appt-time-clock-icon" />
+                      <input
+                        type="text"
+                        className="appt-time-input"
+                        value={endTimeInput}
+                        onChange={(e) => {
+                          setEndTimeInput(e.target.value);
+                          setErrorBanner(null);
+                        }}
+                        placeholder="09:30"
+                        maxLength={5}
+                      />
+                      {timeFormat === '12' && (
+                        <div className="appt-ampm-switch">
+                          <button
+                            type="button"
+                            className={`appt-ampm-btn ${
+                              endPeriod === 'AM' ? 'appt-ampm-btn--active' : ''
+                            }`}
+                            onClick={() => {
+                              setEndPeriod('AM');
+                              setErrorBanner(null);
+                            }}
+                          >
+                            AM
+                          </button>
+                          <button
+                            type="button"
+                            className={`appt-ampm-btn ${
+                              endPeriod === 'PM' ? 'appt-ampm-btn--active' : ''
+                            }`}
+                            onClick={() => {
+                              setEndPeriod('PM');
+                              setErrorBanner(null);
+                            }}
+                          >
+                            PM
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    color: '#64748b',
-                    marginTop: '5px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                >
-                  <Store size={12} />
-                  Business hours: {formatSlotLabel(openTime, timeFormat)} -{' '}
-                  {formatSlotLabel(closeTime, timeFormat)}
-                </span>
+
+                <div className="appt-biz-hours-meta">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Store size={12} />
+                    <span>
+                      Business hours: {formatSlotLabel(openTime, timeFormat)} -{' '}
+                      {formatSlotLabel(closeTime, timeFormat)}
+                    </span>
+                  </div>
+                  {calculatedDuration && (
+                    <span className="appt-duration-badge">
+                      Duration: {calculatedDuration}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Notes */}

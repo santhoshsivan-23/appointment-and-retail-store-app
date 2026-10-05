@@ -544,12 +544,16 @@
 .timetable-body-scroll {
   display: flex;
   flex: 1;
-  overflow-y: auto;
+  overflow: auto; /* Unified native smooth scroll for both vertical & horizontal */
   position: relative;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Left Time Column */
+/* Left Time Column (Sticky Pinned on Horizontal Scroll) */
 .timetable-time-column {
+  position: sticky;
+  left: 0;
+  z-index: 10;
   width: 84px;
   min-width: 84px;
   background-color: #f8fafc;
@@ -557,7 +561,8 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  z-index: 5;
+  user-select: none;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.03);
 }
 
 .timetable-time-slot {
@@ -576,14 +581,6 @@
 .timetable-time-slot--outside {
   background-color: rgba(241, 245, 249, 0.6);
   color: #94a3b8;
-}
-
-/* Horizontal Scroll Container for Lanes */
-.timetable-lanes-scroll {
-  display: flex;
-  flex: 1;
-  overflow-x: auto;
-  position: relative;
 }
 
 .timetable-lanes-stack {
@@ -1158,18 +1155,28 @@
   flex-shrink: 0;
 }
 
-/* New Appointment 2-Column Grid */
+/* New Appointment 2-Column Grid: Left Section (60%), Category Cart Section (40%) */
 .appt-form-columns {
   display: grid;
-  grid-template-columns: 1.15fr 1fr;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 4fr);
   gap: 24px;
   height: 100%;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.appt-form-col-left,
+.appt-form-col-left {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+}
+
 .appt-form-col-right {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  width: 100%;
 }
 
 .appt-form-group {
@@ -1208,63 +1215,127 @@
   background-color: #ffffff;
 }
 
-/* Time Picker input container */
-.appt-time-input-row {
+/* Time Picker 2-Column Symmetrical Grid & Modern Fields */
+.appt-time-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.appt-time-col {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
 }
 
 .appt-time-field {
   display: flex;
   align-items: center;
-  height: 42px;
+  height: 40px;
   background-color: #f8fafc;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 0 6px;
-  flex: 1;
+  padding: 0 8px 0 12px;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+  width: 100%;
+  min-width: 0;
 }
 
-.appt-clock-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background-color: #fee2e2;
-  color: #e11d48;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+.appt-time-field:focus-within {
+  border-color: #e11d48;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.12);
+}
+
+.appt-time-clock-icon {
+  color: #94a3b8;
   flex-shrink: 0;
-}
-.appt-clock-btn:hover {
-  background-color: #fecdd3;
+  transition: color 0.15s ease;
 }
 
-.appt-time-text-btn {
+.appt-time-field:focus-within .appt-time-clock-icon {
+  color: #e11d48;
+}
+
+.appt-time-input {
   border: none;
   background: transparent;
+  font-family: inherit;
   font-size: 13.5px;
   font-weight: 700;
   color: #0f172a;
   padding: 0 8px;
-  cursor: pointer;
+  outline: none;
   flex: 1;
-  text-align: left;
+  min-width: 0;
+  letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums;
 }
 
-.appt-ampm-select {
-  border: 1px solid #cbd5e1;
-  background-color: #ffffff;
+.appt-time-input::placeholder {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* Modern Segmented AM / PM Switch */
+.appt-ampm-switch {
+  display: flex;
+  align-items: center;
+  background-color: #e2e8f0;
   border-radius: 6px;
-  height: 30px;
-  padding: 0 6px;
-  font-size: 12px;
+  padding: 2px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.appt-ampm-btn {
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 11px;
   font-weight: 700;
-  color: #0f172a;
+  color: #64748b;
+  padding: 3px 8px;
+  border-radius: 4px;
   cursor: pointer;
+  transition: all 0.14s ease;
+  line-height: 1.2;
+}
+
+.appt-ampm-btn:hover:not(.appt-ampm-btn--active) {
+  color: #0f172a;
+}
+
+.appt-ampm-btn--active {
+  background-color: #ffffff;
+  color: #e11d48;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-weight: 800;
+}
+
+.appt-biz-hours-meta {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.appt-duration-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #059669;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 2px 7px;
+  border-radius: 6px;
 }
 
 /* Customer autocomplete in modal */

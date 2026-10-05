@@ -20,6 +20,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   String _activeSearchQuery = '';
+  bool _isPanelExpanded = true;
 
   // Pagination: 20 records per page
   int _currentPage = 1;
@@ -133,7 +134,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
     final now = DateTime.now();
     final todayStr =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    return _completedAppointments
+    return _allCompletedAppointments
         .where((a) => a.appointmentDate == todayStr)
         .length;
   }
@@ -159,19 +160,11 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Header with Refresh Button
-            _buildHeader(),
-            const SizedBox(height: 20),
-
-            // 2. Metrics summary
-            _buildMetricsRow(),
-            const SizedBox(height: 20),
-
-            // 3. Search Bar
-            _buildSearchBar(),
+            // 1. Main Collapsible Card Container
+            _buildMainCard(),
             const SizedBox(height: 16),
 
-            // 4. Performed / Completed List
+            // 2. Performed / Completed List
             Expanded(
               child: _isLoading
                   ? const Center(
@@ -184,7 +177,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                       : _buildCompletedList(pageAppointments),
             ),
 
-            // 5. Pagination Controls at Bottom
+            // 3. Pagination Controls at Bottom
             if (!_isLoading && displayList.isNotEmpty) ...[
               const SizedBox(height: 14),
               _buildPaginationControls(totalItems, totalPages),
@@ -196,105 +189,195 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
   }
 
   // =========================================================================
-  // HEADER
+  // MAIN COLLAPSIBLE CARD CONTAINER
   // =========================================================================
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildMainCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Text(
-                  'Appointment History',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF0F172A),
-                  ),
+            _buildHeader(),
+            AnimatedCrossFade(
+              firstChild: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildMetricsRow(),
+                    const SizedBox(height: 12),
+                    _buildSearchBar(),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${_completedAppointments.length} Performed',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF166534),
-                    ),
-                  ),
-                ),
-              ],
+              ),
+              secondChild: const SizedBox(width: double.infinity, height: 0),
+              crossFadeState: _isPanelExpanded
+                  ? CrossFadeState.showFirst
+                  : CrossFadeState.showSecond,
+              duration: const Duration(milliseconds: 280),
+              firstCurve: Curves.easeInOutCubic,
+              secondCurve: Curves.easeInOutCubic,
+              sizeCurve: Curves.easeInOutCubic,
             ),
           ],
         ),
-        // Action: Refresh Button
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.surfaceContainerLowest,
-            foregroundColor: const Color(0xFF0F172A),
-            elevation: 0,
-            side: BorderSide(
-                color: AppTheme.outlineVariant.withValues(alpha: 0.6)),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          icon: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Color(0xFFE11D48),
-                  ),
-                )
-              : const Icon(Icons.refresh, size: 18, color: Color(0xFFE11D48)),
-          label: Text(
-            'Refresh',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          onPressed: _isLoading ? null : _loadHistory,
-        ),
-      ],
+      ),
     );
   }
 
   // =========================================================================
-  // METRICS ROW
+  // HEADER
+  // =========================================================================
+  Widget _buildHeader() {
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: () => setState(() => _isPanelExpanded = !_isPanelExpanded),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(
+            border: _isPanelExpanded
+                ? const Border(bottom: BorderSide(color: Color(0xFFF1F5F9)))
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Appointment History',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${_allCompletedAppointments.length} Performed',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF166534),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  // Action: Refresh Button
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0F172A),
+                      elevation: 0,
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      minimumSize: const Size(0, 34),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFFE11D48),
+                            ),
+                          )
+                        : const Icon(Icons.refresh,
+                            size: 16, color: Color(0xFFE11D48)),
+                    label: Text(
+                      'Refresh',
+                      style: GoogleFonts.inter(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: _isLoading ? null : _loadHistory,
+                  ),
+                  const SizedBox(width: 8),
+                  // Dropdown / Expand-Collapse toggle button
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    alignment: Alignment.center,
+                    child: AnimatedRotation(
+                      turns: _isPanelExpanded ? 0 : -0.5,
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeInOutCubic,
+                      child: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 20,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // METRICS ROW (COMPACT)
   // =========================================================================
   Widget _buildMetricsRow() {
     return Row(
       children: [
         _buildMetricCard(
           title: 'Total Performed',
-          value: '${_completedAppointments.length} Appointments',
+          value: '${_allCompletedAppointments.length} Appointments',
           sub: '100% completed & fulfilled',
           icon: Icons.check_circle_outline,
           color: const Color(0xFF10B981),
           bgColor: const Color(0xFFECFDF5),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 10),
         _buildMetricCard(
           title: 'Performed Today',
           value: '$_todayCompletedCount Completed',
           sub: 'Sessions served today',
-          icon: Icons.today,
+          icon: Icons.today_outlined,
           color: const Color(0xFF0EA5E9),
           bgColor: const Color(0xFFF0F9FF),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 10),
         _buildMetricCard(
           title: 'Service Revenue',
           value: '\$${_totalCompletedRevenue.toStringAsFixed(2)}',
@@ -317,31 +400,31 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
   }) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-              color: AppTheme.outlineVariant.withValues(alpha: 0.35)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+              color: Colors.black.withValues(alpha: 0.015),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 color: bgColor,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(9),
               ),
-              child: Icon(icon, color: color, size: 20),
+              child: Icon(icon, color: color, size: 18),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,26 +433,30 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                   Text(
                     title,
                     style: GoogleFonts.inter(
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.onSurfaceVariant,
+                      color: const Color(0xFF64748B),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     value,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF0F172A),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 1),
                   Text(
                     sub,
                     style: GoogleFonts.inter(
-                      fontSize: 10.5,
-                      color: Colors.grey.shade500,
+                      fontSize: 10,
+                      color: const Color(0xFF94A3B8),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -384,40 +471,36 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
   }
 
   // =========================================================================
-  // SEARCH BAR
+  // SEARCH BAR (COMPACT)
   // =========================================================================
   Widget _buildSearchBar() {
     final hasActiveSearch = _activeSearchQuery.isNotEmpty;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.35)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(
         children: [
           SizedBox(
-            width: 320,
-            height: 38,
+            width: 300,
+            height: 34,
             child: TextField(
               controller: _searchController,
               onSubmitted: (_) => _performSearch(),
-              style: GoogleFonts.inter(fontSize: 13),
+              style: GoogleFonts.inter(fontSize: 12.5),
               decoration: InputDecoration(
                 hintText: 'Search customer name, phone, or staff...',
-                hintStyle: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade400),
-                prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey.shade400),
+                hintStyle: GoogleFonts.inter(
+                    fontSize: 12, color: Colors.grey.shade400),
+                prefixIcon:
+                    Icon(Icons.search, size: 16, color: Colors.grey.shade400),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 16),
+                        icon: const Icon(Icons.clear, size: 15),
+                        padding: EdgeInsets.zero,
                         onPressed: () {
                           _searchController.clear();
                           setState(() {});
@@ -426,34 +509,36 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                       )
                     : null,
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.4)),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.4)),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide:
+                      const BorderSide(color: Color(0xFF10B981), width: 1.5),
                 ),
               ),
               onChanged: (_) => setState(() {}),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           SizedBox(
-            height: 38,
+            height: 34,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
               icon: _isSearching
                   ? const SizedBox(
@@ -464,11 +549,11 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.search, size: 16),
+                  : const Icon(Icons.search, size: 15),
               label: Text(
                 'Apply',
                 style: GoogleFonts.inter(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -478,18 +563,20 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
           if (hasActiveSearch) ...[
             const SizedBox(width: 8),
             SizedBox(
-              height: 38,
+              height: 34,
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.grey.shade700,
-                  side: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.5)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 icon: const Icon(Icons.close, size: 14),
                 label: Text(
                   'Reset',
-                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+                  style: GoogleFonts.inter(
+                      fontSize: 12, fontWeight: FontWeight.w600),
                 ),
                 onPressed: _resetSearch,
               ),
@@ -497,20 +584,21 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
           ],
           const Spacer(),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: const Color(0xFFDCFCE7),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(7),
               border: Border.all(color: const Color(0xFF86EFAC)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.verified_outlined, size: 15, color: Color(0xFF166534)),
-                const SizedBox(width: 6),
+                const Icon(Icons.verified_outlined,
+                    size: 14, color: Color(0xFF166534)),
+                const SizedBox(width: 5),
                 Text(
                   'Audit-Safe Performed Retention',
                   style: GoogleFonts.inter(
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF166534),
                   ),

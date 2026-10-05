@@ -4,11 +4,11 @@ import {
   Receipt,
   RotateCw,
   Banknote,
-  TrendingUp,
   Search,
   X,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   User,
   BadgeCheck,
   Clock,
@@ -36,6 +36,7 @@ export default function SalesHistoryView() {
   const [searchInput, setSearchInput] = useState<string>('');
   const [activeSearchQuery, setActiveSearchQuery] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'cash' | 'card' | 'qr'>('all');
+  const [isPanelExpanded, setIsPanelExpanded] = useState<boolean>(true);
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [detailSale, setDetailSale] = useState<Sale | null>(null);
@@ -147,7 +148,19 @@ export default function SalesHistoryView() {
   /* ── Metrics Calculations ─────────────────────────────── */
   const totalCompletedOrders = baselineSales.length;
   const totalRevenue = baselineSales.reduce((acc, s) => acc + (Number(s.total_amount) || 0), 0);
-  const avgOrderValue = totalCompletedOrders > 0 ? totalRevenue / totalCompletedOrders : 0;
+
+  const todayStr = (() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  })();
+
+  const todayOrdersCount = baselineSales.filter((s) => {
+    if (!s.created_at) return false;
+    return s.created_at.startsWith(todayStr);
+  }).length;
 
   const cashOrdersCount = baselineSales.filter((s) => s.payment_method?.toLowerCase() === 'cash').length;
   const cardOrdersCount = baselineSales.filter((s) => s.payment_method?.toLowerCase() === 'card').length;
@@ -181,164 +194,198 @@ export default function SalesHistoryView() {
   /* ── Render ───────────────────────────────────────────── */
   return (
     <div className="sales-history-container">
-      {/* ── 1. Header ──────────────────────────────────────── */}
-      <header className="sales-header">
-        <div className="sales-header__left">
-          <h2 className="sales-header__title">Sales History & POS Orders</h2>
-          <span className="sales-header__count-badge">{allSales.length} Total Orders</span>
-        </div>
-
-        <button
-          type="button"
-          className="sales-refresh-btn"
-          disabled={isLoading}
-          onClick={loadSales}
+      {/* ── Main Collapsible Card Container ────────────────── */}
+      <div className="sales-main-card">
+        {/* Main Header (Always Visible) */}
+        <div
+          className={`sales-main-card__header ${isPanelExpanded ? 'sales-main-card__header--expanded' : ''}`}
+          onClick={() => setIsPanelExpanded((prev) => !prev)}
         >
-          <RotateCw
-            size={16}
-            color="#E11D48"
-            className={isLoading ? 'table-loader-spinner' : ''}
-          />
-          <span>Refresh</span>
-        </button>
-      </header>
-
-      {/* ── 2. Summary KPI Metrics ─────────────────────────── */}
-      <div className="sales-metrics-row">
-        {/* Total Completed Orders */}
-        <div className="sales-metric-card">
-          <div className="sales-metric-icon" style={{ background: '#EEF2FF', color: '#4F46E5' }}>
-            <Receipt size={20} />
-          </div>
-          <div className="sales-metric-info">
-            <div className="sales-metric-title">Total Completed Orders</div>
-            <div className="sales-metric-value">{totalCompletedOrders} Orders</div>
-            <div className="sales-metric-sub">Total completed sales transactions</div>
-          </div>
-        </div>
-
-        {/* Total Revenue */}
-        <div className="sales-metric-card">
-          <div className="sales-metric-icon" style={{ background: '#ECFDF5', color: '#059669' }}>
-            <Banknote size={20} />
-          </div>
-          <div className="sales-metric-info">
-            <div className="sales-metric-title">Total Revenue</div>
-            <div className="sales-metric-value">${fmtMoney(totalRevenue)}</div>
-            <div className="sales-metric-sub">Combined sales across all payment modes</div>
-          </div>
-        </div>
-
-        {/* Average Order Value */}
-        <div className="sales-metric-card">
-          <div className="sales-metric-icon" style={{ background: '#FFF1F2', color: '#E11D48' }}>
-            <TrendingUp size={20} />
-          </div>
-          <div className="sales-metric-info">
-            <div className="sales-metric-title">Average Order Value</div>
-            <div className="sales-metric-value">${fmtMoney(avgOrderValue)}</div>
-            <div className="sales-metric-sub">Average checkout transaction ticket</div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 3. Filter Bar & Search ─────────────────────────── */}
-      <div className="sales-filter-bar">
-        <div className="sales-filter-chips">
-          <button
-            type="button"
-            className={`sales-filter-chip ${activeFilter === 'all' ? 'sales-filter-chip--active-all' : ''}`}
-            onClick={() => {
-              setActiveFilter('all');
-              setCurrentPage(1);
-            }}
-          >
-            All Sales ({allSales.length})
-          </button>
-          <button
-            type="button"
-            className={`sales-filter-chip ${activeFilter === 'cash' ? 'sales-filter-chip--active-cash' : ''}`}
-            onClick={() => {
-              setActiveFilter('cash');
-              setCurrentPage(1);
-            }}
-          >
-            Cash ({cashOrdersCount})
-          </button>
-          <button
-            type="button"
-            className={`sales-filter-chip ${activeFilter === 'card' ? 'sales-filter-chip--active-card' : ''}`}
-            onClick={() => {
-              setActiveFilter('card');
-              setCurrentPage(1);
-            }}
-          >
-            Card ({cardOrdersCount})
-          </button>
-          <button
-            type="button"
-            className={`sales-filter-chip ${activeFilter === 'qr' ? 'sales-filter-chip--active-qr' : ''}`}
-            onClick={() => {
-              setActiveFilter('qr');
-              setCurrentPage(1);
-            }}
-          >
-            QR Payment
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="sales-search-section">
-          <div className="sales-search-box">
-            <Search size={16} className="sales-search-box__icon" />
-            <input
-              type="text"
-              className="sales-search-input"
-              placeholder="Search customer, phone, staff..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handlePerformSearch()}
-            />
-            {searchInput && (
-              <button
-                type="button"
-                className="sales-search-clear-btn"
-                onClick={() => {
-                  setSearchInput('');
-                  if (activeSearchQuery) handleResetSearch();
-                }}
-              >
-                <X size={14} />
-              </button>
-            )}
+          <div className="sales-main-card__header-left">
+            <h2 className="sales-main-card__title">Sales History &amp; POS Orders</h2>
+            <span className="sales-main-card__badge">{allSales.length} Total Orders</span>
           </div>
 
-          <button
-            type="button"
-            className="sales-search-apply-btn"
-            disabled={isSearching}
-            onClick={handlePerformSearch}
-          >
-            {isSearching ? (
-              <span className="table-loader-spinner" style={{ width: '14px', height: '14px', borderColor: '#fff', borderTopColor: 'transparent' }} />
-            ) : (
-              <>
-                <Search size={15} />
-                <span>Apply</span>
-              </>
-            )}
-          </button>
-
-          {activeSearchQuery && (
+          <div className="sales-main-card__header-right">
             <button
               type="button"
-              className="sales-search-reset-btn"
-              onClick={handleResetSearch}
+              className="sales-refresh-btn"
+              disabled={isLoading}
+              onClick={(e) => {
+                e.stopPropagation();
+                loadSales();
+              }}
+              title="Refresh sales history"
             >
-              <X size={14} />
-              <span>Reset</span>
+              <RotateCw
+                size={15}
+                color="#E11D48"
+                className={isLoading ? 'table-loader-spinner' : ''}
+              />
+              <span>Refresh</span>
             </button>
-          )}
+
+            {/* Dropdown / Expand-Collapse Button */}
+            <button
+              type="button"
+              className={`sales-toggle-btn ${!isPanelExpanded ? 'sales-toggle-btn--collapsed' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPanelExpanded((prev) => !prev);
+              }}
+              title={isPanelExpanded ? 'Collapse metrics and search' : 'Expand metrics and search'}
+              aria-label={isPanelExpanded ? 'Collapse section' : 'Expand section'}
+            >
+              <ChevronDown size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Collapsible Content: 3 KPI Cards + Filter Bar & Search */}
+        <div className={`sales-main-card__collapsible ${!isPanelExpanded ? 'sales-main-card__collapsible--collapsed' : ''}`}>
+          <div className="sales-main-card__collapsible-inner">
+            {/* 2. Compact KPI Metrics Row */}
+            <div className="sales-metrics-row">
+              {/* Total Completed Orders */}
+              <div className="sales-metric-card">
+                <div className="sales-metric-icon" style={{ background: '#EEF2FF', color: '#4F46E5' }}>
+                  <Receipt size={18} />
+                </div>
+                <div className="sales-metric-info">
+                  <div className="sales-metric-title">Total Completed Orders</div>
+                  <div className="sales-metric-value">{totalCompletedOrders} Orders</div>
+                  <div className="sales-metric-sub">100% normal POS/Cart transactions</div>
+                </div>
+              </div>
+
+              {/* Performed Today */}
+              <div className="sales-metric-card">
+                <div className="sales-metric-icon" style={{ background: '#F0F9FF', color: '#0EA5E9' }}>
+                  <CalendarCheck size={18} />
+                </div>
+                <div className="sales-metric-info">
+                  <div className="sales-metric-title">Today&apos;s Orders</div>
+                  <div className="sales-metric-value">{todayOrdersCount} Orders</div>
+                  <div className="sales-metric-sub">Transactions completed today</div>
+                </div>
+              </div>
+
+              {/* Register Revenue */}
+              <div className="sales-metric-card">
+                <div className="sales-metric-icon" style={{ background: '#ECFDF5', color: '#059669' }}>
+                  <Banknote size={18} />
+                </div>
+                <div className="sales-metric-info">
+                  <div className="sales-metric-title">Register Revenue</div>
+                  <div className="sales-metric-value">${fmtMoney(totalRevenue)}</div>
+                  <div className="sales-metric-sub">Combined POS tender received</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Filter Bar & Search */}
+            <div className="sales-filter-bar">
+              <div className="sales-filter-chips">
+                <button
+                  type="button"
+                  className={`sales-filter-chip ${activeFilter === 'all' ? 'sales-filter-chip--active-all' : ''}`}
+                  onClick={() => {
+                    setActiveFilter('all');
+                    setCurrentPage(1);
+                  }}
+                >
+                  All Sales ({allSales.length})
+                </button>
+                <button
+                  type="button"
+                  className={`sales-filter-chip ${activeFilter === 'cash' ? 'sales-filter-chip--active-cash' : ''}`}
+                  onClick={() => {
+                    setActiveFilter('cash');
+                    setCurrentPage(1);
+                  }}
+                >
+                  Cash ({cashOrdersCount})
+                </button>
+                <button
+                  type="button"
+                  className={`sales-filter-chip ${activeFilter === 'card' ? 'sales-filter-chip--active-card' : ''}`}
+                  onClick={() => {
+                    setActiveFilter('card');
+                    setCurrentPage(1);
+                  }}
+                >
+                  Card ({cardOrdersCount})
+                </button>
+                <button
+                  type="button"
+                  className={`sales-filter-chip ${activeFilter === 'qr' ? 'sales-filter-chip--active-qr' : ''}`}
+                  onClick={() => {
+                    setActiveFilter('qr');
+                    setCurrentPage(1);
+                  }}
+                >
+                  QR Payment
+                </button>
+              </div>
+
+              {/* Search */}
+              <div className="sales-search-section">
+                <div className="sales-search-box">
+                  <Search size={15} className="sales-search-box__icon" />
+                  <input
+                    type="text"
+                    className="sales-search-input"
+                    placeholder="Search customer, phone, staff..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handlePerformSearch()}
+                  />
+                  {searchInput && (
+                    <button
+                      type="button"
+                      className="sales-search-clear-btn"
+                      onClick={() => {
+                        setSearchInput('');
+                        if (activeSearchQuery) handleResetSearch();
+                      }}
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  className="sales-search-apply-btn"
+                  disabled={isSearching}
+                  onClick={handlePerformSearch}
+                >
+                  {isSearching ? (
+                    <span className="table-loader-spinner" style={{ width: '13px', height: '13px', borderColor: '#fff', borderTopColor: 'transparent' }} />
+                  ) : (
+                    <>
+                      <Search size={13} />
+                      <span>Apply</span>
+                    </>
+                  )}
+                </button>
+
+                {(activeSearchQuery || activeFilter !== 'all') && (
+                  <button
+                    type="button"
+                    className="sales-search-reset-btn"
+                    onClick={() => {
+                      handleResetSearch();
+                      setActiveFilter('all');
+                    }}
+                  >
+                    <X size={13} />
+                    <span>Reset</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

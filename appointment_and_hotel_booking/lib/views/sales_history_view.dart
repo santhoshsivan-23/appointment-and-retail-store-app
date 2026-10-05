@@ -18,6 +18,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   String _activeSearchQuery = '';
+  bool _isPanelExpanded = true;
   // Payment method filter: 'all', 'cash', 'card', 'qr'
   String _activeFilter = 'all';
 
@@ -118,6 +119,19 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   }
 
   // Summary counts
+  int get _todayOrdersCount {
+    final now = DateTime.now();
+    final todayStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    return _baselineSales.where((s) {
+      if (s.createdAt == null) return false;
+      final d = s.createdAt!;
+      final dStr =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      return dStr == todayStr;
+    }).length;
+  }
+
   int get _cashOrdersCount =>
       _baselineSales.where((s) => s.paymentMethod.toLowerCase() == 'cash').length;
   int get _cardOrdersCount =>
@@ -125,8 +139,6 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
 
   double get _totalRevenue =>
       _baselineSales.fold(0.0, (acc, s) => acc + s.totalAmount);
-  double get _avgOrderValue =>
-      _baselineSales.isEmpty ? 0.0 : _totalRevenue / _baselineSales.length;
 
   @override
   Widget build(BuildContext context) {
@@ -149,19 +161,11 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Header with Refresh Button
-            _buildHeader(),
-            const SizedBox(height: 20),
-
-            // 2. Summary KPI Metrics
-            _buildMetricsRow(),
-            const SizedBox(height: 20),
-
-            // 3. Filter Bar & Search
-            _buildFilterAndSearchBar(),
+            // 1. Main Collapsible Card Container
+            _buildMainCard(),
             const SizedBox(height: 16),
 
-            // 4. Sales List or Empty State
+            // 2. Sales List or Empty State
             Expanded(
               child: _isLoading
                   ? const Center(
@@ -174,7 +178,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                       : _buildSalesList(pageSales),
             ),
 
-            // 5. Pagination Controls at Bottom
+            // 3. Pagination Controls at Bottom
             if (!_isLoading && displaySales.isNotEmpty) ...[
               const SizedBox(height: 14),
               _buildPaginationControls(totalItems, totalPages),
@@ -186,117 +190,202 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   }
 
   // =========================================================================
-  // HEADER
+  // MAIN COLLAPSIBLE CARD CONTAINER
   // =========================================================================
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildMainCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Text(
-                  'Sales History & POS Orders',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF0F172A),
-                  ),
+            _buildHeader(),
+            AnimatedCrossFade(
+              firstChild: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildMetricsRow(),
+                    const SizedBox(height: 12),
+                    _buildFilterAndSearchBar(),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE0E7FF),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${_allSales.length} Total Orders',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF4338CA),
-                    ),
-                  ),
-                ),
-              ],
+              ),
+              secondChild: const SizedBox(width: double.infinity, height: 0),
+              crossFadeState: _isPanelExpanded
+                  ? CrossFadeState.showFirst
+                  : CrossFadeState.showSecond,
+              duration: const Duration(milliseconds: 280),
+              firstCurve: Curves.easeInOutCubic,
+              secondCurve: Curves.easeInOutCubic,
+              sizeCurve: Curves.easeInOutCubic,
             ),
           ],
         ),
-        // Action Buttons: Refresh
-        Row(
-          children: [
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.surfaceContainerLowest,
-                foregroundColor: const Color(0xFF0F172A),
-                elevation: 0,
-                side: BorderSide(
-                    color: AppTheme.outlineVariant.withValues(alpha: 0.6)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Color(0xFFE11D48),
-                      ),
-                    )
-                  : const Icon(Icons.refresh, size: 18, color: Color(0xFFE11D48)),
-              label: Text(
-                'Refresh',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              onPressed: _isLoading ? null : _loadSales,
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
   // =========================================================================
-  // METRICS ROW
+  // HEADER
+  // =========================================================================
+  Widget _buildHeader() {
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: () => setState(() => _isPanelExpanded = !_isPanelExpanded),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(
+            border: _isPanelExpanded
+                ? const Border(bottom: BorderSide(color: Color(0xFFF1F5F9)))
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Sales History & POS Orders',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0E7FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${_baselineSales.length} Total Orders',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF4338CA),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  // Action Buttons: Refresh
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0F172A),
+                      elevation: 0,
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      minimumSize: const Size(0, 34),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFFE11D48),
+                            ),
+                          )
+                        : const Icon(Icons.refresh,
+                            size: 16, color: Color(0xFFE11D48)),
+                    label: Text(
+                      'Refresh',
+                      style: GoogleFonts.inter(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: _isLoading ? null : _loadSales,
+                  ),
+                  const SizedBox(width: 8),
+                  // Dropdown / Expand-Collapse toggle button
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    alignment: Alignment.center,
+                    child: AnimatedRotation(
+                      turns: _isPanelExpanded ? 0 : -0.5,
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeInOutCubic,
+                      child: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 20,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // METRICS ROW (ALIGNED & COMPACT)
   // =========================================================================
   Widget _buildMetricsRow() {
     return Row(
       children: [
         _buildMetricCard(
           title: 'Total Completed Orders',
-          value: '${_allSales.length} Orders',
+          value: '${_baselineSales.length} Orders',
           sub: 'Total completed sales transactions',
-          icon: Icons.receipt_long,
+          icon: Icons.receipt_long_outlined,
           color: const Color(0xFF4F46E5), // Indigo
           bgColor: const Color(0xFFEEF2FF),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 10),
         _buildMetricCard(
-          title: 'Total Revenue',
+          title: "Today's Orders",
+          value: '$_todayOrdersCount Completed',
+          sub: 'Orders created today',
+          icon: Icons.calendar_today_outlined,
+          color: const Color(0xFF0EA5E9), // Sky
+          bgColor: const Color(0xFFF0F9FF),
+        ),
+        const SizedBox(width: 10),
+        _buildMetricCard(
+          title: 'Register Revenue',
           value: '\$${_totalRevenue.toStringAsFixed(2)}',
-          sub: 'Combined sales across all payment modes',
-          icon: Icons.payments_outlined,
+          sub: 'POS checkout receipts total',
+          icon: Icons.monetization_on_outlined,
           color: const Color(0xFF059669), // Emerald
           bgColor: const Color(0xFFECFDF5),
-        ),
-        const SizedBox(width: 14),
-        _buildMetricCard(
-          title: 'Average Order Value',
-          value: '\$${_avgOrderValue.toStringAsFixed(2)}',
-          sub: 'Average checkout transaction ticket',
-          icon: Icons.analytics_outlined,
-          color: const Color(0xFFE11D48), // Rose
-          bgColor: const Color(0xFFFFF1F2),
         ),
       ],
     );
@@ -312,31 +401,31 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   }) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-              color: AppTheme.outlineVariant.withValues(alpha: 0.35)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+              color: Colors.black.withValues(alpha: 0.015),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 color: bgColor,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(9),
               ),
-              child: Icon(icon, color: color, size: 20),
+              child: Icon(icon, color: color, size: 18),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,26 +434,30 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                   Text(
                     title,
                     style: GoogleFonts.inter(
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.onSurfaceVariant,
+                      color: const Color(0xFF64748B),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     value,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF0F172A),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 1),
                   Text(
                     sub,
                     style: GoogleFonts.inter(
-                      fontSize: 10.5,
-                      color: Colors.grey.shade500,
+                      fontSize: 10,
+                      color: const Color(0xFF94A3B8),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -379,40 +472,37 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   }
 
   // =========================================================================
-  // FILTER BAR & SEARCH
+  // FILTER BAR & SEARCH (COMPACT)
   // =========================================================================
   Widget _buildFilterAndSearchBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.35)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(
         children: [
           // Category Filters
-          _buildFilterChip('all', 'All Sales (${_allSales.length})'),
-          const SizedBox(width: 8),
+          _buildFilterChip(
+            'all',
+            'All Sales (${_baselineSales.length})',
+            highlightColor: const Color(0xFF4F46E5),
+          ),
+          const SizedBox(width: 6),
           _buildFilterChip(
             'cash',
             'Cash ($_cashOrdersCount)',
             highlightColor: const Color(0xFF059669),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           _buildFilterChip(
             'card',
             'Card ($_cardOrdersCount)',
             highlightColor: const Color(0xFF2563EB),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           _buildFilterChip(
             'qr',
             'QR Payment',
@@ -422,19 +512,22 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
 
           // Search Input
           SizedBox(
-            width: 280,
-            height: 38,
+            width: 260,
+            height: 34,
             child: TextField(
               controller: _searchController,
               onSubmitted: (_) => _performSearch(),
-              style: GoogleFonts.inter(fontSize: 13),
+              style: GoogleFonts.inter(fontSize: 12.5),
               decoration: InputDecoration(
                 hintText: 'Search customer, phone, staff...',
-                hintStyle: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade400),
-                prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey.shade400),
+                hintStyle: GoogleFonts.inter(
+                    fontSize: 12, color: Colors.grey.shade400),
+                prefixIcon:
+                    Icon(Icons.search, size: 16, color: Colors.grey.shade400),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 16),
+                        icon: const Icon(Icons.clear, size: 15),
+                        padding: EdgeInsets.zero,
                         onPressed: () {
                           _searchController.clear();
                           setState(() {});
@@ -443,34 +536,36 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                       )
                     : null,
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.4)),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.4)),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide:
+                      const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
                 ),
               ),
               onChanged: (_) => setState(() {}),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           SizedBox(
-            height: 38,
+            height: 34,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4F46E5),
                 foregroundColor: Colors.white,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
               icon: _isSearching
                   ? const SizedBox(
@@ -481,11 +576,11 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.search, size: 16),
+                  : const Icon(Icons.search, size: 15),
               label: Text(
                 'Apply',
                 style: GoogleFonts.inter(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -495,18 +590,20 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
           if (_activeSearchQuery.isNotEmpty) ...[
             const SizedBox(width: 8),
             SizedBox(
-              height: 38,
+              height: 34,
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.grey.shade700,
-                  side: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.5)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 icon: const Icon(Icons.close, size: 14),
                 label: Text(
                   'Reset',
-                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+                  style: GoogleFonts.inter(
+                      fontSize: 12, fontWeight: FontWeight.w600),
                 ),
                 onPressed: _resetSearch,
               ),
@@ -526,22 +623,22 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
         _activeFilter = filterKey;
         _currentPage = 1;
       }),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(7),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected ? color : AppTheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? color : Colors.white,
+          borderRadius: BorderRadius.circular(7),
           border: Border.all(
-            color: isSelected ? color : AppTheme.outlineVariant.withValues(alpha: 0.6),
+            color: isSelected ? color : const Color(0xFFE2E8F0),
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
                     color: color.withValues(alpha: 0.2),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
                   ),
                 ]
               : null,
@@ -549,9 +646,9 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
         child: Text(
           label,
           style: GoogleFonts.inter(
-            fontSize: 12.5,
+            fontSize: 11.5,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : const Color(0xFF334155),
+            color: isSelected ? Colors.white : const Color(0xFF475569),
           ),
         ),
       ),
