@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
+import MobileBottomNav from '../components/MobileBottomNav';
 import DashboardView from '../views/DashboardView';
 import CartView from '../views/CartView';
 import SalesHistoryView from '../views/SalesHistoryView';
@@ -12,6 +13,7 @@ import AppointmentConfigView from '../views/AppointmentConfigView';
 import AppointmentView from '../views/AppointmentView';
 import StaffView from '../views/StaffView';
 import AppointmentHistoryView from '../views/AppointmentHistoryView';
+import MoreOptionsView from '../views/MoreOptionsView';
 import TabPlaceholderView from '../views/TabPlaceholderView';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logout } from '../features/auth/authSlice';
@@ -24,6 +26,8 @@ export default function MainTerminalShell() {
 
   const [currentTab, setCurrentTab] = useState<number>(0);
   const [showLogoutModal, setShowLogoutModal] = useState<boolean>(false);
+  const [mobileCartMode, setMobileCartMode] = useState<'pos' | 'cart'>('pos');
+  const [cartItemCount, setCartItemCount] = useState<number>(0);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -68,6 +72,7 @@ export default function MainTerminalShell() {
                   appointmentId: appointment?.id,
                   staffName: appointment?.staff_name,
                 });
+                setMobileCartMode('cart');
                 setCurrentTab(4); // Switch to Cart & POS
               }}
             />
@@ -82,6 +87,9 @@ export default function MainTerminalShell() {
               preloadAppointmentId={cartPreload?.appointmentId}
               preloadStaffName={cartPreload?.staffName}
               onNavigateToSalesHistory={() => setCurrentTab(5)}
+              mobileViewMode={mobileCartMode}
+              onMobileViewModeChange={(m) => setMobileCartMode(m)}
+              onCartCountChange={(cnt) => setCartItemCount(cnt)}
             />
           ) : currentTab === 5 ? (
             <SalesHistoryView />
@@ -91,6 +99,12 @@ export default function MainTerminalShell() {
             <ProductsView />
           ) : currentTab === 8 ? (
             <AppointmentConfigView />
+          ) : currentTab === 9 ? (
+            <MoreOptionsView
+              onNavigate={(idx) => setCurrentTab(idx)}
+              onLogoutClick={() => setShowLogoutModal(true)}
+              onSelectCartMode={(m) => setMobileCartMode(m)}
+            />
           ) : (
             <TabPlaceholderView
               tabIndex={currentTab}
@@ -99,6 +113,15 @@ export default function MainTerminalShell() {
           )}
         </main>
       </div>
+
+      {/* 3. Mobile Fixed Bottom Navigation Bar */}
+      <MobileBottomNav
+        currentTab={currentTab}
+        onSelectTab={(idx) => setCurrentTab(idx)}
+        mobileCartMode={mobileCartMode}
+        onSelectCartMode={(mode) => setMobileCartMode(mode)}
+        cartCount={cartItemCount}
+      />
 
       {/* 3. Sign Out Confirmation Modal Dialog */}
       {showLogoutModal && (

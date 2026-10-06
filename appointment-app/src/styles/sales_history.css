@@ -133,8 +133,13 @@
 }
 
 @keyframes sales-spin-kf {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Smooth Collapsible Wrapper ────────────────────────── */
@@ -834,14 +839,415 @@
   .sales-metrics-row {
     grid-template-columns: 1fr;
   }
+
   .sales-filter-bar {
     flex-direction: column;
     align-items: stretch;
   }
+
   .sales-search-section {
     width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
   }
+
   .sales-search-box {
+    flex: 1 1 0%;
+    min-width: 0;
+    width: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .sales-history-container {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 12px 14px calc(88px + env(safe-area-inset-bottom, 0px)) 14px !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 1. Main Collapsible Card */
+  .sales-main-card {
+    border-radius: 14px;
+    margin-bottom: 12px;
+  }
+
+  .sales-main-card__header {
+    padding: 12px 14px;
+  }
+
+  .sales-main-card__title {
+    font-size: 15px;
+  }
+
+  .sales-main-card__badge {
+    font-size: 10.5px;
+    padding: 2px 7px;
+    border-radius: 6px;
+  }
+
+  .sales-refresh-btn {
+    padding: 6px 10px;
+    font-size: 11.5px;
+    border-radius: 8px;
+    gap: 4px;
+  }
+
+  .sales-toggle-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* 2. Collapsible Metrics */
+  .sales-main-card__collapsible-inner {
+    padding: 12px 14px;
+  }
+
+  .sales-metrics-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  @media (max-width: 480px) {
+    .sales-metrics-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .sales-metric-card {
+    padding: 10px 12px;
+    border-radius: 12px;
+    gap: 8px;
+  }
+
+  .sales-metric-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .sales-metric-title {
+    font-size: 10.5px;
+  }
+
+  .sales-metric-value {
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .sales-metric-sub {
+    display: none;
+  }
+
+  /* 3. Filter Chips & Search with Enhanced Apply Button */
+  .sales-filter-bar {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .sales-filter-chips {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .sales-filter-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sales-filter-chip {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 9999px;
+  }
+
+  .sales-search-section {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .sales-search-box {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    width: 0 !important;
+    height: 38px !important;
+    border-radius: 10px !important;
+  }
+
+  .sales-search-input {
+    height: 38px !important;
+    font-size: 12.5px !important;
+    border-radius: 10px !important;
+  }
+
+  .sales-search-apply-btn {
+    height: 38px !important;
+    padding: 0 16px !important;
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.02em !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 8px rgba(225, 29, 72, 0.3) !important;
+    transition: all 0.15s ease !important;
+    flex-shrink: 0 !important;
+  }
+
+  .sales-search-apply-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
+    box-shadow: 0 3px 10px rgba(225, 29, 72, 0.4) !important;
+  }
+
+  .sales-search-apply-btn:active:not(:disabled) {
+    transform: scale(0.96) !important;
+  }
+
+  .sales-search-reset-btn {
+    height: 38px !important;
+    padding: 0 12px !important;
+    background: #F1F5F9 !important;
+    color: #475569 !important;
+    border: 1.5px solid #CBD5E1 !important;
+    border-radius: 10px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    flex-shrink: 0 !important;
+  }
+
+  .sales-search-reset-btn:hover {
+    background: #E2E8F0 !important;
+    color: #0F172A !important;
+  }
+
+  .sales-search-reset-btn:active {
+    transform: scale(0.96) !important;
+  }
+
+  /* 4. Sales Orders List & Item Cards (Expands fully on mobile so pagination renders after all items) */
+  .sales-list-container {
+    flex: none !important;
+    height: auto !important;
+    min-height: unset !important;
+    overflow: visible !important;
+    padding-right: 0 !important;
+    gap: 10px;
+  }
+
+  .sale-item-card {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 14px;
+    border-radius: 14px;
+    gap: 8px;
+  }
+
+  .sale-item-card:hover {
+    transform: none;
+  }
+
+  .sale-item-card:active {
+    background-color: #FAFBFD;
+    border-color: #CBD5E1;
+  }
+
+  .sale-item-icon-box {
+    display: none;
+  }
+
+  .sale-item-main {
+    gap: 6px;
     width: 100%;
+  }
+
+  .sale-item-top-row {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .sale-item-receipt-num {
+    font-size: 13px;
+    font-weight: 800;
+    color: #0F172A;
+  }
+
+  .sale-item-meta-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .sale-customer-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1E293B;
+  }
+
+  .sale-staff-pill {
+    font-size: 11px;
+    padding: 2px 7px;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+  }
+
+  .sale-item-right {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px solid #F1F5F9;
+  }
+
+  .sale-item-total {
+    font-size: 16px;
+    font-weight: 900;
+    color: #E11D48;
+  }
+
+  .sale-chevron {
+    display: none;
+  }
+
+  /* 5. Enhanced Pagination on Mobile */
+  .sales-pagination-bar {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    align-items: center !important;
+    padding: 14px 16px !important;
+    margin-top: 16px !important;
+    margin-bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
+    background: #ffffff !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  .sales-pagination-info {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: #64748B !important;
+    text-align: center !important;
+  }
+
+  .sales-pagination-btns {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 10px !important;
+    margin-bottom: 70px;
+  }
+
+  .sales-pagination-btns>div,
+  .sales-page-num-wrap {
+    display: none !important;
+  }
+
+  .sales-pagination-btns>div:has(.sales-page-num-btn--active),
+  .sales-page-num-wrap--active {
+    display: flex !important;
+  }
+
+  .sales-page-num-btn--active {
+    display: inline-flex !important;
+    min-width: 44px !important;
+    height: 42px !important;
+    padding: 0 12px !important;
+    border-radius: 12px !important;
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
+    border: 1.5px solid #e11d48 !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    font-size: 14px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 3px 8px rgba(225, 29, 72, 0.3) !important;
+  }
+
+  .sales-page-nav-btn {
+    flex: 1 !important;
+    height: 42px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    background: #ffffff !important;
+    border: 1.5px solid #CBD5E1 !important;
+    border-radius: 12px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #1E293B !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+  }
+
+  .sales-page-nav-btn:hover:not(:disabled) {
+    background: #F8FAFC !important;
+    border-color: #94A3B8 !important;
+  }
+
+  .sales-page-nav-btn:active:not(:disabled) {
+    transform: scale(0.97) !important;
+    background: #F1F5F9 !important;
+  }
+
+  .sales-page-nav-btn:disabled {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+    background: #F8FAFC !important;
+    border-color: #E2E8F0 !important;
+  }
+
+  /* 6. Receipt Modal on Mobile */
+  .cart-modal-overlay {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .sale-detail-dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 14px 14px;
+    padding: 18px 16px;
+    max-height: 88vh;
+  }
+
+  .sales-modal-close-btn {
+    height: 44px;
+    border-radius: 12px;
+    font-size: 14px;
   }
 }

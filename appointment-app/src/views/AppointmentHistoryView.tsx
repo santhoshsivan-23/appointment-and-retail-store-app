@@ -279,56 +279,58 @@ export default function AppointmentHistoryView() {
 
             {/* 3. Search Bar & Audit Banner */}
             <div className="apt-search-bar">
-              <div className="apt-search-box">
-                <Search size={16} className="apt-search-box__icon" />
-                <input
-                  type="text"
-                  className="apt-search-input"
-                  placeholder="Search customer name, phone, or staff..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handlePerformSearch();
-                  }}
-                />
-                {searchInput && (
+              <div className="apt-search-section">
+                <div className="apt-search-box">
+                  <Search size={16} className="apt-search-box__icon" />
+                  <input
+                    type="text"
+                    className="apt-search-input"
+                    placeholder="Search customer name, phone, or staff..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handlePerformSearch();
+                    }}
+                  />
+                  {searchInput && (
+                    <button
+                      type="button"
+                      className="apt-search-clear-btn"
+                      onClick={() => {
+                        setSearchInput('');
+                        if (activeSearchQuery) handleResetSearch();
+                      }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  className="apt-btn-apply"
+                  onClick={handlePerformSearch}
+                  disabled={isSearching}
+                >
+                  {isSearching ? (
+                    <RotateCw size={13} className="apt-spin" />
+                  ) : (
+                    <Search size={13} />
+                  )}
+                  <span>Apply</span>
+                </button>
+
+                {activeSearchQuery && (
                   <button
                     type="button"
-                    className="apt-search-clear-btn"
-                    onClick={() => {
-                      setSearchInput('');
-                      if (activeSearchQuery) handleResetSearch();
-                    }}
+                    className="apt-btn-reset"
+                    onClick={handleResetSearch}
                   >
-                    <X size={14} />
+                    <X size={13} />
+                    <span>Reset</span>
                   </button>
                 )}
               </div>
-
-              <button
-                type="button"
-                className="apt-btn-apply"
-                onClick={handlePerformSearch}
-                disabled={isSearching}
-              >
-                {isSearching ? (
-                  <RotateCw size={13} className="apt-spin" />
-                ) : (
-                  <Search size={13} />
-                )}
-                <span>Apply</span>
-              </button>
-
-              {activeSearchQuery && (
-                <button
-                  type="button"
-                  className="apt-btn-reset"
-                  onClick={handleResetSearch}
-                >
-                  <X size={13} />
-                  <span>Reset</span>
-                </button>
-              )}
 
               <div className="apt-audit-badge">
                 <ShieldCheck size={14} />
@@ -401,6 +403,13 @@ export default function AppointmentHistoryView() {
                     <div className="apt-card-staff">
                       <BadgeCheck size={13} style={{ color: '#64748B' }} />
                       <span>{a.staff_name}</span>
+                    </div>
+                  )}
+
+                  {a.appointment_date && (
+                    <div className="apt-card-datetime">
+                      <Clock size={13} style={{ color: '#94A3B8' }} />
+                      <span>{a.appointment_date}{a.start_time ? ` • ${a.start_time}` : ''}</span>
                     </div>
                   )}
                 </div>

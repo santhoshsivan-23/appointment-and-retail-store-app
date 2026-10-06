@@ -452,95 +452,169 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             </button>
           </div>
         ) : (
-          <div className="dashboard-appts-table-wrapper">
-            <table className="dashboard-appts-table">
-              <thead>
-                <tr>
-                  <th>Time Slot</th>
-                  <th>Customer</th>
-                  <th>Staff Member</th>
-                  <th>Services</th>
-                  <th>Status</th>
-                  <th>Total</th>
-                  <th style={{ textAlign: 'right' }}>Schedule</th>
-                </tr>
-              </thead>
-              <tbody>
-                {todayAppointments.map((appt) => {
-                  const statusInfo = getStatusBadge(appt.status);
-                  return (
-                    <tr
-                      key={appt.id}
-                      className="dashboard-appts-row"
-                      onClick={() => onNavigate(1)}
-                      title="Click to view in Appointments calendar"
-                    >
-                      <td>
-                        <div className="appt-time-pill">
-                          <Clock size={13} />
-                          <span>
-                            {formatTime12(appt.start_time)} -{' '}
-                            {formatTime12(appt.end_time)}
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="appt-customer-info">
-                          <span className="appt-customer-name">
-                            {appt.customer_name || 'Walk-in Guest'}
-                          </span>
-                          {appt.customer_phone && (
-                            <span className="appt-customer-phone">
-                              {appt.customer_phone}
+          <>
+            {/* Desktop Table View */}
+            <div className="dashboard-appts-table-wrapper">
+              <table className="dashboard-appts-table">
+                <thead>
+                  <tr>
+                    <th>Time Slot</th>
+                    <th>Customer</th>
+                    <th>Staff Member</th>
+                    <th>Services</th>
+                    <th>Status</th>
+                    <th>Total</th>
+                    <th style={{ textAlign: 'right' }}>Schedule</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {todayAppointments.map((appt) => {
+                    const statusInfo = getStatusBadge(appt.status);
+                    return (
+                      <tr
+                        key={appt.id}
+                        className="dashboard-appts-row"
+                        onClick={() => onNavigate(1)}
+                        title="Click to view in Appointments calendar"
+                      >
+                        <td>
+                          <div className="appt-time-pill">
+                            <Clock size={13} />
+                            <span>
+                              {formatTime12(appt.start_time)} -{' '}
+                              {formatTime12(appt.end_time)}
                             </span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="appt-staff-pill">
-                          <span className="appt-staff-dot" />
-                          <span>{appt.staff_name || 'Unassigned'}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div
-                          className="appt-services-text"
-                          title={getServicesSummary(appt)}
-                        >
-                          {getServicesSummary(appt)}
-                        </div>
-                      </td>
-                      <td>
-                        <span
-                          className={`dash-status-badge ${statusInfo.className}`}
-                        >
-                          {statusInfo.label}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="appt-customer-info">
+                            <span className="appt-customer-name">
+                              {appt.customer_name || 'Walk-in Guest'}
+                            </span>
+                            {appt.customer_phone && (
+                              <span className="appt-customer-phone">
+                                {appt.customer_phone}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="appt-staff-pill">
+                            <span className="appt-staff-dot" />
+                            <span>{appt.staff_name || 'Unassigned'}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div
+                            className="appt-services-text"
+                            title={getServicesSummary(appt)}
+                          >
+                            {getServicesSummary(appt)}
+                          </div>
+                        </td>
+                        <td>
+                          <span
+                            className={`dash-status-badge ${statusInfo.className}`}
+                          >
+                            {statusInfo.label}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="appt-amount-val">
+                            ${fmtMoney(appt.total_amount)}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            className="appt-action-link"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onNavigate(1);
+                            }}
+                          >
+                            <span>Open</span>
+                            <ChevronRight size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Responsive Cards List */}
+            <div className="dashboard-appts-mobile-list">
+              {todayAppointments.map((appt) => {
+                const statusInfo = getStatusBadge(appt.status);
+                return (
+                  <div
+                    key={appt.id}
+                    className="dash-mobile-appt-card"
+                    onClick={() => onNavigate(1)}
+                    title="Click to view in Appointments calendar"
+                  >
+                    <div className="dash-mobile-appt-card__top">
+                      <div className="appt-time-pill">
+                        <Clock size={12} />
+                        <span>
+                          {formatTime12(appt.start_time)} -{' '}
+                          {formatTime12(appt.end_time)}
                         </span>
-                      </td>
-                      <td>
+                      </div>
+                      <span
+                        className={`dash-status-badge ${statusInfo.className}`}
+                      >
+                        {statusInfo.label}
+                      </span>
+                    </div>
+
+                    <div className="dash-mobile-appt-card__body">
+                      <div className="dash-mobile-appt-card__customer">
+                        <span className="appt-customer-name">
+                          {appt.customer_name || 'Walk-in Guest'}
+                        </span>
+                        {appt.customer_phone && (
+                          <span className="appt-customer-phone">
+                            {appt.customer_phone}
+                          </span>
+                        )}
+                      </div>
+                      <div className="appt-staff-pill">
+                        <span className="appt-staff-dot" />
+                        <span>{appt.staff_name || 'Unassigned'}</span>
+                      </div>
+                    </div>
+
+                    <div className="dash-mobile-appt-card__services">
+                      <span className="dash-mobile-appt-card__services-label">
+                        Services:
+                      </span>
+                      <span className="dash-mobile-appt-card__services-val">
+                        {getServicesSummary(appt)}
+                      </span>
+                    </div>
+
+                    <div className="dash-mobile-appt-card__bottom">
+                      <div className="dash-mobile-appt-card__price">
+                        <span className="dash-mobile-appt-card__price-label">
+                          Total:
+                        </span>
                         <span className="appt-amount-val">
                           ${fmtMoney(appt.total_amount)}
                         </span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button
-                          type="button"
-                          className="appt-action-link"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onNavigate(1);
-                          }}
-                        >
-                          <span>Open</span>
-                          <ChevronRight size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                      <div className="dash-mobile-appt-card__link">
+                        <span>View Schedule</span>
+                        <ChevronRight size={14} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </section>
 

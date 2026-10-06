@@ -332,11 +332,29 @@ export default function StaffView() {
                   </div>
 
                   {/* Contact Info */}
-                  <div className="staff-card-contact" title={staff.phone || 'No phone'}>
-                    <span>📞 {staff.phone ? staff.phone : 'No phone'}</span>
-                  </div>
-                  <div className="staff-card-contact" title={staff.email || 'No email'}>
-                    <span>✉️ {staff.email ? staff.email : 'No email'}</span>
+                  <div className="staff-card-contact-list">
+                    <a
+                      href={staff.phone ? `tel:${staff.phone}` : undefined}
+                      className={`staff-card-contact ${!staff.phone ? 'staff-card-contact--empty' : ''}`}
+                      title={staff.phone || 'No phone'}
+                      onClick={(e) => {
+                        if (!staff.phone) e.preventDefault();
+                      }}
+                    >
+                      <Phone size={13} style={{ color: staff.phone ? '#2563EB' : '#94A3B8' }} />
+                      <span>{staff.phone ? staff.phone : 'No phone'}</span>
+                    </a>
+                    <a
+                      href={staff.email ? `mailto:${staff.email}` : undefined}
+                      className={`staff-card-contact ${!staff.email ? 'staff-card-contact--empty' : ''}`}
+                      title={staff.email || 'No email'}
+                      onClick={(e) => {
+                        if (!staff.email) e.preventDefault();
+                      }}
+                    >
+                      <Mail size={13} style={{ color: staff.email ? '#7C3AED' : '#94A3B8' }} />
+                      <span>{staff.email ? staff.email : 'No email'}</span>
+                    </a>
                   </div>
 
                   {/* 3 Action Buttons */}

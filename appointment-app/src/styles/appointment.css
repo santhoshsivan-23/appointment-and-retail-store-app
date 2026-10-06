@@ -40,7 +40,9 @@
 }
 
 @keyframes appt-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Top Header Bar ──────────────────────────────────────────────────────── */
@@ -82,6 +84,7 @@
   background-color: #f1f5f9;
   color: #334155;
 }
+
 .appointment-header__btn--today:hover {
   background-color: #e2e8f0;
   color: #0f172a;
@@ -108,6 +111,7 @@
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
+
 .appointment-header__arrow-btn:hover {
   background-color: #e2e8f0;
   color: #0f172a;
@@ -128,9 +132,11 @@
   position: relative;
   transition: background-color 0.15s ease;
 }
+
 .appointment-header__date-btn:hover {
   background-color: #f1f5f9;
 }
+
 .appointment-header__date-icon {
   color: #e11d48;
 }
@@ -155,10 +161,12 @@
   color: #0f172a;
   gap: 6px;
 }
+
 .appointment-header__btn--refresh:hover {
   background-color: #f8fafc;
   border-color: #94a3b8;
 }
+
 .appointment-header__btn--refresh svg {
   color: #e11d48;
 }
@@ -179,6 +187,7 @@
   padding: 0 10px;
   transition: all 0.15s ease;
 }
+
 .appointment-search-input-box:focus-within {
   background-color: #ffffff;
   border-color: #e11d48;
@@ -199,6 +208,7 @@
   width: 100%;
   outline: none;
 }
+
 .appointment-search-input::placeholder {
   color: #94a3b8;
   font-size: 11.5px;
@@ -215,6 +225,7 @@
   justify-content: center;
   border-radius: 4px;
 }
+
 .appointment-search-clear:hover {
   color: #0f172a;
   background-color: #e2e8f0;
@@ -247,6 +258,7 @@
   gap: 6px;
   border-bottom: 1px solid #f1f5f9;
 }
+
 .appointment-search-dropdown__header svg {
   color: #e11d48;
 }
@@ -265,6 +277,7 @@
   border-bottom: 1px solid #f8fafc;
   transition: background-color 0.12s ease;
 }
+
 .appointment-search-item:hover {
   background-color: #fff1f2;
 }
@@ -287,6 +300,7 @@
   flex: 1;
   min-width: 0;
 }
+
 .appointment-search-item__name {
   font-size: 12.5px;
   font-weight: 600;
@@ -295,6 +309,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .appointment-search-item__phone {
   font-size: 11px;
   color: #64748b;
@@ -329,6 +344,7 @@
   box-shadow: 0 1px 3px rgba(225, 29, 72, 0.3);
   gap: 6px;
 }
+
 .appointment-header__btn--new:hover {
   background-color: #be123c;
 }
@@ -361,9 +377,11 @@
   flex: 1;
   padding-bottom: 2px;
 }
+
 .appointment-staff-bar__pills::-webkit-scrollbar {
   height: 4px;
 }
+
 .appointment-staff-bar__pills::-webkit-scrollbar-thumb {
   background-color: #cbd5e1;
   border-radius: 4px;
@@ -388,6 +406,7 @@
   background-color: #1e293b;
   color: #ffffff;
 }
+
 .staff-pill--all-inactive {
   background-color: #f1f5f9;
   color: #475569;
@@ -415,10 +434,12 @@
   color: #64748b;
   margin-left: auto;
 }
+
 .staff-pill--toggle-cal:hover {
   border-color: #94a3b8;
   color: #0f172a;
 }
+
 .staff-pill--toggle-cal-active {
   background-color: #fff1f2;
   border-color: #e11d48;
@@ -474,7 +495,8 @@
 .timetable-staff-headers-scroll {
   display: flex;
   flex: 1;
-  overflow-x: hidden; /* Scroll position synced with lanes via JS */
+  overflow-x: hidden;
+  /* Scroll position synced with lanes via JS */
 }
 
 .timetable-staff-header-card {
@@ -490,6 +512,7 @@
   transition: background-color 0.12s ease;
   user-select: none;
 }
+
 .timetable-staff-header-card:hover {
   background-color: #f8fafc;
 }
@@ -544,7 +567,8 @@
 .timetable-body-scroll {
   display: flex;
   flex: 1;
-  overflow: auto; /* Unified native smooth scroll for both vertical & horizontal */
+  overflow: auto;
+  /* Unified native smooth scroll for both vertical & horizontal */
   position: relative;
   -webkit-overflow-scrolling: touch;
 }
@@ -608,13 +632,16 @@
   justify-content: flex-end;
   padding-right: 6px;
 }
+
 .timetable-lane-slot:hover {
   background-color: rgba(225, 29, 72, 0.06);
 }
+
 .timetable-lane-slot--outside {
   background-color: rgba(248, 250, 252, 0.5);
   cursor: not-allowed;
 }
+
 .timetable-lane-slot--outside:hover {
   background-color: rgba(241, 245, 249, 0.8);
 }
@@ -646,9 +673,11 @@
   pointer-events: none;
   white-space: nowrap;
 }
+
 .timetable-slot-drop-badge--valid {
   background-color: #3b82f6;
 }
+
 .timetable-slot-drop-badge--blocked {
   background-color: #e11d48;
 }
@@ -730,6 +759,7 @@
   user-select: none;
   box-sizing: border-box;
 }
+
 .appointment-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
@@ -745,6 +775,7 @@
   border-left: 4px solid #3b82f6;
   color: #1e3a5f;
 }
+
 .appointment-card--booked .appointment-card__badge {
   background-color: #3b82f6;
   color: #ffffff;
@@ -755,6 +786,7 @@
   border-left: 4px solid #f59e0b;
   color: #78350f;
 }
+
 .appointment-card--in_service .appointment-card__badge {
   background-color: #f59e0b;
   color: #ffffff;
@@ -765,6 +797,7 @@
   border-left: 4px solid #10b981;
   color: #064e3b;
 }
+
 .appointment-card--completed .appointment-card__badge {
   background-color: #10b981;
   color: #ffffff;
@@ -775,6 +808,7 @@
   border-left: 4px solid #f43f5e;
   color: #881337;
 }
+
 .appointment-card--no_show .appointment-card__badge {
   background-color: #f43f5e;
   color: #ffffff;
@@ -785,6 +819,7 @@
   border-left: 4px solid #94a3b8;
   color: #475569;
 }
+
 .appointment-card--cancelled .appointment-card__badge {
   background-color: #e2e8f0;
   color: #475569;
@@ -832,6 +867,7 @@
   text-overflow: ellipsis;
   margin-top: 2px;
 }
+
 .appointment-card--cancelled .appointment-card__title {
   text-decoration: line-through;
   color: #94a3b8;
@@ -912,6 +948,7 @@
   color: #64748b;
   cursor: pointer;
 }
+
 .month-calendar__icon-btn:hover {
   background-color: #f1f5f9;
   color: #0f172a;
@@ -950,16 +987,20 @@
   transition: all 0.12s ease;
   user-select: none;
 }
+
 .month-calendar__day:hover:not(.month-calendar__day--selected) {
   background-color: #f1f5f9;
 }
+
 .month-calendar__day--other-month {
   color: #cbd5e1;
 }
+
 .month-calendar__day--today {
   border: 1px solid #e11d48;
   font-weight: 700;
 }
+
 .month-calendar__day--selected {
   background-color: #e11d48 !important;
   color: #ffffff !important;
@@ -1016,6 +1057,7 @@
   transition: all 0.15s ease;
   user-select: none;
 }
+
 .status-card--active {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
   border-width: 1.8px !important;
@@ -1080,6 +1122,7 @@
     opacity: 0;
     transform: scale(0.96) translateY(6px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -1133,6 +1176,7 @@
   align-items: center;
   justify-content: center;
 }
+
 .appt-modal__close-btn:hover {
   background-color: #f1f5f9;
   color: #0f172a;
@@ -1209,6 +1253,7 @@
   width: 100%;
   box-sizing: border-box;
 }
+
 .appt-form-input:focus,
 .appt-form-select:focus {
   border-color: #e11d48;
@@ -1387,6 +1432,7 @@
   color: #475569;
   transition: all 0.12s ease;
 }
+
 .appt-cat-chip--active {
   background-color: #fff1f2;
   border-color: #e11d48;
@@ -1412,9 +1458,11 @@
   cursor: pointer;
   transition: background-color 0.12s ease;
 }
+
 .appt-product-row:hover {
   background-color: #f8fafc;
 }
+
 .appt-product-row--selected {
   background-color: #fff1f2;
 }
@@ -1432,6 +1480,7 @@
   font-weight: 500;
   color: #0f172a;
 }
+
 .appt-product-price {
   font-size: 12.5px;
   font-weight: 700;
@@ -1448,6 +1497,7 @@
   font-size: 14px;
   font-weight: 700;
 }
+
 .appt-total-val {
   font-size: 17px;
   font-weight: 800;
@@ -1468,6 +1518,7 @@
   font-weight: 500;
   margin-bottom: 12px;
 }
+
 .appt-alert-banner svg {
   color: #e11d48;
   flex-shrink: 0;
@@ -1480,17 +1531,20 @@
   padding: 5px 0;
   font-size: 13px;
 }
+
 .appt-detail-icon {
   color: #64748b;
   margin-right: 8px;
   flex-shrink: 0;
 }
+
 .appt-detail-label {
   width: 80px;
   color: #64748b;
   font-weight: 500;
   font-size: 12px;
 }
+
 .appt-detail-val {
   font-weight: 600;
   color: #0f172a;
@@ -1512,6 +1566,7 @@
   justify-content: space-between;
   margin-bottom: 10px;
 }
+
 .appt-extend-title {
   font-size: 12px;
   font-weight: 700;
@@ -1520,6 +1575,7 @@
   align-items: center;
   gap: 6px;
 }
+
 .appt-extend-title svg {
   color: #e11d48;
 }
@@ -1549,6 +1605,7 @@
   cursor: pointer;
   transition: all 0.12s ease;
 }
+
 .appt-extend-btn:hover {
   background-color: #fff1f2;
 }
@@ -1568,6 +1625,7 @@
   box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
   margin: 0 auto;
 }
+
 .appt-extend-custom-btn:hover {
   background-color: #dbeafe;
 }
@@ -1645,6 +1703,7 @@
   font-size: 12px;
   color: #64748b;
 }
+
 .staff-info-stat-row span:last-child {
   font-weight: 700;
   color: #0f172a;
@@ -1661,6 +1720,7 @@
   font-weight: 600;
   cursor: pointer;
 }
+
 .appt-btn-cancel:hover {
   background-color: #f1f5f9;
   color: #0f172a;
@@ -1677,6 +1737,2861 @@
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(225, 29, 72, 0.3);
 }
+
 .appt-btn-primary:hover {
   background-color: #be123c;
+}
+
+/* ==========================================================================
+   Desktop vs Mobile View Split
+   ========================================================================== */
+.appointment-desktop-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.appointment-mobile-view {
+  display: none;
+}
+
+/* Custom Scrollbar Utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── Mobile Responsive Overrides ─────────────────────────── */
+@media (max-width: 768px) {
+  .appointment-view {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: auto !important;
+    min-height: 100% !important;
+  }
+
+  .appointment-desktop-view {
+    display: none !important;
+  }
+
+  .appointment-mobile-view {
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+    min-height: 100%;
+    background-color: #f8fafc;
+    padding-bottom: 30px;
+    box-sizing: border-box;
+  }
+
+  /* Mobile Appt Header */
+  .mobile-appt-header {
+    background: #ffffff;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  }
+
+  .mobile-appt-header__top {
+    padding: 12px 16px 8px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mobile-appt-header__studio {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    color: #f43f5e;
+    display: block;
+    line-height: 1.2;
+  }
+
+  .mobile-appt-header__title {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 2px 0 0 0;
+    line-height: 1.2;
+  }
+
+  .mobile-appt-header__month-badge {
+    font-size: 11px;
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .mobile-appt-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-header-icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 9999px;
+    background: #f1f5f9;
+    color: #475569;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+
+  .mobile-header-icon-btn:active {
+    transform: scale(0.95);
+  }
+
+  .mobile-header-icon-btn--active {
+    background: #0f172a;
+    color: #ffffff;
+  }
+
+  /* Mobile Search Bar */
+  .mobile-search-bar {
+    padding: 8px 16px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .mobile-search-icon {
+    position: absolute;
+    left: 28px;
+    color: #94a3b8;
+    pointer-events: none;
+  }
+
+  .mobile-search-input {
+    width: 100%;
+    height: 38px;
+    padding: 0 36px 0 38px;
+    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    font-size: 13px;
+    color: #0f172a;
+    outline: none;
+    box-sizing: border-box;
+  }
+
+  .mobile-search-input:focus {
+    border-color: #f43f5e;
+    background: #ffffff;
+  }
+
+  .mobile-search-clear {
+    position: absolute;
+    right: 26px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Week Strip Carousel */
+  .mobile-week-strip {
+    padding: 6px 16px 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    overflow-x: auto;
+  }
+
+  .mobile-week-day {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 4px;
+    border-radius: 12px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-width: 40px;
+  }
+
+  .mobile-week-day__name {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .mobile-week-day__num {
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 2px;
+    color: inherit;
+  }
+
+  .mobile-week-day--active {
+    background: #0f172a !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+  }
+
+  .mobile-week-day--active .mobile-week-day__name {
+    color: #fb7185;
+  }
+
+  .mobile-week-day__dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 9999px;
+    background: #f43f5e;
+    margin-top: 3px;
+  }
+
+  .mobile-week-day__today-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 9999px;
+    background: #94a3b8;
+    margin-top: 3px;
+  }
+
+  /* Staff Filter Chips */
+  .mobile-staff-chips-row {
+    padding: 8px 16px;
+    background: rgba(248, 250, 252, 0.95);
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+  }
+
+  .mobile-staff-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 9999px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    transition: all 0.15s ease;
+  }
+
+  .mobile-staff-chip--all-active {
+    background: #1e293b !important;
+    border-color: #1e293b !important;
+    color: #ffffff !important;
+  }
+
+  .mobile-staff-chip__avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 9999px;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  /* Quick KPI Bar */
+  .mobile-kpi-bar {
+    padding: 12px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  }
+
+  .mobile-kpi-bar__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .mobile-kpi-bar__title {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    margin: 0;
+  }
+
+  .mobile-kpi-bar__badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: #334155;
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+
+  .mobile-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    text-align: center;
+  }
+
+  .mobile-kpi-card {
+    border-radius: 12px;
+    padding: 8px 4px;
+    border: 1px solid;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .mobile-kpi-card:active {
+    transform: scale(0.96);
+  }
+
+  .mobile-kpi-card--active {
+    box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.2);
+  }
+
+  .mobile-kpi-card__label-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 2px;
+  }
+
+  .mobile-kpi-card__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+  }
+
+  .mobile-kpi-card__label {
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .mobile-kpi-card__count {
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  /* Timeline Section */
+  .mobile-timeline-section {
+    padding: 14px 16px 84px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Current Time Marker (Hidden for mobile view) */
+  .mobile-now-marker,
+  .current-time-indicator {
+    display: none !important;
+  }
+
+  .mobile-now-badge {
+    font-size: 11px;
+    font-weight: 800;
+    color: #e11d48;
+    background: #fff1f2;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    border: 1px solid #fecdd3;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  .mobile-now-line {
+    flex: 1;
+    height: 1px;
+    background: #fb7185;
+    border-top: 1px dashed #fb7185;
+    margin-left: 8px;
+  }
+
+  .mobile-now-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: #f43f5e;
+    box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.25);
+    margin-left: -2px;
+  }
+
+  /* Time Divider */
+  .mobile-time-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .mobile-time-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: #475569;
+    width: 50px;
+    flex-shrink: 0;
+  }
+
+  .mobile-time-divider__line {
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+  }
+
+  .mobile-time-close-text {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+
+  .mobile-time-cards-stack {
+    margin-left: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Appointment Card */
+  .mobile-appt-card {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-left-width: 4px;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.03);
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-appt-card:active {
+    transform: scale(0.98);
+    background: #fafafa;
+  }
+
+  .mobile-appt-card--cancelled {
+    background: rgba(248, 250, 252, 0.85);
+    opacity: 0.8;
+  }
+
+  .mobile-appt-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .mobile-appt-card__name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .mobile-appt-card__name {
+    font-size: 14px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  .mobile-appt-card__status-badge {
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .mobile-appt-card__services {
+    font-size: 11.5px;
+    color: #64748b;
+    margin: 4px 0 0 0;
+    line-height: 1.35;
+  }
+
+  .mobile-appt-card__meta-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .mobile-appt-card__time {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+  }
+
+  .mobile-appt-card__staff-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid;
+    white-space: nowrap;
+  }
+
+  .mobile-appt-card__staff-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+  }
+
+  /* Empty Schedule State */
+  .mobile-empty-schedule {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 32px 20px;
+    border: 1px dashed #cbd5e1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .mobile-empty-schedule h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+  }
+
+  .mobile-empty-schedule p {
+    font-size: 12px;
+    color: #64748b;
+    margin: 0;
+  }
+
+  .mobile-empty-book-btn {
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: #e11d48;
+    color: #ffffff;
+    font-size: 12.5px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* Floating Action Button */
+  .mobile-floating-action-wrap {
+    position: fixed;
+    bottom: 74px;
+    right: 16px;
+    z-index: 50;
+    pointer-events: auto;
+  }
+
+  .mobile-floating-new-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    color: #ffffff;
+    font-size: 11.5px;
+    font-weight: 800;
+    padding: 7px 15px;
+    border-radius: 9999px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 10px 25px -4px rgba(225, 29, 72, 0.45);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    letter-spacing: 0.02em;
+  }
+
+  .mobile-floating-new-btn:active {
+    transform: scale(0.95);
+  }
+
+  .appointment-modal {
+    width: 95vw !important;
+    max-height: 90vh !important;
+  }
+
+  .appt-form-columns {
+    flex-direction: column !important;
+  }
+
+  .appt-form-col-left,
+  .appt-form-col-right {
+    width: 100% !important;
+    border-left: none !important;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 14px;
+  }
+
+  /* ── Mobile Fullscreen Book New Appointment Screen ──────── */
+  .mobile-appt-modal-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - 58px - env(safe-area-inset-bottom, 0px));
+    z-index: 1005;
+    background-color: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .mobile-fullscreen-header {
+    height: 56px;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  }
+
+  .mobile-fullscreen-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+  }
+
+  .mobile-fullscreen-close-btn,
+  .mobile-fullscreen-back-btn {
+    background: transparent;
+    border: none;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .mobile-fullscreen-done-btn {
+    background: transparent;
+    border: none;
+    color: #e11d48;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 6px 12px;
+  }
+
+  .mobile-fullscreen-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Sections */
+  .mobile-form-section {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  }
+
+  .mobile-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .mobile-section-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: -0.01em;
+  }
+
+  /* ── Unique Colored Section Icon Badges ── */
+  .mobile-section-icon-badge {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .mobile-icon-badge--blue {
+    background-color: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+  }
+
+  .mobile-icon-badge--purple {
+    background-color: #f5f3ff;
+    color: #7c3aed;
+    border: 1px solid #ddd6fe;
+  }
+
+  .mobile-icon-badge--emerald {
+    background-color: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+  }
+
+  .mobile-icon-badge--amber {
+    background-color: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fde68a;
+  }
+
+  .mobile-icon-badge--indigo {
+    background-color: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+  }
+
+  .mobile-icon-badge--rose {
+    background-color: #fff1f2;
+    color: #e11d48;
+    border: 1px solid #fecdd3;
+  }
+
+  .mobile-icon-badge--cyan {
+    background-color: #ecfeff;
+    color: #0891b2;
+    border: 1px solid #a5f3fc;
+  }
+
+  .mobile-icon-badge--slate {
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+  }
+
+  /* Schedule Mini Badges */
+  .mobile-schedule-mini-badge {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .mobile-schedule-mini-badge--purple {
+    background-color: #f5f3ff;
+    color: #7c3aed;
+  }
+
+  .mobile-schedule-mini-badge--blue {
+    background-color: #eff6ff;
+    color: #2563eb;
+  }
+
+  .mobile-schedule-mini-badge--amber {
+    background-color: #fffbeb;
+    color: #d97706;
+  }
+
+  .mobile-schedule-mini-badge--emerald {
+    background-color: #ecfdf5;
+    color: #059669;
+  }
+
+  /* Walkin Toggle */
+  .mobile-walkin-toggle {
+    display: flex;
+    background-color: #f1f5f9;
+    padding: 2.5px;
+    border-radius: 8px;
+    gap: 3px;
+  }
+
+  .mobile-toggle-btn {
+    border: none;
+    background: transparent;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #64748b;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .mobile-toggle-btn--active {
+    background-color: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    font-weight: 800;
+  }
+
+  /* Inputs */
+  .mobile-form-input {
+    width: 100%;
+    height: 42px;
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 0 12px;
+    font-size: 13.5px;
+    color: #0f172a;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  .mobile-form-input:focus {
+    border-color: #e11d48;
+    background-color: #ffffff;
+  }
+
+  /* Customer Search Input & Dropdown */
+  .mobile-cust-search-wrapper {
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .mobile-search-customer-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .mobile-search-icon-badge {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    color: #4f46e5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(79, 70, 229, 0.08);
+    flex-shrink: 0;
+  }
+
+  .mobile-search-label-text {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+  }
+
+  .mobile-search-required-star {
+    color: #e11d48;
+    font-weight: 800;
+    font-size: 13px;
+    margin-left: 2px;
+  }
+
+  .mobile-cust-search-input-box {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+  }
+
+  .mobile-form-input--search {
+    padding-left: 14px !important;
+    padding-right: 36px !important;
+    height: 44px !important;
+    border-radius: 12px !important;
+    font-size: 13.5px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    background-color: #ffffff !important;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-form-input--search:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12) !important;
+  }
+
+  .mobile-input-clear-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #f1f5f9;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    width: 22px;
+    height: 22px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background-color 0.12s ease;
+  }
+
+  .mobile-input-clear-btn:active {
+    background-color: #e2e8f0;
+    color: #0f172a;
+  }
+
+  .mobile-cust-dropdown-panel,
+  .mobile-cust-dropdown {
+    margin-top: 8px;
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.1), 0 4px 10px -2px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+    width: 100%;
+    box-sizing: border-box;
+    z-index: 20;
+    animation: mobile-dropdown-fade 0.15s ease-out;
+  }
+
+  @keyframes mobile-dropdown-fade {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .mobile-cust-dropdown-header {
+    padding: 8px 12px;
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mobile-cust-dropdown-list {
+    max-height: 240px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-cust-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    background-color: #ffffff;
+    transition: background-color 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-cust-item:last-child {
+    border-bottom: none;
+  }
+
+  .mobile-cust-item:hover,
+  .mobile-cust-item:active {
+    background-color: #fff1f2;
+  }
+
+  .mobile-cust-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #ffe4e6 0%, #fecdd3 100%);
+    color: #e11d48;
+    font-weight: 800;
+    font-size: 13.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px solid #fecdd3;
+  }
+
+  .mobile-cust-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .mobile-cust-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-cust-phone {
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 2px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .mobile-cust-dropdown-footer {
+    background-color: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 8px 12px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.02em;
+  }
+
+  .mobile-cust-item-empty {
+    padding: 18px 16px;
+    text-align: center;
+    font-size: 12.5px;
+    color: #64748b;
+    font-weight: 500;
+    background-color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .mobile-cust-selected-chip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    padding: 10px 14px;
+    background-color: #ecfdf5;
+    border: 1.5px solid #a7f3d0;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(6, 95, 70, 0.06);
+  }
+
+  .mobile-cust-selected-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    color: #065f46;
+    font-weight: 800;
+    font-size: 13.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px solid #6ee7b7;
+  }
+
+  .mobile-cust-selected-remove {
+    border: 1px solid #a7f3d0;
+    background: #ffffff;
+    color: #047857;
+    cursor: pointer;
+    padding: 5px 9px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    transition: background-color 0.12s ease;
+  }
+
+  .mobile-cust-selected-remove:active {
+    background-color: #e6fcf5;
+  }
+
+  /* Date picker row & Input Prefix Icon Wrappers */
+  .mobile-date-picker-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .mobile-date-input-wrap,
+  .mobile-input-with-icon-wrap {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+  }
+
+  .mobile-input-prefix-icon {
+    position: absolute;
+    left: 12px;
+    pointer-events: none;
+    flex-shrink: 0;
+    z-index: 2;
+  }
+
+  .mobile-form-input--with-prefix {
+    padding-left: 36px !important;
+  }
+
+  .mobile-date-quick-btns {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .mobile-quick-date-btn {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.12s ease;
+  }
+
+  .mobile-quick-date-btn:active {
+    background-color: #e2e8f0;
+    transform: scale(0.96);
+  }
+
+  /* Staff Selector */
+  .mobile-staff-selector-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    margin-top: 12px;
+    padding-top: 2px;
+    padding-bottom: 4px;
+  }
+
+  .mobile-staff-select-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 14px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+    min-width: 90px;
+    background-color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: all 0.15s ease;
+  }
+
+  .mobile-staff-select-card:active {
+    transform: scale(0.96);
+  }
+
+  .mobile-staff-select-card--selected {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+    transform: translateY(-1px);
+  }
+
+  .mobile-staff-selected-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #f0fdf4;
+    border: 1.5px solid #16a34a;
+    color: #15803d;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(22, 163, 74, 0.15);
+  }
+
+  .mobile-staff-selected-badge-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 9999px;
+    background-color: #dcfce7;
+    border: 1.5px solid #16a34a;
+    color: #16a34a;
+    flex-shrink: 0;
+  }
+
+  .mobile-interval-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #ecfdf5;
+    border: 1.5px solid #10b981;
+    color: #065f46;
+    padding: 3px 9px 3px 4px;
+    border-radius: 9999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.12);
+  }
+
+  .mobile-interval-icon-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    border-radius: 9999px;
+    background-color: #d1fae5;
+    border: 1px solid #059669;
+    color: #059669;
+    flex-shrink: 0;
+  }
+
+  .mobile-staff-card-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+
+  .mobile-staff-card-name {
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .mobile-staff-card-role {
+    font-size: 10.5px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  /* Time Slots Grid */
+  .mobile-time-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+
+  .mobile-time-slot-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 4px;
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    min-height: 42px;
+  }
+
+  .mobile-time-slot-pill:active {
+    transform: scale(0.96);
+  }
+
+  .mobile-time-slot-pill--selected {
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+    border-color: #0f172a !important;
+    font-weight: 800 !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
+  }
+
+  .mobile-time-slot-pill--booked {
+    background-color: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #94a3b8;
+    opacity: 0.75;
+  }
+
+  .mobile-slot-booked-tag {
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #ef4444;
+    margin-top: 1px;
+  }
+
+  /* ── 4. Selected Time (Mobile Symmetrical Cards) ────────── */
+  .mobile-selected-time-section {
+    position: relative;
+  }
+
+  .mobile-duration-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #fff1f2;
+    color: #e11d48;
+    border: 1px solid #ffe4e6;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 9999px;
+  }
+
+  .mobile-duration-pill--amber {
+    background-color: #fffbeb !important;
+    color: #b45309 !important;
+    border-color: #fde68a !important;
+  }
+
+  .mobile-time-cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .mobile-time-card-neat {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 10px 12px;
+    cursor: pointer;
+    min-height: 72px;
+    box-sizing: border-box;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-time-card-neat:hover,
+  .mobile-time-card-neat:focus,
+  .mobile-time-card-neat:active {
+    border-color: #e11d48;
+    background-color: #fffbfa;
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.1);
+    transform: translateY(-1px);
+  }
+
+  /* Start Time Blue Accent */
+  .mobile-time-card-neat--start {
+    border-color: #dbeafe;
+    background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
+  }
+
+  .mobile-time-card-neat--start:hover,
+  .mobile-time-card-neat--start:focus,
+  .mobile-time-card-neat--start:active {
+    border-color: #3b82f6 !important;
+    background-color: #f0f7ff !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.12) !important;
+  }
+
+  /* End Time Purple Accent */
+  .mobile-time-card-neat--end {
+    border-color: #ede9fe;
+    background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
+  }
+
+  .mobile-time-card-neat--end:hover,
+  .mobile-time-card-neat--end:focus,
+  .mobile-time-card-neat--end:active {
+    border-color: #8b5cf6 !important;
+    background-color: #f5f0ff !important;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.12) !important;
+  }
+
+  .mobile-time-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .mobile-time-card-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: -0.01em;
+  }
+
+  .mobile-time-card-edit-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #e11d48;
+    background-color: #ffe4e6;
+    padding: 2px 6px;
+    border-radius: 6px;
+    transition: background-color 0.15s ease;
+  }
+
+  .mobile-time-card-neat:active .mobile-time-card-edit-chip {
+    background-color: #fecdd3;
+  }
+
+  .mobile-edit-chip--blue {
+    color: #2563eb !important;
+    background-color: #eff6ff !important;
+    border: 1px solid #dbeafe;
+  }
+
+  .mobile-edit-chip--purple {
+    color: #7c3aed !important;
+    background-color: #f5f3ff !important;
+    border: 1px solid #ede9fe;
+  }
+
+  .mobile-time-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .mobile-time-card-digits {
+    font-size: 15.5px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+
+  .mobile-time-card-icon-wrap {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background-color: #fff1f2;
+    color: #e11d48;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-time-card-neat:hover .mobile-time-card-icon-wrap,
+  .mobile-time-card-neat:active .mobile-time-card-icon-wrap {
+    background-color: #e11d48;
+    color: #ffffff;
+  }
+
+  .mobile-time-icon--blue {
+    background-color: #eff6ff !important;
+    color: #2563eb !important;
+    border: 1px solid #dbeafe;
+  }
+
+  .mobile-time-card-neat--start:hover .mobile-time-icon--blue,
+  .mobile-time-card-neat--start:active .mobile-time-icon--blue {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+  }
+
+  .mobile-time-icon--purple {
+    background-color: #f5f3ff !important;
+    color: #7c3aed !important;
+    border: 1px solid #ede9fe;
+  }
+
+  .mobile-time-card-neat--end:hover .mobile-time-icon--purple,
+  .mobile-time-card-neat--end:active .mobile-time-icon--purple {
+    background-color: #7c3aed !important;
+    color: #ffffff !important;
+  }
+
+  /* Selected Booking Summary Card */
+  .mobile-booking-summary-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 12px 14px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  }
+
+  .mobile-summary-card-header {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #e11d48;
+    margin-bottom: 8px;
+  }
+
+  .mobile-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .mobile-summary-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .mobile-summary-icon {
+    color: #e11d48;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .mobile-summary-label {
+    display: block;
+    font-size: 10px;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .mobile-summary-val {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+    word-break: break-word;
+  }
+
+  /* Selected Services in Main view */
+  .mobile-selected-services-box {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px;
+  }
+
+  .mobile-selected-services-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .mobile-selected-service-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+  }
+
+  .mobile-selected-service-name {
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  .mobile-selected-service-price {
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .mobile-service-remove-btn {
+    border: none;
+    background: transparent;
+    color: #ef4444;
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+  }
+
+  .mobile-selected-services-total {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .mobile-services-total-val {
+    color: #e11d48;
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .mobile-no-services-prompt {
+    background-color: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+    font-size: 12px;
+    color: #64748b;
+  }
+
+  /* Fixed Bottom Bar on Main Screen - Positioned as flex footer inside modal above mobile nav */
+  .mobile-booking-bottom-bar {
+    flex-shrink: 0;
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    background-color: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    padding: 10px 16px 14px 16px;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Selected Time Section & Time Display Boxes */
+  .mobile-selected-time-section {
+    background: linear-gradient(135deg, #ffffff 0%, #fbfcfe 100%);
+  }
+
+  .mobile-time-display-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .mobile-time-box {
+    background-color: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mobile-time-box:hover,
+  .mobile-time-box:active {
+    border-color: #e11d48;
+    background-color: #fff1f2;
+    transform: scale(0.98);
+  }
+
+  .mobile-time-box__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .mobile-time-box__label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .mobile-time-box__edit-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #e11d48;
+    background-color: #fff1f2;
+    border: 1px solid #fecdd3;
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  .mobile-time-box__value {
+    font-size: 17px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mobile-time-box__sub {
+    font-size: 10px;
+    color: #94a3b8;
+    margin-top: 3px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  /* Mobile Clock Time Picker Modal Dialog */
+  .mobile-time-picker-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 1200;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: fadeIn 0.15s ease-out;
+  }
+
+  .mobile-time-picker-dialog {
+    background-color: #ffffff;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    width: 100%;
+    max-width: 480px;
+    padding: 16px 18px 20px 18px;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 88vh;
+    overflow: hidden;
+  }
+
+  .mobile-time-picker-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 62vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 2px 8px 2px;
+  }
+
+  .mobile-time-picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .mobile-time-picker-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+    flex: 1;
+    margin-left: 8px;
+  }
+
+  .mobile-time-picker-close {
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+  }
+
+  .mobile-time-picker-display {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #0f172a;
+    color: #ffffff;
+    border-radius: 14px;
+    padding: 10px 16px;
+  }
+
+  .mobile-time-picker-digits {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mobile-time-picker-num-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 10px;
+    border: 1.5px solid transparent;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-time-picker-num-box--active {
+    background-color: rgba(225, 29, 72, 0.2);
+    border-color: #e11d48;
+  }
+
+  .mobile-time-picker-num-box--active .mobile-time-picker-big-digit {
+    color: #fb7185;
+  }
+
+  .mobile-time-picker-num-box--active .mobile-time-picker-sublabel {
+    color: #f43f5e;
+    font-weight: 800;
+  }
+
+  .mobile-time-picker-big-digit {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .mobile-time-picker-sublabel {
+    font-size: 9px;
+    font-weight: 700;
+    color: #94a3b8;
+    margin-top: 3px;
+    letter-spacing: 0.05em;
+  }
+
+  .mobile-time-picker-separator {
+    font-size: 28px;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 12px;
+  }
+
+  .mobile-time-picker-ampm {
+    display: flex;
+    background-color: #1e293b;
+    padding: 3px;
+    border-radius: 10px;
+    gap: 4px;
+  }
+
+  .mobile-time-ampm-btn {
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+
+  .mobile-time-ampm-btn--active {
+    background-color: #e11d48;
+    color: #ffffff;
+  }
+
+  .mobile-time-section-category {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+
+  .mobile-time-section-selected {
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 12px;
+  }
+
+  .mobile-time-tabs-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 4px 0 10px 0;
+  }
+
+  .mobile-time-tabs-row--three {
+    grid-template-columns: 0.85fr 1.15fr 1.15fr;
+    gap: 6px;
+  }
+
+  .mobile-time-tab-btn {
+    height: 38px;
+    border-radius: 10px;
+    border: 1.5px solid #e2e8f0;
+    background: #ffffff;
+    color: #64748b;
+    font-size: 12.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-time-tab-btn--active {
+    border-color: #0f172a !important;
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+  }
+
+  .mobile-time-picker-section-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+
+  .mobile-time-hours-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+  }
+
+  .mobile-time-hour-chip,
+  .mobile-time-minute-chip {
+    height: 42px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background-color: #ffffff;
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #0f172a;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.12s ease;
+  }
+
+  .mobile-time-hour-chip:active,
+  .mobile-time-minute-chip:active {
+    transform: scale(0.95);
+  }
+
+  .mobile-time-hour-chip--active,
+  .mobile-time-minute-chip--active {
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+    border-color: #0f172a !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25) !important;
+  }
+
+  .mobile-time-exact-minutes-scrollable {
+    max-height: 250px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 1px;
+  }
+
+  .mobile-time-minutes-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+  }
+
+  .mobile-time-picker-error {
+    background-color: #fff1f2;
+    border: 1px solid #fecdd3;
+    color: #be123c;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mobile-time-picker-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .mobile-time-picker-btn-cancel {
+    height: 42px;
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #475569;
+    cursor: pointer;
+  }
+
+  .mobile-time-picker-btn-done {
+    height: 42px;
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
+  }
+
+  .mobile-btn-disabled {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    background: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #94a3b8 !important;
+    box-shadow: none !important;
+  }
+
+  .mobile-validation-tip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 6px;
+    line-height: 1.3;
+  }
+
+  .mobile-conflict-alert {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #fff1f2;
+    border: 1px solid #fecdd3;
+    color: #be123c;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .mobile-booking-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 10px;
+  }
+
+  .mobile-btn-add-service {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 46px;
+    background-color: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 12px;
+    color: #1e293b;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-btn-add-service:active {
+    background-color: #f1f5f9;
+    transform: scale(0.98);
+  }
+
+  .mobile-btn-confirm-booking {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 46px;
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    border: none;
+    border-radius: 12px;
+    color: #ffffff;
+    font-size: 13.5px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+    transition: all 0.15s ease;
+  }
+
+  .mobile-btn-confirm-booking:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .mobile-btn-confirm-booking:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+    background: #94a3b8;
+  }
+
+  /* Service Subview Elements */
+  .mobile-category-scroll {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 4px 0 8px 0;
+    flex-shrink: 0;
+  }
+
+  .mobile-cat-pill {
+    padding: 6px 14px;
+    border-radius: 9999px;
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .mobile-cat-pill--active {
+    background-color: #e11d48;
+    border-color: #e11d48;
+    color: #ffffff;
+  }
+
+  .mobile-service-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-service-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  }
+
+  .mobile-service-card--selected {
+    border-color: #e11d48;
+    background-color: #fff1f2;
+  }
+
+  .mobile-checkbox-indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 1.5px solid #cbd5e1;
+    background-color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-checkbox-indicator--checked {
+    background-color: #e11d48;
+    border-color: #e11d48;
+    color: #ffffff;
+  }
+
+  .mobile-service-card__content {
+    flex: 1;
+  }
+
+  .mobile-service-card__name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .mobile-service-card__desc {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  .mobile-service-card__price {
+    font-size: 14px;
+    font-weight: 800;
+    color: #e11d48;
+  }
+
+  .mobile-empty-services {
+    padding: 30px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+  }
+
+  .mobile-fullscreen-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    padding: 12px 16px 20px 16px;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+    z-index: 1010;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mobile-service-summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .mobile-service-summary-count {
+    color: #334155;
+  }
+
+  .mobile-service-summary-total {
+    color: #e11d48;
+    font-size: 14.5px;
+    font-weight: 800;
+  }
+
+  .mobile-btn-apply-services {
+    height: 46px;
+    background: #0f172a;
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* ── Mobile Appointment Details Modal ────────────────────── */
+  .appt-modal-overlay--mobile-details {
+    z-index: 1100 !important;
+    padding: 16px 12px !important;
+    background-color: rgba(15, 23, 42, 0.6) !important;
+    backdrop-filter: blur(4px) !important;
+  }
+
+  .mobile-details-fullscreen-popup {
+    width: 100% !important;
+    max-width: 440px !important;
+    max-height: calc(100vh - 48px) !important;
+    height: auto !important;
+    border-radius: 20px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    margin: auto !important;
+    background-color: #ffffff !important;
+    overflow: hidden !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  }
+
+  .mobile-details-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    background-color: #ffffff;
+    flex-shrink: 0;
+  }
+
+  .mobile-details-header-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+  }
+
+  .mobile-details-close-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-details-close-btn:active {
+    background: #e2e8f0;
+    color: #0f172a;
+    transform: scale(0.95);
+  }
+
+  .mobile-details-body {
+    padding: 16px 16px calc(65px + env(safe-area-inset-bottom, 0px)) 16px !important;
+    overflow-y: auto !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 15px !important;
+    -webkit-overflow-scrolling: touch;
+    background-color: #fafbfd;
+  }
+
+  .mobile-details-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-details-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+  }
+
+  .mobile-details-card {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 14px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  }
+
+  .mobile-details-card--customer {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.05);
+  }
+
+  .mobile-details-card--notes {
+    background-color: #fffdf5;
+    border-color: #fef3c7;
+  }
+
+  .mobile-details-btn-primary {
+    width: 100%;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: none;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    transition: all 0.15s ease;
+  }
+
+  .mobile-details-btn-primary:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.2);
+  }
+
+  .mobile-details-btn-action {
+    height: 44px;
+    border-radius: 12px;
+    border-width: 1px;
+    border-style: solid;
+    font-size: 12.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    transition: all 0.15s ease;
+  }
+
+  .mobile-details-btn-action:active {
+    transform: scale(0.97);
+  }
+
+  /* ── Mobile Details Inner Elements ────────── */
+  .mobile-details-cust-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mobile-details-cust-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+  }
+
+  .mobile-details-cust-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .mobile-details-cust-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .mobile-details-cust-name {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-details-cust-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #1d4ed8;
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+  }
+
+  .mobile-details-cust-phone {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #2563eb;
+    background-color: #f0f7ff;
+    border: 1px solid #dbeafe;
+    padding: 3px 9px;
+    border-radius: 8px;
+    width: fit-content;
+    text-decoration: none;
+    transition: background-color 0.15s ease;
+  }
+
+  .mobile-details-cust-phone:active {
+    background-color: #dbeafe;
+  }
+
+  .mobile-details-cust-phone-empty {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+
+  /* Schedule 2x2 Grid */
+  .mobile-details-schedule-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .mobile-details-tile {
+    padding: 12px;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 72px;
+    border-width: 1.5px;
+    border-style: solid;
+    box-sizing: border-box;
+  }
+
+  .mobile-details-tile--purple {
+    background-color: #faf5ff;
+    border-color: #e9d5ff;
+  }
+
+  .mobile-details-tile--purple .mobile-details-tile-header {
+    color: #7e22ce;
+  }
+
+  .mobile-details-tile--purple .mobile-details-tile-value {
+    color: #3b0764;
+  }
+
+  .mobile-details-tile--blue {
+    background-color: #eff6ff;
+    border-color: #bfdbfe;
+  }
+
+  .mobile-details-tile--blue .mobile-details-tile-header {
+    color: #1d4ed8;
+  }
+
+  .mobile-details-tile--blue .mobile-details-tile-value {
+    color: #172554;
+  }
+
+  .mobile-details-tile--amber {
+    background-color: #fffbeb;
+    border-color: #fde68a;
+  }
+
+  .mobile-details-tile--amber .mobile-details-tile-header {
+    color: #b45309;
+  }
+
+  .mobile-details-tile--amber .mobile-details-tile-value {
+    color: #451a03;
+  }
+
+  .mobile-details-tile--emerald {
+    background-color: #ecfdf5;
+    border-color: #a7f3d0;
+  }
+
+  .mobile-details-tile--emerald .mobile-details-tile-header {
+    color: #047857;
+  }
+
+  .mobile-details-tile--emerald .mobile-details-tile-value {
+    color: #022c22;
+  }
+
+  .mobile-details-tile-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+
+  .mobile-details-tile-value {
+    font-size: 13.5px;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Services */
+  .mobile-details-services-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-details-service-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+  }
+
+  .mobile-details-service-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .mobile-details-service-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    background-color: #fff1f2;
+    border: 1px solid #fecdd3;
+    color: #e11d48;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .mobile-details-service-name {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-details-service-qty {
+    font-size: 10px;
+    font-weight: 800;
+    color: #64748b;
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    padding: 1px 5px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+  }
+
+  .mobile-details-service-price {
+    font-size: 13px;
+    font-weight: 800;
+    color: #0f172a;
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+
+  .mobile-details-service-empty {
+    padding: 12px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 12px;
+    font-style: italic;
+    background-color: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .mobile-details-total-box {
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, #fff1f2 0%, #fff7ed 100%);
+    border: 1.5px solid #fecdd3;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mobile-details-total-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #9f1239;
+  }
+
+  .mobile-details-total-val {
+    font-size: 16px;
+    font-weight: 900;
+    color: #e11d48;
+  }
+
+  /* Notes */
+  .mobile-details-notes-box {
+    background-color: #fffdf5;
+    border: 1.5px solid #fde68a;
+    border-left: 4px solid #f59e0b;
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .mobile-details-notes-text {
+    font-size: 12.5px;
+    color: #78350f;
+    line-height: 1.5;
+    font-weight: 500;
+    font-style: italic;
+    margin: 0;
+  }
+
+  /* Extend Duration */
+  .mobile-details-extend-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .mobile-details-extend-tip {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .mobile-details-extend-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .mobile-details-extend-btn {
+    background-color: #ffffff;
+    border: 1.5px solid #a5f3fc;
+    border-radius: 12px;
+    padding: 8px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-details-extend-btn:active {
+    transform: scale(0.95);
+    background-color: #ecfeff;
+  }
+
+  .mobile-details-extend-num {
+    font-size: 13.5px;
+    font-weight: 900;
+    color: #0e7490;
+  }
+
+  .mobile-details-extend-sub {
+    font-size: 9px;
+    font-weight: 800;
+    color: #0891b2;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Actions */
+  .mobile-details-actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mobile-details-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .mobile-details-action-btn {
+    height: 44px;
+    border-radius: 12px;
+    border-width: 1.5px;
+    border-style: solid;
+    font-size: 12.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-details-action-btn:active {
+    transform: scale(0.97);
+  }
+
+  .mobile-details-action-btn--reschedule {
+    background-color: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+  }
+
+  .mobile-details-action-btn--noshow {
+    background-color: #fffbeb;
+    border-color: #fde68a;
+    color: #b45309;
+  }
+
+  .mobile-details-action-btn--cancel {
+    background-color: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #334155;
+  }
+
+  .mobile-details-action-btn--delete {
+    background-color: #fff1f2;
+    border-color: #fecdd3;
+    color: #e11d48;
+  }
 }

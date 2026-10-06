@@ -527,7 +527,11 @@ export default function SalesHistoryView() {
               .map((p, idx, arr) => {
                 const prev = arr[idx - 1];
                 return (
-                  <div key={p} style={{ display: 'flex', alignItems: 'center' }}>
+                  <div
+                    key={p}
+                    className={`sales-page-num-wrap ${p === validPage ? 'sales-page-num-wrap--active' : ''}`}
+                    style={{ display: 'flex', alignItems: 'center' }}
+                  >
                     {prev && p - prev > 1 && (
                       <span style={{ padding: '0 4px', color: '#94A3B8', fontSize: '12px' }}>...</span>
                     )}

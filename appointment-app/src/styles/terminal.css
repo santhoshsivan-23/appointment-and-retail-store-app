@@ -179,9 +179,20 @@
 }
 
 @keyframes pulse {
-  0% { transform: scale(0.95); opacity: 0.8; }
-  50% { transform: scale(1.15); opacity: 1; }
-  100% { transform: scale(0.95); opacity: 0.8; }
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
 }
 
 /* Logout Button */
@@ -692,8 +703,13 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .dashboard-secondary-btn {
@@ -801,6 +817,10 @@
   overflow-x: auto;
   border-radius: 12px;
   border: 1px solid rgba(227, 190, 182, 0.35);
+}
+
+.dashboard-appts-mobile-list {
+  display: none;
 }
 
 .dashboard-appts-table {
@@ -1137,4 +1157,476 @@
 
 .modal-btn--confirm:hover {
   opacity: 0.9;
+}
+
+/* ========================================================
+   Mobile Bottom Navigation & Responsive Overrides
+   ======================================================== */
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+
+  /* 1. Hide Desktop Sidebar */
+  .terminal-sidebar {
+    display: none !important;
+  }
+
+  /* 2. Main Terminal Viewport padding for bottom nav */
+  .terminal-viewport {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .terminal-viewport:has(.appointment-view) {
+    overflow-y: auto !important;
+  }
+
+  /* 3. Header mobile adjustments */
+  .terminal-header {
+    height: 52px;
+    min-height: 52px;
+    margin: 8px 10px 4px 10px;
+    padding: 0 12px;
+    border-radius: 12px;
+  }
+
+  .terminal-header__logo {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+
+  .terminal-header__title {
+    font-size: 14.5px;
+  }
+
+  .terminal-header__subtitle {
+    display: none;
+  }
+
+  .terminal-header__right {
+    gap: 8px;
+  }
+
+  .terminal-clock-box {
+    padding: 4px 8px;
+    font-size: 11.5px;
+  }
+
+  .terminal-clock-box__divider,
+  .terminal-clock-box__date {
+    display: none;
+  }
+
+  .terminal-user-card {
+    padding: 4px 8px;
+  }
+
+  .terminal-user-card__name {
+    display: none;
+  }
+
+  /* 4. Fixed Bottom Navigation Bar */
+  .mobile-bottom-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(58px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: #FFFFFF;
+    border-top: 1px solid rgba(227, 190, 182, 0.5);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+    z-index: 1000;
+    align-items: stretch;
+    justify-content: space-around;
+  }
+
+  .mobile-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 4px 1px 4px 2px;
+    color: #64748B;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.15s ease;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    min-width: 0;
+  }
+
+  .mobile-nav-item--active {
+    color: var(--primary, #B42907);
+  }
+
+  .mobile-nav-item__indicator {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background-color: var(--primary, #B42907);
+  }
+
+  .mobile-nav-item__icon-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    margin-bottom: 2px;
+  }
+
+  .mobile-nav-item__label {
+    font-family: var(--font-display, inherit);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    padding: 0 2px;
+    letter-spacing: -0.2px;
+  }
+
+  .mobile-nav-item--active .mobile-nav-item__label {
+    font-weight: 700;
+  }
+
+  .mobile-nav-item__badge {
+    position: absolute;
+    top: -5px;
+    right: -10px;
+    background-color: var(--primary, #B42907);
+    color: #FFFFFF;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 10px;
+    min-width: 15px;
+    height: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    box-shadow: 0 1px 4px rgba(180, 41, 7, 0.4);
+    border: 1.5px solid #FFFFFF;
+  }
+
+  /* 5. Dashboard Mobile Layout & Aesthetics */
+  .dashboard-view {
+    padding: 12px 10px;
+    gap: 14px;
+  }
+
+  /* Hero banner on mobile */
+  .dashboard-hero-banner {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+    gap: 12px;
+    border-radius: 16px;
+  }
+
+  .dashboard-hero__badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    margin-bottom: 8px;
+  }
+
+  .dashboard-hero__title {
+    font-size: 18px;
+    line-height: 1.25;
+    letter-spacing: -0.2px;
+  }
+
+  .dashboard-hero__meta {
+    font-size: 11.5px;
+    margin-top: 2px;
+    line-height: 1.35;
+  }
+
+  .dashboard-hero__action-btn {
+    width: 100%;
+    height: 40px;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  /* KPI cards displayed one by one on mobile */
+  .dashboard-kpi-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .kpi-card {
+    padding: 16px 18px;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  }
+
+  .kpi-card__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .kpi-card__title {
+    font-size: 13.5px;
+    font-weight: 600;
+    white-space: normal;
+  }
+
+  .kpi-card__icon-box {
+    padding: 7px;
+    border-radius: 10px;
+  }
+
+  .kpi-card__icon-box svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .kpi-card__value {
+    font-size: 24px;
+    font-weight: 800;
+    margin-top: 8px;
+  }
+
+  .kpi-card__sub {
+    font-size: 11.5px;
+    margin-top: 4px;
+    line-height: 1.35;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* Section Title */
+  .dashboard-section-title {
+    font-size: 15.5px;
+  }
+
+  /* Today's Appointments Section */
+  .dashboard-appts-card {
+    padding: 14px 12px;
+    border-radius: 16px;
+    gap: 12px;
+  }
+
+  .dashboard-appts-card__header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .dashboard-appts-card__header-left {
+    width: 100%;
+  }
+
+  .dashboard-appts-card__title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .dashboard-appts-badge {
+    font-size: 10.5px;
+    padding: 2px 8px;
+  }
+
+  .dashboard-appts-card__subtitle {
+    font-size: 11.5px;
+    line-height: 1.35;
+    margin-top: 2px;
+  }
+
+  .dashboard-appts-card__header-right {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dashboard-secondary-btn {
+    flex: 1;
+    justify-content: center;
+    height: 36px;
+    font-size: 12px;
+    padding: 0 10px;
+  }
+
+  .dashboard-icon-btn {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+  }
+
+  /* Switch from table to cards on mobile */
+  .dashboard-appts-table-wrapper {
+    display: none !important;
+  }
+
+  .dashboard-appts-mobile-list {
+    display: flex !important;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .dash-mobile-appt-card {
+    background-color: var(--surface-container-lowest, #ffffff);
+    border: 1px solid rgba(227, 190, 182, 0.45);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .dash-mobile-appt-card:hover,
+  .dash-mobile-appt-card:active {
+    border-color: rgba(180, 41, 7, 0.4);
+    background-color: rgba(180, 41, 7, 0.02);
+  }
+
+  .dash-mobile-appt-card__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .dash-mobile-appt-card__body {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .dash-mobile-appt-card__customer {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .dash-mobile-appt-card__services {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 11.5px;
+    padding: 6px 10px;
+    background-color: var(--surface-container-low, #f8fafc);
+    border-radius: 8px;
+    border: 1px solid rgba(227, 190, 182, 0.25);
+  }
+
+  .dash-mobile-appt-card__services-label {
+    font-weight: 700;
+    color: var(--on-surface-variant, #64748b);
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .dash-mobile-appt-card__services-val {
+    color: var(--on-surface, #0f172a);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dash-mobile-appt-card__bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(227, 190, 182, 0.35);
+    margin-top: 2px;
+  }
+
+  .dash-mobile-appt-card__price {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+
+  .dash-mobile-appt-card__price-label {
+    font-size: 11px;
+    color: var(--on-surface-variant, #64748b);
+  }
+
+  .dash-mobile-appt-card__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-display, inherit);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary, #b42907);
+  }
+
+  /* Operations Grid 2-column on mobile */
+  .dashboard-ops-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .ops-card {
+    padding: 12px 10px;
+    border-radius: 14px;
+  }
+
+  .ops-card__icon-box {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+  }
+
+  .ops-card__icon-box svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .ops-card__title {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .ops-card__subtitle {
+    font-size: 10px;
+    line-height: 1.2;
+    margin-top: 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 480px) {
+  .terminal-clock-box {
+    display: none;
+  }
 }

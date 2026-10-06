@@ -24,6 +24,8 @@ import {
   Search,
   Save,
   UserMinus,
+  ChevronRight,
+  ChevronLeft,
 } from 'lucide-react';
 import { productApi, type Product } from '../api/productApi';
 import { categoryApi, type Category } from '../api/categoryApi';
@@ -37,7 +39,6 @@ const fmtMoney = (val: number | string | null | undefined): string => {
   const num = typeof val === 'number' ? val : parseFloat(String(val));
   return isNaN(num) ? '0.00' : num.toFixed(2);
 };
-
 /* ── Cart Item Model ──────────────────────────────────── */
 export interface LocalCartItem {
   product: Product;
@@ -52,6 +53,9 @@ interface CartViewProps {
   preloadAppointmentId?: number | null;
   preloadStaffName?: string | null;
   onNavigateToSalesHistory?: () => void;
+  mobileViewMode?: 'pos' | 'cart';
+  onMobileViewModeChange?: (mode: 'pos' | 'cart') => void;
+  onCartCountChange?: (count: number) => void;
 }
 
 export default function CartView({
@@ -60,6 +64,9 @@ export default function CartView({
   preloadAppointmentId,
   preloadStaffName,
   onNavigateToSalesHistory,
+  mobileViewMode = 'pos',
+  onMobileViewModeChange,
+  onCartCountChange,
 }: CartViewProps) {
   /* ── State ────────────────────────────────────────────── */
   const [products, setProducts] = useState<Product[]>([]);
@@ -86,6 +93,12 @@ export default function CartView({
   const [itemDiscountInput, setItemDiscountInput] = useState<string>('0.00');
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
+
+  // Sync total item count to parent for Mobile Bottom Nav badge
+  useEffect(() => {
+    const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+    onCartCountChange?.(totalCount);
+  }, [cart, onCartCountChange]);
 
   // Payment Modal State
   const [selectedMethod, setSelectedMethod] = useState<'cash' | 'card' | 'qr' | 'other'>('cash');
@@ -454,7 +467,34 @@ export default function CartView({
   }
 
   return (
-    <div className="cart-pos-container">
+    <div className={`cart-pos-container cart-pos-container--mobile-${mobileViewMode}`}>
+      {/* ── Mobile Mode Switcher Bar ──────────────────────── */}
+      {/* <div className="cart-mobile-mode-bar">
+        <button
+          type="button"
+          className={`cart-mobile-mode-btn ${mobileViewMode === 'pos' ? 'cart-mobile-mode-btn--active' : ''
+            }`}
+          onClick={() => onMobileViewModeChange?.('pos')}
+        >
+          <LayoutGrid size={15} />
+          <span>POS Catalog</span>
+        </button>
+        <button
+          type="button"
+          className={`cart-mobile-mode-btn ${mobileViewMode === 'cart' ? 'cart-mobile-mode-btn--active' : ''
+            }`}
+          onClick={() => onMobileViewModeChange?.('cart')}
+        >
+          <ShoppingCart size={15} />
+          <span>Cart Register</span>
+          {cart.length > 0 && (
+            <span className="cart-mobile-mode-badge">
+              {cart.reduce((s, i) => s + i.quantity, 0)}
+            </span>
+          )}
+        </button>
+      </div> */}
+
       {/* ── Left: Catalog Section ──────────────────────────── */}
       <section className="cart-catalog-section">
         {/* Category Filter Bar */}
@@ -512,13 +552,49 @@ export default function CartView({
             </div>
           )}
         </div>
+
+        {/* Mobile Floating Bar for POS Mode */}
+        {cart.length > 0 && (
+          <div className="cart-mobile-floating-bar">
+            <div className="cart-mobile-floating-bar__info">
+              <span className="cart-mobile-floating-bar__count">
+                {cart.reduce((s, i) => s + i.quantity, 0)}{' '}
+                {cart.reduce((s, i) => s + i.quantity, 0) === 1
+                  ? 'item'
+                  : 'items'}
+              </span>
+              <span className="cart-mobile-floating-bar__total">
+                ${fmtMoney(grandTotal)}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="cart-mobile-floating-bar__btn"
+              onClick={() => onMobileViewModeChange?.('cart')}
+            >
+              <span>View Cart</span>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
       </section>
 
       {/* ── Right: Cart Register Section ───────────────────── */}
       <aside className="cart-register-panel">
         {/* Register Top Header */}
         <div className="cart-register-header">
-          <span className="cart-register-title">Register ({cart.length})</span>
+          <div className="cart-register-title-wrap">
+            <button
+              type="button"
+              className="cart-mobile-back-catalog-btn"
+              onClick={() => onMobileViewModeChange?.('pos')}
+              title="Back to Product Catalog"
+            >
+              <ChevronLeft size={16} />
+              <span>Catalog</span>
+            </button>
+            <span className="cart-register-title">Register ({cart.length})</span>
+          </div>
           {cart.length > 0 && (
             <button type="button" className="cart-register-clear-btn" onClick={handleClearCart}>
               Clear All

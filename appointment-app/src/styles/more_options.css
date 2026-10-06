@@ -1,0 +1,317 @@
+/* ========================================================
+   More Options Mobile View – Styles
+   ======================================================== */
+
+.more-options-page {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Header Banner */
+.more-options-header {
+  background: var(--surface-container-lowest, #ffffff);
+  border-radius: 18px;
+  padding: 18px;
+  border: 1px solid rgba(227, 190, 182, 0.45);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.more-options-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.more-options-header__icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background-color: rgba(180, 41, 7, 0.1);
+  color: var(--primary, #b42907);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.more-options-header__title {
+  font-family: var(--font-display, inherit);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--on-surface, #0f172a);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.more-options-header__sub {
+  font-family: var(--font-body, inherit);
+  font-size: 12.5px;
+  color: var(--on-surface-variant, #64748b);
+  margin: 3px 0 0 0;
+}
+
+/* Search Bar */
+.more-options-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.more-options-search__icon {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.more-options-search__input {
+  width: 100%;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background-color: #f8fafc;
+  padding: 0 36px 0 38px;
+  font-family: var(--font-body, inherit);
+  font-size: 13.5px;
+  color: #0f172a;
+  outline: none;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.more-options-search__input:focus {
+  border-color: var(--primary, #b42907);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(180, 41, 7, 0.12);
+}
+
+.more-options-search__clear {
+  position: absolute;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: #e2e8f0;
+  color: #64748b;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Sections */
+.more-options-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.more-options-section__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-display, inherit);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--on-surface-variant, #475569);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 4px;
+}
+
+.more-options-section__count {
+  font-size: 11px;
+  background-color: #e2e8f0;
+  color: #475569;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+/* List of Option Cards */
+.more-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.more-option-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background-color: var(--surface-container-lowest, #ffffff);
+  border-radius: 16px;
+  border: 1px solid rgba(227, 190, 182, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  width: 100%;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.more-option-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(180, 41, 7, 0.4);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.more-option-card:active {
+  transform: scale(0.985);
+  background-color: #f8fafc;
+}
+
+.more-option-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.more-option-card__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.more-option-card__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.more-option-card__title {
+  font-family: var(--font-display, inherit);
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--on-surface, #0f172a);
+}
+
+.more-option-card__badge {
+  font-family: var(--font-display, inherit);
+  font-size: 10px;
+  font-weight: 700;
+  background-color: #f1f5f9;
+  color: #64748b;
+  padding: 2px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.more-option-card__desc {
+  font-family: var(--font-body, inherit);
+  font-size: 12px;
+  color: var(--on-surface-variant, #64748b);
+  margin: 0;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.more-option-card__chevron {
+  color: #94a3b8;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.more-option-card:hover .more-option-card__chevron {
+  color: var(--primary, #b42907);
+  transform: translateX(2px);
+}
+
+/* Session / Profile Card */
+.more-session-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 16px;
+  background-color: var(--surface-container-lowest, #ffffff);
+  border-radius: 16px;
+  border: 1px solid rgba(227, 190, 182, 0.4);
+}
+
+.more-session-card__info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.more-session-card__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background-color: #f1f5f9;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.more-session-card__name {
+  font-family: var(--font-display, inherit);
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.more-session-card__meta {
+  font-family: var(--font-body, inherit);
+  font-size: 12px;
+  color: #64748b;
+}
+
+.more-signout-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(225, 29, 72, 0.35);
+  background-color: rgba(225, 29, 72, 0.08);
+  color: #e11d48;
+  font-family: var(--font-display, inherit);
+  font-size: 12.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.more-signout-btn:hover {
+  background-color: #e11d48;
+  color: #ffffff;
+}
+
+@media (max-width: 600px) {
+  .more-session-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .more-signout-btn {
+    justify-content: center;
+  }
+}
