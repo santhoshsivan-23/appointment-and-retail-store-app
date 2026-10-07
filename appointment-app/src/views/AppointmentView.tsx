@@ -4751,73 +4751,66 @@ function AppointmentDetailsModal({
               </div>
             )}
 
-            {/* Section 6: Appointment Actions */}
-            <div className="mobile-details-section">
-              <div className="mobile-details-section-header">
-                <span className="mobile-section-icon-badge mobile-icon-badge--emerald">
-                  <CheckCircle2 size={14} />
-                </span>
-                <span>Appointment Actions</span>
-              </div>
-              <div className="mobile-details-actions-list">
-                {appt.status === 'booked' && (
-                  <button
-                    type="button"
-                    className="mobile-details-btn-primary"
-                    onClick={async () => {
-                      await onStatusChange('in_service');
-                      onStartService();
-                    }}
-                  >
-                    <Play size={16} fill="white" />
-                    <span>Start Service Now</span>
-                  </button>
-                )}
+          </div>
 
-                <div className="mobile-details-actions-grid">
-                  <button
-                    type="button"
-                    className="mobile-details-action-btn mobile-details-action-btn--reschedule"
-                    onClick={onOpenReschedule}
-                  >
-                    <CalendarCheck size={14} />
-                    <span>Reschedule</span>
-                  </button>
+          {/* Fixed Footer: Appointment Actions */}
+          <div className="mobile-details-footer">
+            {appt.status === 'booked' && (
+              <button
+                type="button"
+                className="mobile-details-btn-primary"
+                onClick={async () => {
+                  await onStatusChange('in_service');
+                  onStartService();
+                }}
+              >
+                <Play size={16} fill="white" />
+                <span>Start Service Now</span>
+              </button>
+            )}
 
-                  {appt.status !== 'no_show' && (
-                    <button
-                      type="button"
-                      className="mobile-details-action-btn mobile-details-action-btn--noshow"
-                      onClick={() => onStatusChange('no_show')}
-                    >
-                      <UserX size={14} />
-                      <span>No Show</span>
-                    </button>
-                  )}
+            <div className="mobile-details-actions-grid">
+              <button
+                type="button"
+                className="mobile-details-action-btn mobile-details-action-btn--reschedule"
+                onClick={onOpenReschedule}
+              >
+                <CalendarCheck size={14} />
+                <span>Reschedule</span>
+              </button>
 
-                  {appt.status !== 'cancelled' && (
-                    <button
-                      type="button"
-                      className="mobile-details-action-btn mobile-details-action-btn--cancel"
-                      onClick={() => onStatusChange('cancelled')}
-                    >
-                      <CalendarX size={14} />
-                      <span>Cancel</span>
-                    </button>
-                  )}
+              {appt.status !== 'no_show' && (
+                <button
+                  type="button"
+                  className="mobile-details-action-btn mobile-details-action-btn--noshow"
+                  onClick={() => onStatusChange('no_show')}
+                >
+                  <UserX size={14} />
+                  <span>No Show</span>
+                </button>
+              )}
 
-                  {allowDeleteService && (
-                    <button
-                      type="button"
-                      className="mobile-details-action-btn mobile-details-action-btn--delete"
-                      onClick={onDeleteClick}
-                    >
-                      <Trash2 size={14} />
-                      <span>Delete</span>
-                    </button>
-                  )}
-                </div>
-              </div>
+              {appt.status !== 'cancelled' && (
+                <button
+                  type="button"
+                  className="mobile-details-action-btn mobile-details-action-btn--cancel"
+                  onClick={() => onStatusChange('cancelled')}
+                >
+                  <CalendarX size={14} />
+                  <span>Cancel</span>
+                </button>
+              )}
+
+              {allowDeleteService && (
+                <button
+                  type="button"
+                  className="mobile-details-action-btn mobile-details-action-btn--delete"
+                  onClick={onDeleteClick}
+                >
+                  <Trash2 size={14} />
+                  <span>Delete</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

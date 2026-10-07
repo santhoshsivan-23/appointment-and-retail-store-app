@@ -620,8 +620,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
+  z-index: 2000;
   padding: 20px;
+  overflow: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.apt-modal-overlay::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .apt-modal-dialog {
@@ -632,7 +641,9 @@
   max-width: 480px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   max-height: 90vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
@@ -641,6 +652,35 @@
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.apt-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  padding-right: 2px;
+}
+
+.apt-modal-body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.apt-modal-footer {
+  flex-shrink: 0;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #F1F5F9;
+}
+
+.apt-modal-footer .apt-modal-close-btn {
+  width: 100%;
+  margin-top: 0;
 }
 
 .apt-modal-title {
@@ -669,6 +709,29 @@
   font-size: 11px;
   font-weight: 700;
   color: #166534;
+}
+
+.apt-modal-header-close-btn {
+  background: transparent;
+  border: none;
+  color: #64748B;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.apt-modal-header-close-btn:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+.apt-modal-header-close-btn:active {
+  transform: scale(0.92);
 }
 
 .apt-modal-divider {
@@ -1226,18 +1289,65 @@
     border-color: #E2E8F0 !important;
   }
 
-  /* 6. Modal on Mobile */
+  /* 6. Modal on Mobile – Neatly Centered with Scroller */
   .apt-modal-overlay {
-    padding: 12px;
-    align-items: flex-end;
+    padding: 16px;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box;
+    overflow: hidden !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    z-index: 2000 !important;
+  }
+
+  .apt-modal-overlay::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
 
   .apt-modal-dialog {
     width: 100% !important;
-    max-width: 100% !important;
-    border-radius: 20px 20px 14px 14px;
-    padding: 18px 16px;
-    max-height: 88vh;
+    max-width: 440px !important;
+    margin: auto auto calc(68px + env(safe-area-inset-bottom, 0px)) auto !important;
+    margin-bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+    border-radius: 22px !important;
+    padding: 20px 18px 16px 18px !important;
+    max-height: min(80vh, calc(100vh - 120px)) !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  .apt-modal-header {
+    flex-shrink: 0 !important;
+    margin-bottom: 12px !important;
+  }
+
+  .apt-modal-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    padding-bottom: 4px !important;
+  }
+
+  .apt-modal-body::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .apt-modal-footer {
+    flex-shrink: 0 !important;
+    margin-top: 12px !important;
+    padding-top: 10px !important;
   }
 
   .apt-modal-grid-2 {
@@ -1249,9 +1359,50 @@
     text-align: left !important;
   }
 
+  .apt-modal-schedule-box {
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    gap: 8px;
+  }
+
+  .apt-modal-schedule-item {
+    font-size: 11.5px;
+  }
+
+  .apt-modal-services-box {
+    margin-bottom: 14px;
+  }
+
+  .apt-modal-service-row {
+    padding: 8px 0;
+    font-size: 12.5px;
+  }
+
+  .apt-modal-total-row {
+    padding: 12px 14px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+
+  .apt-modal-total-label {
+    font-size: 13px;
+  }
+
+  .apt-modal-total-value {
+    font-size: 18px;
+  }
+
   .apt-modal-close-btn {
     height: 44px;
     border-radius: 12px;
-    font-size: 14px;
+    font-size: 13.5px;
+    background: #0F172A;
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  .apt-modal-close-btn:active {
+    background: #1E293B;
+    transform: scale(0.98);
   }
 }

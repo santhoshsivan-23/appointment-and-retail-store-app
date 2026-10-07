@@ -573,118 +573,133 @@ export default function SalesHistoryView() {
                   {formatReceiptNumber(detailSale.id, detailSale.created_at)}
                 </div>
               </div>
-              <span className="sale-status-badge" style={{ fontSize: '11px', padding: '3px 10px' }}>
-                <BadgeCheck size={13} />
-                <span>Completed</span>
-              </span>
-            </div>
-
-            {/* Linked Appointment Banner */}
-            {detailSale.appointment_id && (
-              <div className="sale-linked-appt-banner">
-                <CalendarCheck size={16} />
-                <span>Linked Appointment: #{detailSale.appointment_id}</span>
-                {detailSale.staff_name && (
-                  <span style={{ marginLeft: 'auto', fontWeight: 600, color: '#065F46' }}>
-                    Attendant: {detailSale.staff_name}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Customer & Timestamp Grid */}
-            <div className="sale-detail-grid">
-              <div>
-                <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500 }}>Customer</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>
-                  {detailSale.customer_name || 'Walk-in Guest'}
-                </div>
-                {detailSale.customer_phone && (
-                  <div style={{ fontSize: '11.5px', color: '#64748B' }}>{detailSale.customer_phone}</div>
-                )}
-              </div>
-
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500 }}>Date & Time</div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>
-                  {formatDateTime(detailSale.created_at)}
-                </div>
-                {detailSale.staff_name && !detailSale.appointment_id && (
-                  <div style={{ fontSize: '11.5px', color: '#64748B' }}>Attendant: {detailSale.staff_name}</div>
-                )}
-              </div>
-            </div>
-
-            {/* Purchased Items List */}
-            <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A', marginBottom: '8px' }}>
-              Purchased Items ({detailSale.items?.length || 0})
-            </div>
-            <div className="sale-detail-items-box">
-              {detailSale.items?.map((it, idx) => (
-                <div key={idx} className="sale-detail-item-row">
-                  <span style={{ color: '#334155' }}>
-                    {it.product_name} ×{it.quantity}
-                  </span>
-                  <span style={{ fontWeight: 600, color: '#0F172A' }}>
-                    ${fmtMoney(it.line_total)}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Financial Totals */}
-            <div className="sale-detail-totals">
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#64748B' }}>
-                <span>Subtotal</span>
-                <span style={{ fontWeight: 600, color: '#0F172A' }}>${fmtMoney(detailSale.subtotal)}</span>
-              </div>
-              {Number(detailSale.item_discount_total) > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#E11D48' }}>
-                  <span>Item Discounts</span>
-                  <span style={{ fontWeight: 600 }}>-${fmtMoney(detailSale.item_discount_total)}</span>
-                </div>
-              )}
-              {Number(detailSale.overall_discount) > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#E11D48' }}>
-                  <span>Overall Discount</span>
-                  <span style={{ fontWeight: 600 }}>-${fmtMoney(detailSale.overall_discount)}</span>
-                </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#64748B' }}>
-                <span>Tax (8%)</span>
-                <span style={{ fontWeight: 600, color: '#0F172A' }}>${fmtMoney(detailSale.tax_amount)}</span>
-              </div>
-
-              <div className="sale-detail-total-paid">
-                <span>Total Paid</span>
-                <span style={{ color: '#E11D48' }}>${fmtMoney(detailSale.total_amount)}</span>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginTop: '6px' }}>
-                <span>Payment Method</span>
-                <span style={{ fontWeight: 600, color: '#0F172A' }}>
-                  {getPaymentMethodLabel(detailSale.payment_method)} (Tendered: ${fmtMoney(detailSale.amount_tendered || detailSale.total_amount)})
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="sale-status-badge" style={{ fontSize: '11px', padding: '3px 10px' }}>
+                  <BadgeCheck size={13} />
+                  <span>Completed</span>
                 </span>
+                <button
+                  type="button"
+                  className="sale-detail-header-close-btn"
+                  onClick={() => setDetailSale(null)}
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
               </div>
-
-              {Number(detailSale.change_amount) > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
-                  <span>Change Returned</span>
-                  <span style={{ fontWeight: 600, color: '#059669' }}>
-                    ${fmtMoney(detailSale.change_amount)}
-                  </span>
-                </div>
-              )}
             </div>
 
-            {/* Close Button */}
-            <button
-              type="button"
-              className="sale-detail-close-btn"
-              onClick={() => setDetailSale(null)}
-            >
-              Close
-            </button>
+            {/* Scrollable Inner Content */}
+            <div className="sale-detail-body">
+              {/* Linked Appointment Banner */}
+              {detailSale.appointment_id && (
+                <div className="sale-linked-appt-banner">
+                  <CalendarCheck size={16} />
+                  <span>Linked Appointment: #{detailSale.appointment_id}</span>
+                  {detailSale.staff_name && (
+                    <span style={{ marginLeft: 'auto', fontWeight: 600, color: '#065F46' }}>
+                      Attendant: {detailSale.staff_name}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Customer & Timestamp Grid */}
+              <div className="sale-detail-grid">
+                <div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500 }}>Customer</div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>
+                    {detailSale.customer_name || 'Walk-in Guest'}
+                  </div>
+                  {detailSale.customer_phone && (
+                    <div style={{ fontSize: '11.5px', color: '#64748B' }}>{detailSale.customer_phone}</div>
+                  )}
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500 }}>Date & Time</div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>
+                    {formatDateTime(detailSale.created_at)}
+                  </div>
+                  {detailSale.staff_name && !detailSale.appointment_id && (
+                    <div style={{ fontSize: '11.5px', color: '#64748B' }}>Attendant: {detailSale.staff_name}</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Purchased Items List */}
+              <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A', marginBottom: '8px' }}>
+                Purchased Items ({detailSale.items?.length || 0})
+              </div>
+              <div className="sale-detail-items-box">
+                {detailSale.items?.map((it, idx) => (
+                  <div key={idx} className="sale-detail-item-row">
+                    <span style={{ color: '#334155' }}>
+                      {it.product_name} ×{it.quantity}
+                    </span>
+                    <span style={{ fontWeight: 600, color: '#0F172A' }}>
+                      ${fmtMoney(it.line_total)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Financial Totals */}
+              <div className="sale-detail-totals">
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#64748B' }}>
+                  <span>Subtotal</span>
+                  <span style={{ fontWeight: 600, color: '#0F172A' }}>${fmtMoney(detailSale.subtotal)}</span>
+                </div>
+                {Number(detailSale.item_discount_total) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#E11D48' }}>
+                    <span>Item Discounts</span>
+                    <span style={{ fontWeight: 600 }}>-${fmtMoney(detailSale.item_discount_total)}</span>
+                  </div>
+                )}
+                {Number(detailSale.overall_discount) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#E11D48' }}>
+                    <span>Overall Discount</span>
+                    <span style={{ fontWeight: 600 }}>-${fmtMoney(detailSale.overall_discount)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#64748B' }}>
+                  <span>Tax (8%)</span>
+                  <span style={{ fontWeight: 600, color: '#0F172A' }}>${fmtMoney(detailSale.tax_amount)}</span>
+                </div>
+
+                <div className="sale-detail-total-paid">
+                  <span>Total Paid</span>
+                  <span style={{ color: '#E11D48' }}>${fmtMoney(detailSale.total_amount)}</span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginTop: '6px' }}>
+                  <span>Payment Method</span>
+                  <span style={{ fontWeight: 600, color: '#0F172A' }}>
+                    {getPaymentMethodLabel(detailSale.payment_method)} (Tendered: ${fmtMoney(detailSale.amount_tendered || detailSale.total_amount)})
+                  </span>
+                </div>
+
+                {Number(detailSale.change_amount) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                    <span>Change Returned</span>
+                    <span style={{ fontWeight: 600, color: '#059669' }}>
+                      ${fmtMoney(detailSale.change_amount)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Fixed Footer Close Button */}
+            <div className="sale-detail-footer">
+              <button
+                type="button"
+                className="sale-detail-close-btn"
+                onClick={() => setDetailSale(null)}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

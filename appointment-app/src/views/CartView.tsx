@@ -715,15 +715,29 @@ export default function CartView({
             </div>
           )}
 
-          <div className="cart-summary-row">
-            <span>Overall Discount</span>
-            <div className="cart-discount-input-wrap">
-              <span className="cart-discount-prefix">-$</span>
+          <div className="cart-summary-row cart-summary-row--overall-discount">
+            <span className="cart-overall-discount-label">
+              <Tag size={13} className="cart-overall-discount-icon" />
+              <span>Overall Discount</span>
+              {parseFloat(overallDiscountInput) > 0 && (
+                <button
+                  type="button"
+                  className="cart-overall-discount-reset-tag"
+                  onClick={() => handleOverallDiscountChange('0.00')}
+                  title="Remove overall discount"
+                >
+                  Clear
+                </button>
+              )}
+            </span>
+            <div className="cart-overall-discount-wrap">
+              <span className="cart-overall-discount-prefix">-$</span>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                className="cart-discount-input"
+                className="cart-overall-discount-input"
+                placeholder="0.00"
                 value={overallDiscountInput}
                 onChange={(e) => handleOverallDiscountChange(e.target.value)}
               />
@@ -984,62 +998,135 @@ export default function CartView({
       {discountModalIdx !== null && (
         <div className="cart-modal-overlay" onClick={() => setDiscountModalIdx(null)}>
           <div
-            style={{
-              width: '320px',
-              background: '#fff',
-              borderRadius: '12px',
-              padding: '20px',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.18)',
-            }}
+            className="cart-item-discount-dialog"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
+            aria-modal="true"
           >
-            <h4 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 700, color: '#0F172A' }}>
-              Discount: {cart[discountModalIdx]?.product.name}
-            </h4>
-            <div style={{ fontSize: '12.5px', color: '#64748B', marginBottom: '14px' }}>
-              Unit Price: ${fmtMoney(cart[discountModalIdx]?.product.price)} × {cart[discountModalIdx]?.quantity}
-            </div>
-
-            <div style={{ position: 'relative', marginBottom: '16px' }}>
-              <span style={{ position: 'absolute', left: '10px', top: '9px', fontSize: '13px', color: '#64748B', fontWeight: 600 }}>
-                $
-              </span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                style={{
-                  width: '100%',
-                  height: '38px',
-                  padding: '0 12px 0 24px',
-                  background: '#F1F5F9',
-                  border: '1px solid #CBD5E1',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-                value={itemDiscountInput}
-                onChange={(e) => setItemDiscountInput(e.target.value)}
-                autoFocus
-              />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            {/* Header */}
+            <div className="cart-discount-header">
+              <div className="cart-discount-header-left">
+                <div className="cart-discount-header-icon">
+                  <Tag size={16} />
+                </div>
+                <div>
+                  <h4 className="cart-discount-title">Item Discount</h4>
+                  <div className="cart-discount-subtitle">
+                    {cart[discountModalIdx]?.product.name}
+                  </div>
+                </div>
+              </div>
               <button
                 type="button"
-                style={{ padding: '8px 14px', background: '#F1F5F9', border: 'none', borderRadius: '8px', fontSize: '12.5px', cursor: 'pointer' }}
+                className="cart-discount-close-btn"
+                onClick={() => setDiscountModalIdx(null)}
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Scrollable Inner Content */}
+            <div className="cart-discount-body">
+              {/* Price Info Banner */}
+              <div className="cart-discount-info-card">
+                <div className="cart-discount-info-row">
+                  <span className="cart-discount-info-label">Unit Price &amp; Qty</span>
+                  <span className="cart-discount-info-val">
+                    ${fmtMoney(cart[discountModalIdx]?.product.price)} × {cart[discountModalIdx]?.quantity}
+                  </span>
+                </div>
+                <div className="cart-discount-info-row cart-discount-info-row--subtotal">
+                  <span className="cart-discount-info-label">Max Item Subtotal</span>
+                  <span className="cart-discount-info-subtotal">
+                    ${fmtMoney(
+                      (Number(cart[discountModalIdx]?.product.price) || 0) * (cart[discountModalIdx]?.quantity || 1)
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Percentage Presets */}
+              <div className="cart-discount-preset-section">
+                <div className="cart-discount-preset-label">Quick Presets:</div>
+                <div className="cart-discount-presets">
+                  {[5, 10, 15, 20, 50].map((pct) => {
+                    const subtotal =
+                      (Number(cart[discountModalIdx]?.product.price) || 0) *
+                      (cart[discountModalIdx]?.quantity || 1);
+                    const calcDisc = ((subtotal * pct) / 100).toFixed(2);
+                    const isCurrent = parseFloat(itemDiscountInput) === parseFloat(calcDisc);
+                    return (
+                      <button
+                        key={pct}
+                        type="button"
+                        className={`cart-discount-preset-chip ${isCurrent ? 'cart-discount-preset-chip--active' : ''}`}
+                        onClick={() => setItemDiscountInput(calcDisc)}
+                      >
+                        {pct}%
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    className="cart-discount-preset-chip cart-discount-preset-chip--free"
+                    onClick={() => {
+                      const subtotal =
+                        (Number(cart[discountModalIdx]?.product.price) || 0) *
+                        (cart[discountModalIdx]?.quantity || 1);
+                      setItemDiscountInput(subtotal.toFixed(2));
+                    }}
+                  >
+                    Free (100%)
+                  </button>
+                </div>
+              </div>
+
+              {/* Custom Amount Input */}
+              <div className="cart-discount-input-group">
+                <label className="cart-discount-input-label">Discount Amount ($)</label>
+                <div className="cart-discount-input-wrapper">
+                  <span className="cart-discount-currency-symbol">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max={(Number(cart[discountModalIdx]?.product.price) || 0) * (cart[discountModalIdx]?.quantity || 1)}
+                    className="cart-discount-input"
+                    placeholder="0.00"
+                    value={itemDiscountInput}
+                    onChange={(e) => setItemDiscountInput(e.target.value)}
+                    autoFocus
+                  />
+                  {itemDiscountInput && (
+                    <button
+                      type="button"
+                      className="cart-discount-clear-btn"
+                      onClick={() => setItemDiscountInput('')}
+                      aria-label="Clear discount input"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="cart-discount-actions">
+              <button
+                type="button"
+                className="cart-discount-btn cart-discount-btn--cancel"
                 onClick={() => setDiscountModalIdx(null)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                style={{ padding: '8px 16px', background: '#E11D48', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}
+                className="cart-discount-btn cart-discount-btn--apply"
                 onClick={handleApplyItemDiscount}
               >
-                Apply
+                Apply Discount
               </button>
             </div>
           </div>
@@ -1050,7 +1137,7 @@ export default function CartView({
       {showPaymentModal && (
         <div className="cart-modal-overlay">
           <div className="payment-dialog" role="dialog">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="payment-dialog-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, marginBottom: '12px' }}>
               <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0F172A', fontFamily: 'var(--font-display)' }}>
                 Complete Payment
               </h3>
@@ -1063,150 +1150,154 @@ export default function CartView({
               </button>
             </div>
 
-            {/* Total Due Banner */}
-            <div className="payment-total-banner">
-              <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '1px', opacity: 0.8 }}>TOTAL DUE</div>
-              <div style={{ fontSize: '32px', fontWeight: 800, fontFamily: 'var(--font-display)', marginTop: '4px' }}>
-                ${fmtMoney(grandTotal)}
-              </div>
-            </div>
-
-            {/* Payment Method Selector */}
-            <label style={{ fontSize: '13px', fontWeight: 600, color: '#1E293B', marginBottom: '8px', display: 'block' }}>
-              Payment Method
-            </label>
-            <div className="payment-methods-grid">
-              <div
-                className={`payment-method-card ${selectedMethod === 'cash' ? 'payment-method-card--active' : ''}`}
-                onClick={() => setSelectedMethod('cash')}
-              >
-                <Banknote size={24} />
-                <span>Cash</span>
-              </div>
-              <div
-                className={`payment-method-card ${selectedMethod === 'card' ? 'payment-method-card--active' : ''}`}
-                onClick={() => setSelectedMethod('card')}
-              >
-                <CreditCard size={24} />
-                <span>Card</span>
-              </div>
-              <div
-                className={`payment-method-card ${selectedMethod === 'qr' ? 'payment-method-card--active' : ''}`}
-                onClick={() => setSelectedMethod('qr')}
-              >
-                <QrCode size={24} />
-                <span>QR Code</span>
-              </div>
-              <div
-                className={`payment-method-card ${selectedMethod === 'other' ? 'payment-method-card--active' : ''}`}
-                onClick={() => setSelectedMethod('other')}
-              >
-                <Wallet size={24} />
-                <span>Other</span>
-              </div>
-            </div>
-
-            {/* Cash details */}
-            {selectedMethod === 'cash' && (
-              <div>
-                <label style={{ fontSize: '13px', fontWeight: 600, color: '#1E293B', marginBottom: '6px', display: 'block' }}>
-                  Amount Tendered
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '10px', top: '9px', fontSize: '13px', color: '#64748B', fontWeight: 600 }}>$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    style={{
-                      width: '100%',
-                      height: '38px',
-                      padding: '0 12px 0 24px',
-                      background: '#F1F5F9',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                    }}
-                    value={amountTenderedInput}
-                    onChange={(e) => {
-                      setAmountTenderedInput(e.target.value);
-                      setAmountTendered(parseFloat(e.target.value) || 0);
-                    }}
-                  />
-                </div>
-
-                {/* Quick tender chips */}
-                <div className="tender-chips-row">
-                  {[grandTotal, 20, 50, 100, 200].map((amt, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      className="tender-chip"
-                      onClick={() => {
-                        const val = amt === grandTotal ? grandTotal : amt;
-                        setAmountTendered(val);
-                        setAmountTenderedInput(fmtMoney(val));
-                      }}
-                    >
-                      {amt === grandTotal ? 'Exact' : `$${amt}`}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Change Due alert */}
-                <div className={`payment-change-alert ${cashChange >= 0 ? 'payment-change-alert--due' : 'payment-change-alert--insufficient'}`}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>
-                    {cashChange >= 0 ? 'Change Due' : 'Insufficient'}
-                  </span>
-                  <span style={{ fontSize: '18px', fontWeight: 800, fontFamily: 'var(--font-display)' }}>
-                    ${fmtMoney(Math.abs(cashChange))}
-                  </span>
+            <div className="payment-dialog-body">
+              {/* Total Due Banner */}
+              <div className="payment-total-banner">
+                <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '1px', opacity: 0.8 }}>TOTAL DUE</div>
+                <div style={{ fontSize: '32px', fontWeight: 800, fontFamily: 'var(--font-display)', marginTop: '4px' }}>
+                  ${fmtMoney(grandTotal)}
                 </div>
               </div>
-            )}
 
-            {/* Transaction Notes */}
-            <div style={{ marginTop: '6px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '4px', display: 'block' }}>
-                Transaction Notes (optional)
+              {/* Payment Method Selector */}
+              <label style={{ fontSize: '13px', fontWeight: 600, color: '#1E293B', marginBottom: '8px', display: 'block' }}>
+                Payment Method
               </label>
-              <input
-                type="text"
-                placeholder="Order or table notes..."
-                style={{
-                  width: '100%',
-                  height: '36px',
-                  padding: '0 12px',
-                  background: '#F1F5F9',
-                  border: '1px solid #CBD5E1',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-                value={transactionNotes}
-                onChange={(e) => setTransactionNotes(e.target.value)}
-              />
+              <div className="payment-methods-grid">
+                <div
+                  className={`payment-method-card ${selectedMethod === 'cash' ? 'payment-method-card--active' : ''}`}
+                  onClick={() => setSelectedMethod('cash')}
+                >
+                  <Banknote size={24} />
+                  <span>Cash</span>
+                </div>
+                <div
+                  className={`payment-method-card ${selectedMethod === 'card' ? 'payment-method-card--active' : ''}`}
+                  onClick={() => setSelectedMethod('card')}
+                >
+                  <CreditCard size={24} />
+                  <span>Card</span>
+                </div>
+                <div
+                  className={`payment-method-card ${selectedMethod === 'qr' ? 'payment-method-card--active' : ''}`}
+                  onClick={() => setSelectedMethod('qr')}
+                >
+                  <QrCode size={24} />
+                  <span>QR Code</span>
+                </div>
+                <div
+                  className={`payment-method-card ${selectedMethod === 'other' ? 'payment-method-card--active' : ''}`}
+                  onClick={() => setSelectedMethod('other')}
+                >
+                  <Wallet size={24} />
+                  <span>Other</span>
+                </div>
+              </div>
+
+              {/* Cash details */}
+              {selectedMethod === 'cash' && (
+                <div>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#1E293B', marginBottom: '6px', display: 'block' }}>
+                    Amount Tendered
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '10px', top: '9px', fontSize: '13px', color: '#64748B', fontWeight: 600 }}>$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      style={{
+                        width: '100%',
+                        height: '38px',
+                        padding: '0 12px 0 24px',
+                        background: '#F1F5F9',
+                        border: '1px solid #CBD5E1',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                      value={amountTenderedInput}
+                      onChange={(e) => {
+                        setAmountTenderedInput(e.target.value);
+                        setAmountTendered(parseFloat(e.target.value) || 0);
+                      }}
+                    />
+                  </div>
+
+                  {/* Quick tender chips */}
+                  <div className="tender-chips-row">
+                    {[grandTotal, 20, 50, 100, 200].map((amt, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        className="tender-chip"
+                        onClick={() => {
+                          const val = amt === grandTotal ? grandTotal : amt;
+                          setAmountTendered(val);
+                          setAmountTenderedInput(fmtMoney(val));
+                        }}
+                      >
+                        {amt === grandTotal ? 'Exact' : `$${amt}`}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Change Due alert */}
+                  <div className={`payment-change-alert ${cashChange >= 0 ? 'payment-change-alert--due' : 'payment-change-alert--insufficient'}`}>
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                      {cashChange >= 0 ? 'Change Due' : 'Insufficient'}
+                    </span>
+                    <span style={{ fontSize: '18px', fontWeight: 800, fontFamily: 'var(--font-display)' }}>
+                      ${fmtMoney(Math.abs(cashChange))}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Transaction Notes */}
+              <div style={{ marginTop: '6px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '4px', display: 'block' }}>
+                  Transaction Notes (optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Order or table notes..."
+                  style={{
+                    width: '100%',
+                    height: '36px',
+                    padding: '0 12px',
+                    background: '#F1F5F9',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                  value={transactionNotes}
+                  onChange={(e) => setTransactionNotes(e.target.value)}
+                />
+              </div>
             </div>
 
             {/* Confirm Payment button */}
-            <button
-              type="button"
-              className="payment-confirm-btn"
-              disabled={isProcessingPayment || (selectedMethod === 'cash' && cashChange < 0)}
-              onClick={handleConfirmPayment}
-            >
-              {isProcessingPayment ? (
-                <span className="table-loader-spinner" style={{ width: '16px', height: '16px', borderColor: '#fff', borderTopColor: 'transparent' }} />
-              ) : (
-                <>
-                  <CheckCircle2 size={18} />
-                  <span>Confirm Payment & Save Sale</span>
-                </>
-              )}
-            </button>
+            <div className="payment-dialog-footer" style={{ flexShrink: 0, marginTop: '14px' }}>
+              <button
+                type="button"
+                className="payment-confirm-btn"
+                disabled={isProcessingPayment || (selectedMethod === 'cash' && cashChange < 0)}
+                onClick={handleConfirmPayment}
+              >
+                {isProcessingPayment ? (
+                  <span className="table-loader-spinner" style={{ width: '16px', height: '16px', borderColor: '#fff', borderTopColor: 'transparent' }} />
+                ) : (
+                  <>
+                    <CheckCircle2 size={18} />
+                    <span>Confirm Payment & Save Sale</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -521,109 +521,124 @@ export default function AppointmentHistoryView() {
             {/* Modal Header */}
             <div className="apt-modal-header">
               <div>
-                <h3 className="apt-modal-title">Appointment Details</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <h3 className="apt-modal-title">Appointment Details</h3>
+                  <div className="apt-modal-status-badge">
+                    <CheckCircle2 size={12} />
+                    <span>{String(detailAppointment.status).toUpperCase()}</span>
+                  </div>
+                </div>
                 <div className="apt-modal-apt-no">
                   #APT-{String(detailAppointment.id).padStart(4, '0')}
                 </div>
               </div>
-              <div className="apt-modal-status-badge">
-                <CheckCircle2 size={12} />
-                <span>{String(detailAppointment.status).toUpperCase()}</span>
-              </div>
+              <button
+                type="button"
+                className="apt-modal-header-close-btn"
+                onClick={() => setDetailAppointment(null)}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
             </div>
 
             <div className="apt-modal-divider" />
 
-            {/* Customer & Staff Info */}
-            <div className="apt-modal-grid-2">
-              <div>
-                <div className="apt-modal-field-label">Customer</div>
-                <div className="apt-modal-field-val">
-                  {detailAppointment.customer_name || 'Walk-in Guest'}
-                </div>
-                {detailAppointment.customer_phone && (
-                  <div className="apt-modal-field-sub">
-                    {detailAppointment.customer_phone}
+            {/* Scrollable Inner Content */}
+            <div className="apt-modal-body">
+              {/* Customer & Staff Info */}
+              <div className="apt-modal-grid-2">
+                <div>
+                  <div className="apt-modal-field-label">Customer</div>
+                  <div className="apt-modal-field-val">
+                    {detailAppointment.customer_name || 'Walk-in Guest'}
                   </div>
-                )}
+                  {detailAppointment.customer_phone && (
+                    <div className="apt-modal-field-sub">
+                      {detailAppointment.customer_phone}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <div className="apt-modal-field-label">Assigned Staff</div>
+                  <div className="apt-modal-field-val">
+                    {detailAppointment.staff_name || `Staff #${detailAppointment.staff_id}`}
+                  </div>
+                  <div className="apt-modal-field-sub">
+                    {getStaffRole(detailAppointment.staff_id)}
+                  </div>
+                </div>
               </div>
 
-              <div style={{ textAlign: 'right' }}>
-                <div className="apt-modal-field-label">Assigned Staff</div>
-                <div className="apt-modal-field-val">
-                  {detailAppointment.staff_name || `Staff #${detailAppointment.staff_id}`}
+              {/* Schedule Banner */}
+              <div className="apt-modal-schedule-box">
+                <div className="apt-modal-schedule-item">
+                  <Calendar size={15} style={{ color: '#64748B' }} />
+                  <span>{detailAppointment.appointment_date}</span>
                 </div>
-                <div className="apt-modal-field-sub">
-                  {getStaffRole(detailAppointment.staff_id)}
+                <div className="apt-modal-schedule-divider" />
+                <div className="apt-modal-schedule-item">
+                  <Clock size={15} style={{ color: '#64748B' }} />
+                  <span>
+                    {detailAppointment.start_time} - {detailAppointment.end_time}
+                  </span>
                 </div>
               </div>
-            </div>
 
-            {/* Schedule Banner */}
-            <div className="apt-modal-schedule-box">
-              <div className="apt-modal-schedule-item">
-                <Calendar size={15} style={{ color: '#64748B' }} />
-                <span>{detailAppointment.appointment_date}</span>
+              <div className="apt-modal-divider" />
+
+              {/* Services Performed Breakdown */}
+              <div className="apt-modal-services-title">
+                Services Performed ({detailAppointment.services?.length || 0})
               </div>
-              <div className="apt-modal-schedule-divider" />
-              <div className="apt-modal-schedule-item">
-                <Clock size={15} style={{ color: '#64748B' }} />
-                <span>
-                  {detailAppointment.start_time} - {detailAppointment.end_time}
+
+              {!detailAppointment.services || detailAppointment.services.length === 0 ? (
+                <div className="apt-modal-field-sub" style={{ fontStyle: 'italic', marginBottom: 12 }}>
+                  No specific service items recorded
+                </div>
+              ) : (
+                <div className="apt-modal-services-box">
+                  {detailAppointment.services.map((s, idx) => {
+                    const sName = s.name || s.product_name || 'Service';
+                    const sPrice = Number(s.price) || 0;
+                    return (
+                      <div key={idx} className="apt-modal-service-row">
+                        <span className="apt-modal-service-name">{sName}</span>
+                        <span className="apt-modal-service-price">${fmtMoney(sPrice)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Notes / Observations */}
+              {detailAppointment.notes && (
+                <div className="apt-modal-notes-box">
+                  <div className="apt-modal-notes-title">Notes / Observations</div>
+                  <div className="apt-modal-notes-text">{detailAppointment.notes}</div>
+                </div>
+              )}
+
+              {/* Total Amount */}
+              <div className="apt-modal-total-row">
+                <span className="apt-modal-total-label">Total Amount</span>
+                <span className="apt-modal-total-value">
+                  ${fmtMoney(detailAppointment.total_amount)}
                 </span>
               </div>
             </div>
 
-            <div className="apt-modal-divider" />
-
-            {/* Services Performed Breakdown */}
-            <div className="apt-modal-services-title">
-              Services Performed ({detailAppointment.services?.length || 0})
+            {/* Fixed Footer Close Button */}
+            <div className="apt-modal-footer">
+              <button
+                type="button"
+                className="apt-modal-close-btn"
+                onClick={() => setDetailAppointment(null)}
+              >
+                Close
+              </button>
             </div>
-
-            {!detailAppointment.services || detailAppointment.services.length === 0 ? (
-              <div className="apt-modal-field-sub" style={{ fontStyle: 'italic', marginBottom: 12 }}>
-                No specific service items recorded
-              </div>
-            ) : (
-              <div className="apt-modal-services-box">
-                {detailAppointment.services.map((s, idx) => {
-                  const sName = s.name || s.product_name || 'Service';
-                  const sPrice = Number(s.price) || 0;
-                  return (
-                    <div key={idx} className="apt-modal-service-row">
-                      <span className="apt-modal-service-name">{sName}</span>
-                      <span className="apt-modal-service-price">${fmtMoney(sPrice)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Notes / Observations */}
-            {detailAppointment.notes && (
-              <div className="apt-modal-notes-box">
-                <div className="apt-modal-notes-title">Notes / Observations</div>
-                <div className="apt-modal-notes-text">{detailAppointment.notes}</div>
-              </div>
-            )}
-
-            {/* Total Amount */}
-            <div className="apt-modal-total-row">
-              <span className="apt-modal-total-label">Total Amount</span>
-              <span className="apt-modal-total-value">
-                ${fmtMoney(detailAppointment.total_amount)}
-              </span>
-            </div>
-
-            {/* Close Button */}
-            <button
-              type="button"
-              className="apt-modal-close-btn"
-              onClick={() => setDetailAppointment(null)}
-            >
-              Close
-            </button>
           </div>
         </div>
       )}

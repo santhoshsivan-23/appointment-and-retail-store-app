@@ -122,9 +122,119 @@ input, select, textarea {
 }
 
 /* ========================================================
+   Hide Scrollbar on all Popup Modals & Overlays
+   ======================================================== */
+.no-scrollbar,
+[class*="modal-dialog"],
+[class*="modal-overlay"],
+[class*="modal__body"],
+[class*="detail-dialog"],
+[class*="discount-dialog"],
+.mobile-details-body,
+.mobile-details-fullscreen-popup,
+.mobile-fullscreen-body {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar,
+[class*="modal-dialog"]::-webkit-scrollbar,
+[class*="modal-overlay"]::-webkit-scrollbar,
+[class*="modal__body"]::-webkit-scrollbar,
+[class*="detail-dialog"]::-webkit-scrollbar,
+[class*="discount-dialog"]::-webkit-scrollbar,
+.mobile-details-body::-webkit-scrollbar,
+.mobile-details-fullscreen-popup::-webkit-scrollbar,
+.mobile-fullscreen-body::-webkit-scrollbar,
+[class*="modal-dialog"]::-webkit-scrollbar-thumb,
+[class*="modal-overlay"]::-webkit-scrollbar-thumb,
+[class*="modal__body"]::-webkit-scrollbar-thumb,
+[class*="detail-dialog"]::-webkit-scrollbar-thumb,
+[class*="discount-dialog"]::-webkit-scrollbar-thumb,
+.mobile-details-body::-webkit-scrollbar-thumb,
+.mobile-details-fullscreen-popup::-webkit-scrollbar-thumb,
+.mobile-fullscreen-body::-webkit-scrollbar-thumb {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+/* ========================================================
    Toast Overrides
    ======================================================== */
 .Toastify__toast {
   font-family: var(--font-body) !important;
   border-radius: var(--radius-md) !important;
+}
+
+/* ========================================================
+   Mobile Modal Layout & Above-Navbar Clearances
+   ======================================================== */
+@media (max-width: 768px) {
+  [class*="modal-overlay"] {
+    z-index: 2000 !important;
+  }
+
+  [class*="modal-dialog"],
+  [class*="detail-dialog"],
+  [class*="discount-dialog"],
+  .payment-dialog,
+  .mobile-details-fullscreen-popup {
+    margin-bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+    max-height: min(80vh, calc(100vh - 120px)) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Fixed Headers in Modals (Title with Icon & Close Button) */
+  [class*="modal-header"],
+  [class*="modal__header"],
+  [class*="detail-header"],
+  [class*="discount-header"],
+  .payment-dialog-header,
+  .mobile-details-header {
+    flex-shrink: 0 !important;
+  }
+
+  /* Fixed Footers & Action Button Bars in Modals */
+  [class*="modal-footer"],
+  [class*="modal__footer"],
+  [class*="detail-footer"],
+  [class*="modal-actions"],
+  [class*="discount-actions"],
+  .payment-dialog-footer,
+  .mobile-details-footer {
+    flex-shrink: 0 !important;
+    margin-top: auto !important;
+  }
+
+  /* Scrollable Inner Body Content ONLY */
+  [class*="modal-body"],
+  [class*="modal__body"],
+  [class*="detail-body"],
+  [class*="discount-body"],
+  .payment-dialog-body,
+  .mobile-details-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  [class*="modal-body"]::-webkit-scrollbar,
+  [class*="modal__body"]::-webkit-scrollbar,
+  [class*="detail-body"]::-webkit-scrollbar,
+  [class*="discount-body"]::-webkit-scrollbar,
+  .payment-dialog-body::-webkit-scrollbar,
+  .mobile-details-body::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
 }

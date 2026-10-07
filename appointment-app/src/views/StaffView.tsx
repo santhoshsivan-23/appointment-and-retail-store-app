@@ -406,64 +406,78 @@ export default function StaffView() {
             aria-modal="true"
           >
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              {renderAvatar(detailStaff, 46)}
-              <div>
-                <h3 className="staff-modal-title">{detailStaff.name}</h3>
-                <div style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>
-                  {detailStaff.role}
+            <div className="staff-modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+                {renderAvatar(detailStaff, 46)}
+                <div style={{ minWidth: 0 }}>
+                  <h3 className="staff-modal-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {detailStaff.name}
+                  </h3>
+                  <div style={{ fontSize: 13, color: '#64748B', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {detailStaff.role}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="staff-modal-close-icon-btn"
+                onClick={() => setDetailStaff(null)}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Scrollable Inner Content */}
+            <div className="staff-modal-body">
+              <div className="staff-modal-divider" />
+
+              {/* Info rows matching Flutter */}
+              <div className="staff-info-row">
+                <Mail size={18} className="staff-info-icon" />
+                <div className="staff-info-label">Email</div>
+                <div className="staff-info-value">
+                  {detailStaff.email || 'None recorded'}
+                </div>
+              </div>
+
+              <div className="staff-info-row">
+                <Phone size={18} className="staff-info-icon" />
+                <div className="staff-info-label">Phone</div>
+                <div className="staff-info-value">
+                  {detailStaff.phone || 'None recorded'}
+                </div>
+              </div>
+
+              <div className="staff-info-row">
+                <BadgeAlert size={18} className="staff-info-icon" />
+                <div className="staff-info-label">Staff ID</div>
+                <div className="staff-info-value">#STF-00{detailStaff.id}</div>
+              </div>
+
+              <div className="staff-info-row">
+                <CheckCircle size={18} className="staff-info-icon" />
+                <div className="staff-info-label">Scheduling Status</div>
+                <div
+                  className={`staff-info-value ${
+                    Boolean(detailStaff.is_active)
+                      ? 'staff-info-value--active'
+                      : 'staff-info-value--archived'
+                  }`}
+                >
+                  {Boolean(detailStaff.is_active)
+                    ? 'Active for Bookings'
+                    : 'Deactivated (Historical Record)'}
                 </div>
               </div>
             </div>
 
-            <div className="staff-modal-divider" />
-
-            {/* Info rows matching Flutter */}
-            <div className="staff-info-row">
-              <Mail size={18} className="staff-info-icon" />
-              <div className="staff-info-label">Email</div>
-              <div className="staff-info-value">
-                {detailStaff.email || 'None recorded'}
-              </div>
-            </div>
-
-            <div className="staff-info-row">
-              <Phone size={18} className="staff-info-icon" />
-              <div className="staff-info-label">Phone</div>
-              <div className="staff-info-value">
-                {detailStaff.phone || 'None recorded'}
-              </div>
-            </div>
-
-            <div className="staff-info-row">
-              <BadgeAlert size={18} className="staff-info-icon" />
-              <div className="staff-info-label">Staff ID</div>
-              <div className="staff-info-value">#STF-00{detailStaff.id}</div>
-            </div>
-
-            <div className="staff-info-row">
-              <CheckCircle size={18} className="staff-info-icon" />
-              <div className="staff-info-label">Scheduling Status</div>
-              <div
-                className={`staff-info-value ${
-                  Boolean(detailStaff.is_active)
-                    ? 'staff-info-value--active'
-                    : 'staff-info-value--archived'
-                }`}
-              >
-                {Boolean(detailStaff.is_active)
-                  ? 'Active for Bookings'
-                  : 'Deactivated (Historical Record)'}
-              </div>
-            </div>
-
-            {/* Actions: Close, Edit, Delete */}
-            <div className="staff-modal-actions" style={{ marginTop: 24 }}>
+            {/* Fixed Actions: Close, Edit, Delete */}
+            <div className="staff-modal-actions staff-modal-actions--details" style={{ marginTop: 16 }}>
               <button
                 type="button"
                 className="staff-modal-btn staff-modal-btn--cancel"
                 onClick={() => setDetailStaff(null)}
-                style={{ flex: 1 }}
               >
                 Close
               </button>
@@ -475,7 +489,6 @@ export default function StaffView() {
                   setDetailStaff(null);
                   handleOpenEditModal(s);
                 }}
-                style={{ flex: 1 }}
               >
                 <Edit size={14} />
                 <span>Edit Staff</span>
@@ -488,7 +501,6 @@ export default function StaffView() {
                   setDetailStaff(null);
                   setDeleteStaff(s);
                 }}
-                style={{ flex: 1 }}
               >
                 <Trash2 size={14} />
                 <span>Delete</span>
@@ -510,128 +522,144 @@ export default function StaffView() {
             role="dialog"
             aria-modal="true"
           >
-            <div className="staff-modal-header">
-              <h3 className="staff-modal-title">Add New Staff Member</h3>
+            <div className="staff-modal-header" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="staff-modal-header-icon" style={{ background: 'rgba(225, 29, 72, 0.1)', color: '#E11D48' }}>
+                  <UserPlus size={18} />
+                </div>
+                <h3 className="staff-modal-title">Add New Staff Member</h3>
+              </div>
+              <button
+                type="button"
+                className="staff-modal-close-icon-btn"
+                onClick={() => setShowAddModal(false)}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <form onSubmit={handleCreateStaff}>
-              {/* Profile Image Upload Circle */}
-              <div className="staff-avatar-upload-box">
-                <input
-                  type="file"
-                  ref={addFileInputRef}
-                  style={{ display: 'none' }}
-                  accept="image/*"
-                  onChange={(e) =>
-                    handleImageFilePick(e, (b64) => setAddImageBase64(b64))
-                  }
-                />
-                <div
-                  className="staff-avatar-uploader-circle"
-                  onClick={() => addFileInputRef.current?.click()}
-                  title="Upload profile picture"
-                >
-                  <div className="staff-avatar-preview">
-                    {addImageBase64 ? (
-                      <img src={addImageBase64} alt="Preview" />
-                    ) : addName.trim() ? (
-                      <span className="staff-avatar-preview-initial">
-                        {addName.trim().charAt(0).toUpperCase()}
-                      </span>
-                    ) : (
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          color: '#64748B',
-                        }}
-                      >
-                        <ImageIcon size={28} />
-                        <span style={{ fontSize: 10, fontWeight: 600, marginTop: 2 }}>
-                          Add Photo
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="staff-avatar-camera-badge">
-                    <Camera size={13} />
-                  </div>
-                </div>
-
-                <div className="staff-avatar-actions">
-                  <button
-                    type="button"
-                    className="staff-avatar-btn staff-avatar-btn--primary"
+            <form onSubmit={handleCreateStaff} className="staff-modal-form">
+              {/* Scrollable Inner Content */}
+              <div className="staff-modal-body">
+                {/* Profile Image Upload Circle */}
+                <div className="staff-avatar-upload-box">
+                  <input
+                    type="file"
+                    ref={addFileInputRef}
+                    style={{ display: 'none' }}
+                    accept="image/*"
+                    onChange={(e) =>
+                      handleImageFilePick(e, (b64) => setAddImageBase64(b64))
+                    }
+                  />
+                  <div
+                    className="staff-avatar-uploader-circle"
                     onClick={() => addFileInputRef.current?.click()}
+                    title="Upload profile picture"
                   >
-                    <Upload size={13} />
-                    <span>
-                      {addImageBase64 ? 'Change Photo' : 'Upload Profile Image'}
-                    </span>
-                  </button>
-                  {addImageBase64 && (
+                    <div className="staff-avatar-preview">
+                      {addImageBase64 ? (
+                        <img src={addImageBase64} alt="Preview" />
+                      ) : addName.trim() ? (
+                        <span className="staff-avatar-preview-initial">
+                          {addName.trim().charAt(0).toUpperCase()}
+                        </span>
+                      ) : (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            color: '#64748B',
+                          }}
+                        >
+                          <ImageIcon size={28} />
+                          <span style={{ fontSize: 10, fontWeight: 600, marginTop: 2 }}>
+                            Add Photo
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="staff-avatar-camera-badge">
+                      <Camera size={13} />
+                    </div>
+                  </div>
+
+                  <div className="staff-avatar-actions">
                     <button
                       type="button"
-                      className="staff-avatar-btn staff-avatar-btn--danger"
-                      onClick={() => setAddImageBase64(null)}
+                      className="staff-avatar-btn staff-avatar-btn--primary"
+                      onClick={() => addFileInputRef.current?.click()}
                     >
-                      Remove
+                      <Upload size={13} />
+                      <span>
+                        {addImageBase64 ? 'Change Photo' : 'Upload Profile Image'}
+                      </span>
                     </button>
-                  )}
+                    {addImageBase64 && (
+                      <button
+                        type="button"
+                        className="staff-avatar-btn staff-avatar-btn--danger"
+                        onClick={() => setAddImageBase64(null)}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Form fields */}
+                <div className="staff-form-group">
+                  <label className="staff-form-label">Full Name *</label>
+                  <input
+                    type="text"
+                    className="staff-form-input"
+                    placeholder="e.g. Dr. Maya Lin"
+                    value={addName}
+                    onChange={(e) => setAddName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="staff-form-group">
+                  <label className="staff-form-label">
+                    Staff Role / Specialization *
+                  </label>
+                  <input
+                    type="text"
+                    className="staff-form-input"
+                    placeholder="Stylist / Clinician"
+                    value={addRole}
+                    onChange={(e) => setAddRole(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="staff-form-group">
+                  <label className="staff-form-label">Contact Phone</label>
+                  <input
+                    type="text"
+                    className="staff-form-input"
+                    placeholder="+1 555-0100"
+                    value={addPhone}
+                    onChange={(e) => setAddPhone(e.target.value)}
+                  />
+                </div>
+
+                <div className="staff-form-group">
+                  <label className="staff-form-label">Email Address</label>
+                  <input
+                    type="email"
+                    className="staff-form-input"
+                    placeholder="maya@omopet.clinic"
+                    value={addEmail}
+                    onChange={(e) => setAddEmail(e.target.value)}
+                  />
                 </div>
               </div>
 
-              {/* Form fields */}
-              <div className="staff-form-group">
-                <label className="staff-form-label">Full Name *</label>
-                <input
-                  type="text"
-                  className="staff-form-input"
-                  placeholder="e.g. Dr. Maya Lin"
-                  value={addName}
-                  onChange={(e) => setAddName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="staff-form-group">
-                <label className="staff-form-label">
-                  Staff Role / Specialization *
-                </label>
-                <input
-                  type="text"
-                  className="staff-form-input"
-                  placeholder="Stylist / Clinician"
-                  value={addRole}
-                  onChange={(e) => setAddRole(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="staff-form-group">
-                <label className="staff-form-label">Contact Phone</label>
-                <input
-                  type="text"
-                  className="staff-form-input"
-                  placeholder="+1 555-0100"
-                  value={addPhone}
-                  onChange={(e) => setAddPhone(e.target.value)}
-                />
-              </div>
-
-              <div className="staff-form-group">
-                <label className="staff-form-label">Email Address</label>
-                <input
-                  type="email"
-                  className="staff-form-input"
-                  placeholder="maya@omopet.clinic"
-                  value={addEmail}
-                  onChange={(e) => setAddEmail(e.target.value)}
-                />
-              </div>
-
-              {/* Actions */}
+              {/* Fixed Actions */}
               <div className="staff-modal-actions">
                 <button
                   type="button"
@@ -666,157 +694,170 @@ export default function StaffView() {
             role="dialog"
             aria-modal="true"
           >
-            <div className="staff-modal-header">
-              <div className="staff-modal-header-icon">
-                <Edit size={18} />
+            <div className="staff-modal-header" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="staff-modal-header-icon">
+                  <Edit size={18} />
+                </div>
+                <h3 className="staff-modal-title">Edit Staff Member</h3>
               </div>
-              <h3 className="staff-modal-title">Edit Staff Member</h3>
+              <button
+                type="button"
+                className="staff-modal-close-icon-btn"
+                onClick={() => setEditStaff(null)}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <form onSubmit={handleSaveEdit}>
-              {/* Profile Image Section */}
-              <div className="staff-avatar-upload-box">
-                <input
-                  type="file"
-                  ref={editFileInputRef}
-                  style={{ display: 'none' }}
-                  accept="image/*"
-                  onChange={(e) =>
-                    handleImageFilePick(e, (b64) => {
-                      setEditImageBase64(b64);
-                      setEditImageChanged(true);
-                    })
-                  }
-                />
-                <div
-                  className="staff-avatar-uploader-circle"
-                  onClick={() => editFileInputRef.current?.click()}
-                  title="Upload profile picture"
-                >
-                  <div className="staff-avatar-preview">
-                    {editImageBase64 ? (
-                      <img src={editImageBase64} alt="Preview" />
-                    ) : editName.trim() ? (
-                      <span className="staff-avatar-preview-initial">
-                        {editName.trim().charAt(0).toUpperCase()}
-                      </span>
-                    ) : (
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          color: '#64748B',
-                        }}
-                      >
-                        <ImageIcon size={28} />
-                        <span style={{ fontSize: 10, fontWeight: 600, marginTop: 2 }}>
-                          Add Photo
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="staff-avatar-camera-badge">
-                    <Camera size={13} />
-                  </div>
-                </div>
-
-                <div className="staff-avatar-actions">
-                  <button
-                    type="button"
-                    className="staff-avatar-btn staff-avatar-btn--primary"
+            <form onSubmit={handleSaveEdit} className="staff-modal-form">
+              {/* Scrollable Inner Content */}
+              <div className="staff-modal-body">
+                {/* Profile Image Section */}
+                <div className="staff-avatar-upload-box">
+                  <input
+                    type="file"
+                    ref={editFileInputRef}
+                    style={{ display: 'none' }}
+                    accept="image/*"
+                    onChange={(e) =>
+                      handleImageFilePick(e, (b64) => {
+                        setEditImageBase64(b64);
+                        setEditImageChanged(true);
+                      })
+                    }
+                  />
+                  <div
+                    className="staff-avatar-uploader-circle"
                     onClick={() => editFileInputRef.current?.click()}
+                    title="Upload profile picture"
                   >
-                    <Upload size={13} />
-                    <span>
-                      {editImageBase64 ? 'Change Photo' : 'Upload Profile Image'}
-                    </span>
-                  </button>
-                  {editImageBase64 && (
+                    <div className="staff-avatar-preview">
+                      {editImageBase64 ? (
+                        <img src={editImageBase64} alt="Preview" />
+                      ) : editName.trim() ? (
+                        <span className="staff-avatar-preview-initial">
+                          {editName.trim().charAt(0).toUpperCase()}
+                        </span>
+                      ) : (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            color: '#64748B',
+                          }}
+                        >
+                          <ImageIcon size={28} />
+                          <span style={{ fontSize: 10, fontWeight: 600, marginTop: 2 }}>
+                            Add Photo
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="staff-avatar-camera-badge">
+                      <Camera size={13} />
+                    </div>
+                  </div>
+
+                  <div className="staff-avatar-actions">
                     <button
                       type="button"
-                      className="staff-avatar-btn staff-avatar-btn--danger"
-                      onClick={() => {
-                        setEditImageBase64(null);
-                        setEditImageChanged(true);
-                      }}
+                      className="staff-avatar-btn staff-avatar-btn--primary"
+                      onClick={() => editFileInputRef.current?.click()}
                     >
-                      Remove
+                      <Upload size={13} />
+                      <span>
+                        {editImageBase64 ? 'Change Photo' : 'Upload Profile Image'}
+                      </span>
                     </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Form fields */}
-              <div className="staff-form-group">
-                <label className="staff-form-label">Full Name *</label>
-                <input
-                  type="text"
-                  className="staff-form-input"
-                  placeholder="e.g. Dr. Maya Lin"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="staff-form-group">
-                <label className="staff-form-label">
-                  Staff Role / Specialization *
-                </label>
-                <input
-                  type="text"
-                  className="staff-form-input"
-                  placeholder="Stylist / Clinician"
-                  value={editRole}
-                  onChange={(e) => setEditRole(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="staff-form-group">
-                <label className="staff-form-label">Contact Phone</label>
-                <input
-                  type="text"
-                  className="staff-form-input"
-                  placeholder="+1 555-0100"
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                />
-              </div>
-
-              <div className="staff-form-group">
-                <label className="staff-form-label">Email Address</label>
-                <input
-                  type="email"
-                  className="staff-form-input"
-                  placeholder="maya@omopet.clinic"
-                  value={editEmail}
-                  onChange={(e) => setEditEmail(e.target.value)}
-                />
-              </div>
-
-              {/* Active for Bookings toggle switch matching Flutter */}
-              <div className="staff-toggle-box">
-                <div className="staff-toggle-info">
-                  <div className="staff-toggle-title">Active for Bookings</div>
-                  <div className="staff-toggle-subtitle">
-                    {editIsActive
-                      ? 'Staff is visible and selectable for bookings'
-                      : 'Staff is archived from active bookings'}
+                    {editImageBase64 && (
+                      <button
+                        type="button"
+                        className="staff-avatar-btn staff-avatar-btn--danger"
+                        onClick={() => {
+                          setEditImageBase64(null);
+                          setEditImageChanged(true);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
                 </div>
-                <label className="staff-switch">
+
+                {/* Form fields */}
+                <div className="staff-form-group">
+                  <label className="staff-form-label">Full Name *</label>
                   <input
-                    type="checkbox"
-                    checked={editIsActive}
-                    onChange={(e) => setEditIsActive(e.target.checked)}
+                    type="text"
+                    className="staff-form-input"
+                    placeholder="e.g. Dr. Maya Lin"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    required
                   />
-                  <span className="staff-slider" />
-                </label>
+                </div>
+
+                <div className="staff-form-group">
+                  <label className="staff-form-label">
+                    Staff Role / Specialization *
+                  </label>
+                  <input
+                    type="text"
+                    className="staff-form-input"
+                    placeholder="Stylist / Clinician"
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="staff-form-group">
+                  <label className="staff-form-label">Contact Phone</label>
+                  <input
+                    type="text"
+                    className="staff-form-input"
+                    placeholder="+1 555-0100"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                  />
+                </div>
+
+                <div className="staff-form-group">
+                  <label className="staff-form-label">Email Address</label>
+                  <input
+                    type="email"
+                    className="staff-form-input"
+                    placeholder="maya@omopet.clinic"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                  />
+                </div>
+
+                {/* Active for Bookings toggle switch matching Flutter */}
+                <div className="staff-toggle-box">
+                  <div className="staff-toggle-info">
+                    <div className="staff-toggle-title">Active for Bookings</div>
+                    <div className="staff-toggle-subtitle">
+                      {editIsActive
+                        ? 'Staff is visible and selectable for bookings'
+                        : 'Staff is archived from active bookings'}
+                    </div>
+                  </div>
+                  <label className="staff-switch">
+                    <input
+                      type="checkbox"
+                      checked={editIsActive}
+                      onChange={(e) => setEditIsActive(e.target.checked)}
+                    />
+                    <span className="staff-slider" />
+                  </label>
+                </div>
               </div>
 
-              {/* Actions */}
+              {/* Fixed Actions */}
               <div className="staff-modal-actions">
                 <button
                   type="button"

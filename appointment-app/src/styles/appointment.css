@@ -1101,8 +1101,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 2000;
   padding: 20px;
+  overflow: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.appt-modal-overlay::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .appt-modal {
@@ -1114,7 +1123,15 @@
   max-height: 90vh;
   position: relative;
   overflow: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   animation: appt-modal-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.appt-modal::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 @keyframes appt-modal-in {
@@ -1185,7 +1202,19 @@
 .appt-modal__body {
   padding: 20px 24px;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.appt-modal__body::-webkit-scrollbar,
+.appt-modal__body::-webkit-scrollbar-thumb,
+.appt-modal__body::-webkit-scrollbar-track {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
 .appt-modal__footer {
@@ -2435,11 +2464,23 @@
   .mobile-fullscreen-body {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 14px 16px 20px 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .mobile-fullscreen-body::-webkit-scrollbar,
+  .mobile-fullscreen-body::-webkit-scrollbar-thumb,
+  .mobile-fullscreen-body::-webkit-scrollbar-track {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
   }
 
   /* Sections */
@@ -4036,7 +4077,7 @@
 
   /* ── Mobile Appointment Details Modal ────────────────────── */
   .appt-modal-overlay--mobile-details {
-    z-index: 1100 !important;
+    z-index: 2000 !important;
     padding: 16px 12px !important;
     background-color: rgba(15, 23, 42, 0.6) !important;
     backdrop-filter: blur(4px) !important;
@@ -4045,12 +4086,13 @@
   .mobile-details-fullscreen-popup {
     width: 100% !important;
     max-width: 440px !important;
-    max-height: calc(100vh - 48px) !important;
+    margin: auto auto calc(68px + env(safe-area-inset-bottom, 0px)) auto !important;
+    margin-bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+    max-height: min(80vh, calc(100vh - 120px)) !important;
     height: auto !important;
     border-radius: 20px !important;
     display: flex !important;
     flex-direction: column !important;
-    margin: auto !important;
     background-color: #ffffff !important;
     overflow: hidden !important;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
@@ -4094,14 +4136,38 @@
   }
 
   .mobile-details-body {
-    padding: 16px 16px calc(65px + env(safe-area-inset-bottom, 0px)) 16px !important;
+    padding: 14px 16px 8px 16px !important;
     overflow-y: auto !important;
-    flex: 1 !important;
+    overflow-x: hidden !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 15px !important;
+    gap: 14px !important;
     -webkit-overflow-scrolling: touch;
     background-color: #fafbfd;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .mobile-details-footer {
+    flex-shrink: 0 !important;
+    padding: 10px 16px 14px 16px !important;
+    background: #ffffff !important;
+    border-top: 1px solid #f1f5f9 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  .mobile-details-body::-webkit-scrollbar,
+  .mobile-details-body::-webkit-scrollbar-thumb,
+  .mobile-details-body::-webkit-scrollbar-track {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
   }
 
   .mobile-details-section {
