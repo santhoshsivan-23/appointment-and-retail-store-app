@@ -55,7 +55,11 @@ export default function LoginScreen() {
       try {
         const settingsRes = await settingsApi.getSettings(business.id);
         if (settingsRes.data?.data) {
-          dispatch(applySyncedSettings(settingsRes.data.data));
+          const sData = settingsRes.data.data;
+          dispatch(applySyncedSettings(sData));
+          if (sData.appointment_v2_clock !== undefined) {
+            localStorage.setItem('appointment_v2_clock', String(sData.appointment_v2_clock));
+          }
         }
       } catch (settingsErr) {
         console.warn('Could not auto-sync settings after login:', settingsErr);

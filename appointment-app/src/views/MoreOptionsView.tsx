@@ -14,6 +14,7 @@ import {
   Search,
   Store,
   SlidersHorizontal,
+  CalendarDays,
 } from 'lucide-react';
 import { useAppSelector } from '../store/hooks';
 import '../styles/more_options.css';
@@ -133,6 +134,17 @@ export default function MoreOptionsView({
       badge: 'Calendar',
       category: 'frequent',
       action: () => onNavigate(1),
+    },
+    {
+      id: 10,
+      title: 'Appointment V2 (New Layouts)',
+      desc: 'Staff lanes, List, Grid & 30-min Time Slot view',
+      icon: CalendarDays,
+      color: '#0284C7',
+      bg: 'rgba(2, 132, 199, 0.12)',
+      badge: 'V2',
+      category: 'frequent',
+      action: () => onNavigate(10),
     },
     {
       id: 3,

@@ -560,6 +560,7 @@ async function initDatabase() {
         allow_walk_in_queue BOOLEAN DEFAULT TRUE,
         require_doctor_notes BOOLEAN DEFAULT TRUE,
         allow_delete_service BOOLEAN DEFAULT FALSE,
+        appointment_v2_clock BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY unique_business (business_id)
@@ -581,9 +582,13 @@ async function initDatabase() {
     } catch (_) {}
 
     try {
+      await pool.query('ALTER TABLE settings ADD COLUMN appointment_v2_clock BOOLEAN DEFAULT TRUE');
+    } catch (_) {}
+
+    try {
       await pool.query(`
-        INSERT INTO settings (business_id, time_format, clock_display, booking_slot_interval, buffer_time_between_sessions, open_time, close_time, allow_walk_in_queue, require_doctor_notes, allow_delete_service)
-        VALUES (1, '12', '12h', 30, 10, '08:00', '20:00', TRUE, TRUE, FALSE)
+        INSERT INTO settings (business_id, time_format, clock_display, booking_slot_interval, buffer_time_between_sessions, open_time, close_time, allow_walk_in_queue, require_doctor_notes, allow_delete_service, appointment_v2_clock)
+        VALUES (1, '12', '12h', 30, 10, '08:00', '20:00', TRUE, TRUE, FALSE, TRUE)
         ON DUPLICATE KEY UPDATE id=id;
       `);
     } catch (_) {}
@@ -1598,6 +1603,7 @@ function formatSettingsOutput(row) {
   const allowWalkIn = row.allow_walk_in_queue !== false && row.allow_walk_in_queue !== 0;
   const requireNotes = row.require_doctor_notes !== false && row.require_doctor_notes !== 0;
   const allowDelete = row.allow_delete_service === true || row.allow_delete_service === 1;
+  const appointmentV2Clock = row.appointment_v2_clock !== false && row.appointment_v2_clock !== 0 && row.appointment_v2_clock !== '0';
 
   return {
     id: row.id || 1,
@@ -1617,6 +1623,7 @@ function formatSettingsOutput(row) {
     allow_walk_in_queue: allowWalkIn,
     require_doctor_notes: requireNotes,
     allow_delete_service: allowDelete,
+    appointment_v2_clock: appointmentV2Clock,
     created_at: row.created_at || new Date().toISOString(),
     updated_at: row.updated_at || new Date().toISOString(),
   };
@@ -1632,8 +1639,8 @@ async function getSettings(businessId = 1) {
       }
       // Insert default if not present
       await pool.query(
-        `INSERT INTO settings (business_id, time_format, clock_display, booking_slot_interval, buffer_time_between_sessions, open_time, close_time, allow_walk_in_queue, require_doctor_notes, allow_delete_service)
-         VALUES (?, '12', '12h', 30, 10, '08:00', '20:00', TRUE, TRUE, FALSE)`,
+        `INSERT INTO settings (business_id, time_format, clock_display, booking_slot_interval, buffer_time_between_sessions, open_time, close_time, allow_walk_in_queue, require_doctor_notes, allow_delete_service, appointment_v2_clock)
+         VALUES (?, '12', '12h', 30, 10, '08:00', '20:00', TRUE, TRUE, FALSE, TRUE)`,
         [bId]
       );
       const [newRows] = await pool.query('SELECT * FROM settings WHERE business_id = ?', [bId]);
@@ -1658,6 +1665,7 @@ async function getSettings(businessId = 1) {
       allow_walk_in_queue: true,
       require_doctor_notes: true,
       allow_delete_service: false,
+      appointment_v2_clock: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -1678,6 +1686,7 @@ async function updateSettings(businessId = 1, data = {}) {
   const allowWalkIn = data.allow_walk_in_queue !== undefined ? Boolean(data.allow_walk_in_queue) : (data.allowWalkInQueue !== undefined ? Boolean(data.allowWalkInQueue) : undefined);
   const requireNotes = data.require_doctor_notes !== undefined ? Boolean(data.require_doctor_notes) : (data.requireDoctorNotes !== undefined ? Boolean(data.requireDoctorNotes) : undefined);
   const allowDelete = data.allow_delete_service !== undefined ? Boolean(data.allow_delete_service) : (data.allowDeleteService !== undefined ? Boolean(data.allowDeleteService) : undefined);
+  const appointmentV2Clock = data.appointment_v2_clock !== undefined ? Boolean(data.appointment_v2_clock) : (data.appointmentV2Clock !== undefined ? Boolean(data.appointmentV2Clock) : undefined);
 
   if (!useFallback && pool) {
     try {
@@ -1695,6 +1704,7 @@ async function updateSettings(businessId = 1, data = {}) {
       if (allowWalkIn !== undefined) { fields.push('allow_walk_in_queue = ?'); values.push(allowWalkIn); }
       if (requireNotes !== undefined) { fields.push('require_doctor_notes = ?'); values.push(requireNotes); }
       if (allowDelete !== undefined) { fields.push('allow_delete_service = ?'); values.push(allowDelete); }
+      if (appointmentV2Clock !== undefined) { fields.push('appointment_v2_clock = ?'); values.push(appointmentV2Clock); }
 
       if (fields.length > 0) {
         values.push(bId);
@@ -1721,6 +1731,7 @@ async function updateSettings(businessId = 1, data = {}) {
       allow_walk_in_queue: true,
       require_doctor_notes: true,
       allow_delete_service: false,
+      appointment_v2_clock: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
@@ -1739,6 +1750,7 @@ async function updateSettings(businessId = 1, data = {}) {
     allow_walk_in_queue: allowWalkIn !== undefined ? allowWalkIn : current.allow_walk_in_queue,
     require_doctor_notes: requireNotes !== undefined ? requireNotes : current.require_doctor_notes,
     allow_delete_service: allowDelete !== undefined ? allowDelete : current.allow_delete_service,
+    appointment_v2_clock: appointmentV2Clock !== undefined ? appointmentV2Clock : (current.appointment_v2_clock !== undefined ? current.appointment_v2_clock : true),
     updated_at: new Date().toISOString(),
   };
   writeJson('settings', list);

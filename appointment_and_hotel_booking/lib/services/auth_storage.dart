@@ -186,6 +186,8 @@ class AuthStorage {
     return prefs.getBool(_keyRequireDoctorNotes) ?? true;
   }
 
+  static const String _keyAppointmentV2Clock = 'appointment_v2_clock';
+
   static Future<void> setAllowDeleteService(bool val) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyAllowDeleteService, val);
@@ -194,6 +196,16 @@ class AuthStorage {
   static Future<bool> getAllowDeleteService() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keyAllowDeleteService) ?? false;
+  }
+
+  static Future<void> setAppointmentV2Clock(bool val) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyAppointmentV2Clock, val);
+  }
+
+  static Future<bool> getAppointmentV2Clock() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyAppointmentV2Clock) ?? true;
   }
 
   // Save retrieved settings map directly to SharedPreferences
@@ -242,6 +254,15 @@ class AuthStorage {
 
     if (data['allow_delete_service'] != null) {
       await prefs.setBool(_keyAllowDeleteService, data['allow_delete_service'] == true || data['allow_delete_service'] == 1);
+    }
+
+    if (data['appointment_v2_clock'] != null) {
+      await prefs.setBool(
+        _keyAppointmentV2Clock,
+        data['appointment_v2_clock'] == true ||
+            data['appointment_v2_clock'] == 1 ||
+            data['appointment_v2_clock'] == '1',
+      );
     }
   }
 }

@@ -167,6 +167,7 @@ async function rebuild() {
       allow_walk_in_queue BOOLEAN DEFAULT TRUE,
       require_doctor_notes BOOLEAN DEFAULT TRUE,
       allow_delete_service BOOLEAN DEFAULT FALSE,
+      appointment_v2_clock BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE KEY unique_business (business_id)

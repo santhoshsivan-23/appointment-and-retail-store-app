@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Calendar,
+  CalendarDays,
   Users,
   History,
   ShoppingCart,
@@ -24,6 +25,7 @@ export interface NavItemConfig {
 export const navItems: NavItemConfig[] = [
   { id: 0, title: 'Dashboard', icon: LayoutDashboard },
   { id: 1, title: 'Appointment', icon: Calendar },
+  { id: 10, title: 'Appointment V2', icon: CalendarDays },
   { id: 2, title: 'Staff', icon: Users },
   { id: 3, title: 'Appointment History', icon: History },
   { id: 4, title: 'Cart & POS', icon: ShoppingCart },

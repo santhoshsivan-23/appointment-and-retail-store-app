@@ -34,6 +34,7 @@ export default function AppointmentConfigView() {
   const [allowWalkInQueue, setAllowWalkInQueue] = useState<boolean>(config.allowWalkInQueue);
   const [requireDoctorNotes, setRequireDoctorNotes] = useState<boolean>(config.requireDoctorNotes);
   const [allowDeleteService, setAllowDeleteService] = useState<boolean>(config.allowDeleteService);
+  const [appointmentV2Clock, setAppointmentV2ClockState] = useState<boolean>(config.appointmentV2Clock ?? true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
 
@@ -47,6 +48,7 @@ export default function AppointmentConfigView() {
     setAllowWalkInQueue(config.allowWalkInQueue);
     setRequireDoctorNotes(config.requireDoctorNotes);
     setAllowDeleteService(config.allowDeleteService);
+    setAppointmentV2ClockState(config.appointmentV2Clock ?? true);
   }, [config]);
 
   /* ── Update Settings Action (Fetch from API & Save in Local Storage) ── */
@@ -72,6 +74,7 @@ export default function AppointmentConfigView() {
         if (data.allow_walk_in_queue !== undefined) setAllowWalkInQueue(Boolean(data.allow_walk_in_queue));
         if (data.require_doctor_notes !== undefined) setRequireDoctorNotes(Boolean(data.require_doctor_notes));
         if (data.allow_delete_service !== undefined) setAllowDeleteService(Boolean(data.allow_delete_service));
+        if (data.appointment_v2_clock !== undefined) setAppointmentV2ClockState(Boolean(data.appointment_v2_clock));
 
         toast.success('Settings updated from database and saved to Local Storage!', {
           icon: <CheckCircle2 color="#10B981" size={20} />,
@@ -107,6 +110,7 @@ export default function AppointmentConfigView() {
       allowWalkInQueue,
       requireDoctorNotes,
       allowDeleteService,
+      appointmentV2Clock,
     };
 
     // 1. Update settings locally in Redux & Local Storage
@@ -125,6 +129,7 @@ export default function AppointmentConfigView() {
         allow_walk_in_queue: allowWalkInQueue,
         require_doctor_notes: requireDoctorNotes,
         allow_delete_service: allowDeleteService,
+        appointment_v2_clock: appointmentV2Clock,
       });
 
       const formatDesc = timeFormat === '12' ? '12-Hour AM/PM' : '24-Hour';
@@ -423,6 +428,44 @@ export default function AppointmentConfigView() {
                   type="checkbox"
                   checked={allowDeleteService}
                   onChange={(e) => setAllowDeleteService(e.target.checked)}
+                />
+                <span className="ac-toggle-slider" />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <hr className="ac-divider" />
+
+        {/* 7. Add Appointment V2 Popup Configuration */}
+        <div>
+          <div className="ac-section-header">
+            <div className="ac-section-icon-badge ac-section-icon-badge--primary">
+              <Clock size={16} />
+            </div>
+            <h3 className="ac-section-title" style={{ margin: 0 }}>
+              7. Add Appointment V2 Popup Configuration
+            </h3>
+          </div>
+          <p className="ac-section-desc">
+            Controls the time selector presentation inside the Add Appointment (V2) popup:
+          </p>
+
+          <div className="ac-switch-list">
+            <div className="ac-switch-tile">
+              <div className="ac-switch-info">
+                <div className="ac-switch-title">Time Selection Mode</div>
+                <div className="ac-switch-subtitle">
+                  {appointmentV2Clock
+                    ? 'Toggle ON: Use the currently implemented scrolling time selector in the Add Appointment (V2) popup.'
+                    : 'Toggle OFF: Use the clock-based time selector in the Add Appointment (V2) popup.'}
+                </div>
+              </div>
+              <label className="ac-toggle">
+                <input
+                  type="checkbox"
+                  checked={appointmentV2Clock}
+                  onChange={(e) => setAppointmentV2ClockState(e.target.checked)}
                 />
                 <span className="ac-toggle-slider" />
               </label>

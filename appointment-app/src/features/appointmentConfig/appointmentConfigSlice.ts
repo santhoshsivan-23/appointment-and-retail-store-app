@@ -11,6 +11,7 @@ export interface AppointmentConfigState {
   allowWalkInQueue: boolean;
   requireDoctorNotes: boolean;
   allowDeleteService: boolean;
+  appointmentV2Clock: boolean;
 }
 
 export const STORAGE_KEYS = {
@@ -23,6 +24,7 @@ export const STORAGE_KEYS = {
   allowWalkInQueue: 'allow_walk_in_queue',
   requireDoctorNotes: 'require_doctor_notes',
   allowDeleteService: 'allow_delete_service',
+  appointmentV2Clock: 'appointment_v2_clock',
 };
 
 export function loadConfigFromStorage(): AppointmentConfigState {
@@ -38,6 +40,7 @@ export function loadConfigFromStorage(): AppointmentConfigState {
     const allowWalkInQueue = localStorage.getItem(STORAGE_KEYS.allowWalkInQueue) !== 'false';
     const requireDoctorNotes = localStorage.getItem(STORAGE_KEYS.requireDoctorNotes) !== 'false';
     const allowDeleteService = localStorage.getItem(STORAGE_KEYS.allowDeleteService) === 'true';
+    const appointmentV2Clock = localStorage.getItem(STORAGE_KEYS.appointmentV2Clock) !== 'false';
 
     return {
       timeFormat,
@@ -49,6 +52,7 @@ export function loadConfigFromStorage(): AppointmentConfigState {
       allowWalkInQueue,
       requireDoctorNotes,
       allowDeleteService,
+      appointmentV2Clock,
     };
   } catch {
     return {
@@ -61,6 +65,7 @@ export function loadConfigFromStorage(): AppointmentConfigState {
       allowWalkInQueue: true,
       requireDoctorNotes: true,
       allowDeleteService: false,
+      appointmentV2Clock: true,
     };
   }
 }
@@ -83,6 +88,7 @@ export const appointmentConfigSlice = createSlice({
       if (payload.allowWalkInQueue !== undefined) state.allowWalkInQueue = payload.allowWalkInQueue;
       if (payload.requireDoctorNotes !== undefined) state.requireDoctorNotes = payload.requireDoctorNotes;
       if (payload.allowDeleteService !== undefined) state.allowDeleteService = payload.allowDeleteService;
+      if (payload.appointmentV2Clock !== undefined) state.appointmentV2Clock = payload.appointmentV2Clock;
 
       try {
         localStorage.setItem(STORAGE_KEYS.timeFormat, state.timeFormat);
@@ -94,6 +100,7 @@ export const appointmentConfigSlice = createSlice({
         localStorage.setItem(STORAGE_KEYS.allowWalkInQueue, String(state.allowWalkInQueue));
         localStorage.setItem(STORAGE_KEYS.requireDoctorNotes, String(state.requireDoctorNotes));
         localStorage.setItem(STORAGE_KEYS.allowDeleteService, String(state.allowDeleteService));
+        localStorage.setItem(STORAGE_KEYS.appointmentV2Clock, String(state.appointmentV2Clock));
       } catch (err) {
         console.error('Failed to save config to localStorage', err);
       }
@@ -120,6 +127,7 @@ export const appointmentConfigSlice = createSlice({
       if (s.allow_walk_in_queue !== undefined) state.allowWalkInQueue = Boolean(s.allow_walk_in_queue);
       if (s.require_doctor_notes !== undefined) state.requireDoctorNotes = Boolean(s.require_doctor_notes);
       if (s.allow_delete_service !== undefined) state.allowDeleteService = Boolean(s.allow_delete_service);
+      if (s.appointment_v2_clock !== undefined) state.appointmentV2Clock = Boolean(s.appointment_v2_clock);
 
       try {
         localStorage.setItem(STORAGE_KEYS.timeFormat, state.timeFormat);
@@ -131,6 +139,7 @@ export const appointmentConfigSlice = createSlice({
         localStorage.setItem(STORAGE_KEYS.allowWalkInQueue, String(state.allowWalkInQueue));
         localStorage.setItem(STORAGE_KEYS.requireDoctorNotes, String(state.requireDoctorNotes));
         localStorage.setItem(STORAGE_KEYS.allowDeleteService, String(state.allowDeleteService));
+        localStorage.setItem(STORAGE_KEYS.appointmentV2Clock, String(state.appointmentV2Clock));
       } catch (err) {
         console.error('Failed to save synced settings to localStorage', err);
       }

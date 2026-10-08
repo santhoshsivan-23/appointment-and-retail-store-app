@@ -13,6 +13,7 @@ import AppointmentConfigView from '../views/AppointmentConfigView';
 import AppointmentView from '../views/AppointmentView';
 import StaffView from '../views/StaffView';
 import AppointmentHistoryView from '../views/AppointmentHistoryView';
+import AppointmentV2View from '../views/AppointmentV2View';
 import MoreOptionsView from '../views/MoreOptionsView';
 import TabPlaceholderView from '../views/TabPlaceholderView';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -104,6 +105,19 @@ export default function MainTerminalShell() {
               onNavigate={(idx) => setCurrentTab(idx)}
               onLogoutClick={() => setShowLogoutModal(true)}
               onSelectCartMode={(m) => setMobileCartMode(m)}
+            />
+          ) : currentTab === 10 ? (
+            <AppointmentV2View
+              onStartService={(customer, products, appointment) => {
+                setCartPreload({
+                  customer,
+                  products,
+                  appointmentId: appointment?.id,
+                  staffName: appointment?.staff_name,
+                });
+                setMobileCartMode('cart');
+                setCurrentTab(4); // Switch to Cart & POS
+              }}
             />
           ) : (
             <TabPlaceholderView

@@ -18,6 +18,7 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
   bool _allowWalkInQueue = true;
   bool _requireDoctorNotes = true;
   bool _allowDeleteService = false;
+  bool _appointmentV2Clock = true;
   bool _isSyncing = false;
   bool _isSaving = false;
   late TextEditingController _openTimeCtrl;
@@ -47,6 +48,7 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
     final allowWalkIn = await AuthStorage.getAllowWalkInQueue();
     final requireNotes = await AuthStorage.getRequireDoctorNotes();
     final allowDelete = await AuthStorage.getAllowDeleteService();
+    final v2Clock = await AuthStorage.getAppointmentV2Clock();
     if (!mounted) return;
     setState(() {
       _timeFormat = format;
@@ -57,6 +59,7 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
       _allowWalkInQueue = allowWalkIn;
       _requireDoctorNotes = requireNotes;
       _allowDeleteService = allowDelete;
+      _appointmentV2Clock = v2Clock;
     });
   }
 
@@ -140,6 +143,7 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
     await AuthStorage.setAllowWalkInQueue(_allowWalkInQueue);
     await AuthStorage.setRequireDoctorNotes(_requireDoctorNotes);
     await AuthStorage.setAllowDeleteService(_allowDeleteService);
+    await AuthStorage.setAppointmentV2Clock(_appointmentV2Clock);
 
     // Call Update Settings API to save changes to the database
     try {
@@ -153,6 +157,7 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
         'allow_walk_in_queue': _allowWalkInQueue,
         'require_doctor_notes': _requireDoctorNotes,
         'allow_delete_service': _allowDeleteService,
+        'appointment_v2_clock': _appointmentV2Clock,
       });
 
       if (!mounted) return;
@@ -477,6 +482,25 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
                       value: _allowDeleteService,
                       activeThumbColor: AppTheme.error,
                       onChanged: (v) => setState(() => _allowDeleteService = v),
+                    ),
+                    const Divider(height: 32),
+
+                    // 7. Add Appointment V2 Popup Configuration
+                    Text('7. Add Appointment V2 Popup Configuration', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Text('Controls the time selection mode inside the Add Appointment (V2) popup:', style: GoogleFonts.inter(fontSize: 12.5, color: AppTheme.onSurfaceVariant)),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      title: Text('Time Selection Mode', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        _appointmentV2Clock
+                            ? 'Toggle ON: Use the currently implemented scrolling time selector in the Add Appointment (V2) popup.'
+                            : 'Toggle OFF: Use the clock-based time selector in the Add Appointment (V2) popup.',
+                        style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant),
+                      ),
+                      value: _appointmentV2Clock,
+                      activeThumbColor: AppTheme.primary,
+                      onChanged: (v) => setState(() => _appointmentV2Clock = v),
                     ),
                     const SizedBox(height: 24),
 

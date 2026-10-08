@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Plus,
   CalendarCheck,
+  CalendarDays,
 } from 'lucide-react';
 import { useAppSelector } from '../store/hooks';
 import { appointmentApi, type Appointment } from '../api/appointmentApi';
@@ -279,6 +280,14 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       icon: Calendar,
       color: 'var(--primary)',
       bg: 'rgba(180, 41, 7, 0.12)',
+    },
+    {
+      id: 10,
+      title: 'Appointment V2',
+      desc: 'Multi-view staff schedule',
+      icon: CalendarDays,
+      color: '#0284C7',
+      bg: 'rgba(2, 132, 199, 0.12)',
     },
     {
       id: 2,

@@ -19,6 +19,7 @@ export interface Settings {
   allow_walk_in_queue?: boolean;
   require_doctor_notes?: boolean;
   allow_delete_service?: boolean;
+  appointment_v2_clock?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -36,6 +37,7 @@ export interface SettingsPayload {
   allow_walk_in_queue?: boolean;
   require_doctor_notes?: boolean;
   allow_delete_service?: boolean;
+  appointment_v2_clock?: boolean;
 }
 
 /* ── API ───────────────────────────────────────────────── */
