@@ -298,60 +298,83 @@
   border-radius: 50%;
   background: #1e40af;
   transform: translate(-50%, -50%);
-  z-index: 5;
+  z-index: 7;
 }
 
-/* Clock Hand Pointer */
+/* Clock Hand Pointer - Points UP at 0deg to 12 o'clock */
 .clock-picker-hand {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 2px;
+  bottom: 50%;
+  left: calc(50% - 1.5px);
+  width: 3px;
   height: 84px;
   background: #2563eb;
-  transform-origin: 50% 0%;
+  transform-origin: 50% 100%;
   z-index: 3;
   pointer-events: none;
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.clock-picker-hand--dragging {
+  transition: none !important;
 }
 
 .clock-picker-hand-bubble {
   position: absolute;
-  bottom: 0;
+  top: 0;
   left: 50%;
-  transform: translate(-50%, 50%);
-  width: 34px;
-  height: 34px;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #1e40af;
-  border: 2px solid #ffffff;
-  box-shadow: 0 2px 6px rgba(30, 64, 175, 0.3);
-  z-index: 4;
+  box-shadow: 0 2px 10px rgba(30, 64, 175, 0.4);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clock-picker-bubble-text {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #ffffff;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Dial Numbers (1 to 12 or 00 to 55) */
 .clock-picker-number {
   position: absolute;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 700;
   color: #334155;
+  background: transparent;
+  border: none;
+  padding: 0;
   font-variant-numeric: tabular-nums;
   transform: translate(-50%, -50%);
-  z-index: 4;
-  pointer-events: none;
-  transition: color 0.15s ease, font-weight 0.15s ease;
+  z-index: 5;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.18s ease, font-weight 0.18s ease;
+}
+
+.clock-picker-number:hover {
+  color: #1e40af;
 }
 
 .clock-picker-number--active {
   color: #ffffff !important;
   font-weight: 900 !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  z-index: 6;
 }
 
 /* ── Footer ── */

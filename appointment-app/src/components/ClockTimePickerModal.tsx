@@ -13,6 +13,16 @@ interface ClockTimePickerModalProps {
 const DIAL_RADIUS = 84; // px from center to number bubble
 const DIAL_CENTER = 120; // px center of the 240px dial
 
+// Helper: Calculate shortest rotation angle difference to prevent spinning around
+function getShortestAngle(currentAngle: number, targetAngle: number): number {
+  const normCurrent = ((currentAngle % 360) + 360) % 360;
+  const normTarget = ((targetAngle % 360) + 360) % 360;
+  let diff = normTarget - normCurrent;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  return currentAngle + diff;
+}
+
 export default function ClockTimePickerModal({
   isOpen,
   initialTime24,
@@ -25,8 +35,13 @@ export default function ClockTimePickerModal({
   const [minute, setMinute] = useState<number>(0);
   const [period, setPeriod] = useState<'AM' | 'PM'>('AM');
 
+  // Continuous angle for smooth hand animations
+  const [handAngle, setHandAngle] = useState<number>(240);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+
   const dialRef = useRef<HTMLDivElement | null>(null);
   const isDraggingRef = useRef<boolean>(false);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Parse initial 24-hour time whenever modal opens
   useEffect(() => {
@@ -37,11 +52,14 @@ export default function ClockTimePickerModal({
 
     const isPM = h24 >= 12;
     const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+    const safeM = Math.max(0, Math.min(59, m));
 
     setHour12(h12);
-    setMinute(Math.max(0, Math.min(59, m)));
+    setMinute(safeM);
     setPeriod(isPM ? 'PM' : 'AM');
     setMode('hours'); // Start on hours mode
+    setHandAngle(h12 * 30);
+    setIsDragging(false);
   }, [isOpen, initialTime24]);
 
   // Convert current 12-hour + AM/PM state to 24-hour format string ('HH:MM')
@@ -57,7 +75,41 @@ export default function ClockTimePickerModal({
     return `${hStr}:${mStr}`;
   }, [hour12, minute, period]);
 
-  // Handle pointer calculation relative to clock center
+  // Smooth mode switcher
+  const switchMode = useCallback(
+    (newMode: 'hours' | 'minutes') => {
+      setMode(newMode);
+      setIsDragging(false);
+      const targetDeg = newMode === 'hours' ? hour12 * 30 : minute * 6;
+      setHandAngle((prev) => getShortestAngle(prev, targetDeg));
+    },
+    [hour12, minute]
+  );
+
+  // Direct number click handlers (smooth animation without dragging)
+  const handleSelectHour = useCallback((h: number) => {
+    setIsDragging(false);
+    isDraggingRef.current = false;
+    setHour12(h);
+    const targetDeg = h * 30;
+    setHandAngle((prev) => getShortestAngle(prev, targetDeg));
+
+    // Smoothly advance to minute mode after animation completes
+    setTimeout(() => {
+      setMode('minutes');
+      setHandAngle((prev) => getShortestAngle(prev, minute * 6));
+    }, 320);
+  }, [minute]);
+
+  const handleSelectMinute = useCallback((m: number) => {
+    setIsDragging(false);
+    isDraggingRef.current = false;
+    setMinute(m);
+    const targetDeg = m * 6;
+    setHandAngle((prev) => getShortestAngle(prev, targetDeg));
+  }, []);
+
+  // Handle pointer angle calculation relative to clock center
   const handlePointerAngle = useCallback(
     (clientX: number, clientY: number, isFinal: boolean) => {
       if (!dialRef.current) return;
@@ -77,34 +129,63 @@ export default function ClockTimePickerModal({
         if (selectedH === 0) selectedH = 12;
         setHour12(selectedH);
 
-        // Once hour selection is finished, auto-advance to minute mode
+        const snapAngle = selectedH * 30;
         if (isFinal) {
-          setTimeout(() => setMode('minutes'), 180);
+          setIsDragging(false);
+          setHandAngle((prev) => getShortestAngle(prev, snapAngle));
+          setTimeout(() => {
+            setMode('minutes');
+            setHandAngle((prev) => getShortestAngle(prev, minute * 6));
+          }, 320);
+        } else {
+          setHandAngle(angle);
         }
       } else {
-        // Minutes mode (snap to nearest minute or 5 mins)
+        // Minutes mode
         const selectedM = Math.round(angle / 6) % 60;
         setMinute(selectedM);
+
+        const snapAngle = selectedM * 6;
+        if (isFinal) {
+          setIsDragging(false);
+          setHandAngle((prev) => getShortestAngle(prev, snapAngle));
+        } else {
+          setHandAngle(angle);
+        }
       }
     },
-    [mode]
+    [mode, minute]
   );
 
   // Pointer event listeners on dial
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    isDraggingRef.current = true;
+    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+    isDraggingRef.current = false;
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-    handlePointerAngle(e.clientX, e.clientY, false);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingRef.current) return;
-    handlePointerAngle(e.clientX, e.clientY, false);
+    if (!pointerStartRef.current) return;
+    const dist = Math.hypot(
+      e.clientX - pointerStartRef.current.x,
+      e.clientY - pointerStartRef.current.y
+    );
+    if (dist > 6 && !isDraggingRef.current) {
+      isDraggingRef.current = true;
+      setIsDragging(true);
+    }
+    if (isDraggingRef.current) {
+      handlePointerAngle(e.clientX, e.clientY, false);
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingRef.current) return;
+    if (!pointerStartRef.current) return;
+    pointerStartRef.current = null;
     isDraggingRef.current = false;
+    setIsDragging(false);
+
+    // If tapped/clicked or released after dragging, smoothly snap
     handlePointerAngle(e.clientX, e.clientY, true);
   };
 
@@ -114,9 +195,6 @@ export default function ClockTimePickerModal({
   };
 
   if (!isOpen) return null;
-
-  // Hand rotation calculation
-  const handRotationDeg = mode === 'hours' ? hour12 * 30 : minute * 6;
 
   // Precomputed numbers
   const hoursList = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
@@ -149,7 +227,7 @@ export default function ClockTimePickerModal({
               className={`clock-picker-digit-btn ${
                 mode === 'hours' ? 'clock-picker-digit-btn--active' : ''
               }`}
-              onClick={() => setMode('hours')}
+              onClick={() => switchMode('hours')}
               title="Select Hour"
             >
               {String(hour12).padStart(2, '0')}
@@ -162,7 +240,7 @@ export default function ClockTimePickerModal({
               className={`clock-picker-digit-btn ${
                 mode === 'minutes' ? 'clock-picker-digit-btn--active' : ''
               }`}
-              onClick={() => setMode('minutes')}
+              onClick={() => switchMode('minutes')}
               title="Select Minute"
             >
               {String(minute).padStart(2, '0')}
@@ -210,12 +288,23 @@ export default function ClockTimePickerModal({
 
             {/* Rotating Hand Pointer with Selection Bubble */}
             <div
-              className="clock-picker-hand"
+              className={`clock-picker-hand ${isDragging ? 'clock-picker-hand--dragging' : ''}`}
               style={{
-                transform: `rotate(${handRotationDeg}deg)`,
+                transform: `rotate(${handAngle}deg)`,
               }}
             >
-              <div className="clock-picker-hand-bubble" />
+              <div className="clock-picker-hand-bubble">
+                {mode === 'minutes' && minute % 5 !== 0 && (
+                  <span
+                    className="clock-picker-bubble-text"
+                    style={{
+                      transform: `rotate(-${handAngle}deg)`,
+                    }}
+                  >
+                    {String(minute).padStart(2, '0')}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Numbers on the Clock Face */}
@@ -227,15 +316,20 @@ export default function ClockTimePickerModal({
                   const isActive = hour12 === h;
 
                   return (
-                    <div
+                    <button
                       key={h}
+                      type="button"
                       className={`clock-picker-number ${
                         isActive ? 'clock-picker-number--active' : ''
                       }`}
                       style={{ left: `${x}px`, top: `${y}px` }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectHour(h);
+                      }}
                     >
                       {h}
-                    </div>
+                    </button>
                   );
                 })
               : minutesList.map((m) => {
@@ -245,15 +339,20 @@ export default function ClockTimePickerModal({
                   const isActive = minute === m;
 
                   return (
-                    <div
+                    <button
                       key={m}
+                      type="button"
                       className={`clock-picker-number ${
                         isActive ? 'clock-picker-number--active' : ''
                       }`}
                       style={{ left: `${x}px`, top: `${y}px` }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectMinute(m);
+                      }}
                     >
                       {String(m).padStart(2, '0')}
-                    </div>
+                    </button>
                   );
                 })}
           </div>
