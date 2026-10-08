@@ -15,6 +15,7 @@ const jsonFiles = {
   products: path.join(dataDir, 'products.json'),
   appointments: path.join(dataDir, 'appointments.json'),
   sales: path.join(dataDir, 'sales.json'),
+  settings: path.join(dataDir, 'settings.json'),
 };
 
 // Seed initial fallback data
@@ -353,6 +354,23 @@ const initialData = {
       },
     ];
   })(),
+  settings: [
+    {
+      id: 1,
+      business_id: 1,
+      time_format: '12',
+      clock_display: '12h',
+      booking_slot_interval: 30,
+      buffer_time_between_sessions: 10,
+      open_time: '08:00',
+      close_time: '20:00',
+      allow_walk_in_queue: true,
+      require_doctor_notes: true,
+      allow_delete_service: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ],
 };
 
 function initFallbackStorage() {
@@ -529,6 +547,23 @@ async function initDatabase() {
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        business_id INT NOT NULL DEFAULT 1,
+        time_format VARCHAR(10) DEFAULT '12',
+        clock_display VARCHAR(20) DEFAULT '12h',
+        booking_slot_interval INT DEFAULT 30,
+        buffer_time_between_sessions INT DEFAULT 10,
+        open_time VARCHAR(10) DEFAULT '08:00',
+        close_time VARCHAR(10) DEFAULT '20:00',
+        allow_walk_in_queue BOOLEAN DEFAULT TRUE,
+        require_doctor_notes BOOLEAN DEFAULT TRUE,
+        allow_delete_service BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_business (business_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `;
 
     // Run each statement
@@ -543,6 +578,14 @@ async function initDatabase() {
 
     try {
       await pool.query('ALTER TABLE staff ADD COLUMN image LONGTEXT NULL');
+    } catch (_) {}
+
+    try {
+      await pool.query(`
+        INSERT INTO settings (business_id, time_format, clock_display, booking_slot_interval, buffer_time_between_sessions, open_time, close_time, allow_walk_in_queue, require_doctor_notes, allow_delete_service)
+        VALUES (1, '12', '12h', 30, 10, '08:00', '20:00', TRUE, TRUE, FALSE)
+        ON DUPLICATE KEY UPDATE id=id;
+      `);
     } catch (_) {}
 
     useFallback = false;
@@ -1543,6 +1586,165 @@ function getDatabaseStatus() {
   };
 }
 
+// =================== Settings Helpers ===================
+function formatSettingsOutput(row) {
+  if (!row) return null;
+  const timeFormat = String(row.time_format || '12');
+  const clockDisplay = String(row.clock_display || (timeFormat === '24' ? '24h' : '12h'));
+  const slotInterval = parseInt(row.booking_slot_interval ?? row.slot_duration ?? 30, 10);
+  const bufferTime = parseInt(row.buffer_time_between_sessions ?? row.buffer_time ?? 10, 10);
+  const openTime = row.open_time || '08:00';
+  const closeTime = row.close_time || '20:00';
+  const allowWalkIn = row.allow_walk_in_queue !== false && row.allow_walk_in_queue !== 0;
+  const requireNotes = row.require_doctor_notes !== false && row.require_doctor_notes !== 0;
+  const allowDelete = row.allow_delete_service === true || row.allow_delete_service === 1;
+
+  return {
+    id: row.id || 1,
+    business_id: row.business_id || 1,
+    time_format: timeFormat,
+    clock_display: clockDisplay,
+    booking_slot_interval: slotInterval,
+    slot_duration: slotInterval,
+    buffer_time_between_sessions: bufferTime,
+    buffer_time: bufferTime,
+    open_time: openTime,
+    close_time: closeTime,
+    operating_business_hours: {
+      open_time: openTime,
+      close_time: closeTime,
+    },
+    allow_walk_in_queue: allowWalkIn,
+    require_doctor_notes: requireNotes,
+    allow_delete_service: allowDelete,
+    created_at: row.created_at || new Date().toISOString(),
+    updated_at: row.updated_at || new Date().toISOString(),
+  };
+}
+
+async function getSettings(businessId = 1) {
+  const bId = parseInt(businessId, 10) || 1;
+  if (!useFallback && pool) {
+    try {
+      const [rows] = await pool.query('SELECT * FROM settings WHERE business_id = ?', [bId]);
+      if (rows && rows.length > 0) {
+        return formatSettingsOutput(rows[0]);
+      }
+      // Insert default if not present
+      await pool.query(
+        `INSERT INTO settings (business_id, time_format, clock_display, booking_slot_interval, buffer_time_between_sessions, open_time, close_time, allow_walk_in_queue, require_doctor_notes, allow_delete_service)
+         VALUES (?, '12', '12h', 30, 10, '08:00', '20:00', TRUE, TRUE, FALSE)`,
+        [bId]
+      );
+      const [newRows] = await pool.query('SELECT * FROM settings WHERE business_id = ?', [bId]);
+      return formatSettingsOutput(newRows[0]);
+    } catch (e) {
+      console.error('Error fetching settings from MySQL:', e);
+    }
+  }
+
+  const list = readJson('settings');
+  let item = list.find((s) => Number(s.business_id) === bId);
+  if (!item) {
+    item = {
+      id: list.length > 0 ? Math.max(...list.map((s) => s.id || 0)) + 1 : 1,
+      business_id: bId,
+      time_format: '12',
+      clock_display: '12h',
+      booking_slot_interval: 30,
+      buffer_time_between_sessions: 10,
+      open_time: '08:00',
+      close_time: '20:00',
+      allow_walk_in_queue: true,
+      require_doctor_notes: true,
+      allow_delete_service: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    list.push(item);
+    writeJson('settings', list);
+  }
+  return formatSettingsOutput(item);
+}
+
+async function updateSettings(businessId = 1, data = {}) {
+  const bId = parseInt(businessId, 10) || 1;
+  const timeFormat = data.time_format !== undefined ? String(data.time_format) : undefined;
+  const clockDisplay = data.clock_display !== undefined ? String(data.clock_display) : (timeFormat ? (timeFormat === '24' ? '24h' : '12h') : undefined);
+  const slotInterval = data.booking_slot_interval !== undefined ? parseInt(data.booking_slot_interval, 10) : (data.slot_duration !== undefined ? parseInt(data.slot_duration, 10) : (data.slotDuration !== undefined ? parseInt(data.slotDuration, 10) : undefined));
+  const bufferTime = data.buffer_time_between_sessions !== undefined ? parseInt(data.buffer_time_between_sessions, 10) : (data.buffer_time !== undefined ? parseInt(data.buffer_time, 10) : (data.bufferTime !== undefined ? parseInt(data.bufferTime, 10) : undefined));
+  const openTime = data.open_time !== undefined ? String(data.open_time).trim() : (data.openTime !== undefined ? String(data.openTime).trim() : (data.operating_business_hours?.open_time ? String(data.operating_business_hours.open_time).trim() : undefined));
+  const closeTime = data.close_time !== undefined ? String(data.close_time).trim() : (data.closeTime !== undefined ? String(data.closeTime).trim() : (data.operating_business_hours?.close_time ? String(data.operating_business_hours.close_time).trim() : undefined));
+  const allowWalkIn = data.allow_walk_in_queue !== undefined ? Boolean(data.allow_walk_in_queue) : (data.allowWalkInQueue !== undefined ? Boolean(data.allowWalkInQueue) : undefined);
+  const requireNotes = data.require_doctor_notes !== undefined ? Boolean(data.require_doctor_notes) : (data.requireDoctorNotes !== undefined ? Boolean(data.requireDoctorNotes) : undefined);
+  const allowDelete = data.allow_delete_service !== undefined ? Boolean(data.allow_delete_service) : (data.allowDeleteService !== undefined ? Boolean(data.allowDeleteService) : undefined);
+
+  if (!useFallback && pool) {
+    try {
+      // Ensure record exists
+      await getSettings(bId);
+
+      const fields = [];
+      const values = [];
+      if (timeFormat !== undefined) { fields.push('time_format = ?'); values.push(timeFormat); }
+      if (clockDisplay !== undefined) { fields.push('clock_display = ?'); values.push(clockDisplay); }
+      if (slotInterval !== undefined) { fields.push('booking_slot_interval = ?'); values.push(slotInterval); }
+      if (bufferTime !== undefined) { fields.push('buffer_time_between_sessions = ?'); values.push(bufferTime); }
+      if (openTime !== undefined) { fields.push('open_time = ?'); values.push(openTime); }
+      if (closeTime !== undefined) { fields.push('close_time = ?'); values.push(closeTime); }
+      if (allowWalkIn !== undefined) { fields.push('allow_walk_in_queue = ?'); values.push(allowWalkIn); }
+      if (requireNotes !== undefined) { fields.push('require_doctor_notes = ?'); values.push(requireNotes); }
+      if (allowDelete !== undefined) { fields.push('allow_delete_service = ?'); values.push(allowDelete); }
+
+      if (fields.length > 0) {
+        values.push(bId);
+        await pool.query(`UPDATE settings SET ${fields.join(', ')} WHERE business_id = ?`, values);
+      }
+      return await getSettings(bId);
+    } catch (e) {
+      console.error('Error updating settings in MySQL:', e);
+    }
+  }
+
+  const list = readJson('settings');
+  let idx = list.findIndex((s) => Number(s.business_id) === bId);
+  if (idx === -1) {
+    list.push({
+      id: list.length > 0 ? Math.max(...list.map((s) => s.id || 0)) + 1 : 1,
+      business_id: bId,
+      time_format: '12',
+      clock_display: '12h',
+      booking_slot_interval: 30,
+      buffer_time_between_sessions: 10,
+      open_time: '08:00',
+      close_time: '20:00',
+      allow_walk_in_queue: true,
+      require_doctor_notes: true,
+      allow_delete_service: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    idx = list.length - 1;
+  }
+
+  const current = list[idx];
+  list[idx] = {
+    ...current,
+    time_format: timeFormat !== undefined ? timeFormat : current.time_format,
+    clock_display: clockDisplay !== undefined ? clockDisplay : current.clock_display,
+    booking_slot_interval: slotInterval !== undefined ? slotInterval : current.booking_slot_interval,
+    buffer_time_between_sessions: bufferTime !== undefined ? bufferTime : current.buffer_time_between_sessions,
+    open_time: openTime !== undefined ? openTime : current.open_time,
+    close_time: closeTime !== undefined ? closeTime : current.close_time,
+    allow_walk_in_queue: allowWalkIn !== undefined ? allowWalkIn : current.allow_walk_in_queue,
+    require_doctor_notes: requireNotes !== undefined ? requireNotes : current.require_doctor_notes,
+    allow_delete_service: allowDelete !== undefined ? allowDelete : current.allow_delete_service,
+    updated_at: new Date().toISOString(),
+  };
+  writeJson('settings', list);
+  return formatSettingsOutput(list[idx]);
+}
+
 module.exports = {
   initDatabase,
   getDatabaseStatus,
@@ -1575,4 +1777,6 @@ module.exports = {
   getSaleById,
   createSale,
   checkAppointmentConflict,
+  getSettings,
+  updateSettings,
 };

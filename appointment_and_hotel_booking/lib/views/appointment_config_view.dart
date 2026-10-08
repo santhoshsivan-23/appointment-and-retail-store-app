@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/api_service.dart';
 import '../services/auth_storage.dart';
 import '../theme/app_theme.dart';
 
@@ -17,6 +18,8 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
   bool _allowWalkInQueue = true;
   bool _requireDoctorNotes = true;
   bool _allowDeleteService = false;
+  bool _isSyncing = false;
+  bool _isSaving = false;
   late TextEditingController _openTimeCtrl;
   late TextEditingController _closeTimeCtrl;
 
@@ -41,6 +44,8 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
     final close = await AuthStorage.getCloseTime();
     final slot = await AuthStorage.getSlotDuration();
     final buffer = await AuthStorage.getBufferTime();
+    final allowWalkIn = await AuthStorage.getAllowWalkInQueue();
+    final requireNotes = await AuthStorage.getRequireDoctorNotes();
     final allowDelete = await AuthStorage.getAllowDeleteService();
     if (!mounted) return;
     setState(() {
@@ -49,35 +54,150 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
       _closeTimeCtrl.text = close;
       _slotDuration = slot;
       _bufferTime = buffer;
+      _allowWalkInQueue = allowWalkIn;
+      _requireDoctorNotes = requireNotes;
       _allowDeleteService = allowDelete;
     });
   }
 
+  // 1. Sync Settings: Fetch latest settings from database and store in SharedPreferences
+  Future<void> _syncSettings() async {
+    setState(() => _isSyncing = true);
+    try {
+      final res = await ApiService.getSettings();
+      if (!mounted) return;
+
+      if (res.success && res.data != null) {
+        final dataMap = Map<String, dynamic>.from(res.data);
+        await AuthStorage.saveSettingsFromMap(dataMap);
+        await _loadSavedConfig();
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF10B981),
+            content: Row(
+              children: [
+                const Icon(Icons.cloud_done_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Settings synced successfully from cloud database!',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFEF4444),
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    res.message.isNotEmpty ? res.message : 'Failed to sync settings from server.',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFEF4444),
+          content: Text('Sync failed: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
+  }
+
+  // 2. Save Configuration: Update local SharedPreferences and call Update Settings API
   Future<void> _saveConfig() async {
+    setState(() => _isSaving = true);
+
+    final cleanOpen = _openTimeCtrl.text.trim().isEmpty ? '08:00' : _openTimeCtrl.text.trim();
+    final cleanClose = _closeTimeCtrl.text.trim().isEmpty ? '20:00' : _closeTimeCtrl.text.trim();
+
+    // Save locally
     await AuthStorage.setTimeFormat(_timeFormat);
-    await AuthStorage.setOpenTime(_openTimeCtrl.text.trim());
-    await AuthStorage.setCloseTime(_closeTimeCtrl.text.trim());
+    await AuthStorage.setClockDisplay(_timeFormat == '24' ? '24h' : '12h');
+    await AuthStorage.setOpenTime(cleanOpen);
+    await AuthStorage.setCloseTime(cleanClose);
     await AuthStorage.setSlotDuration(_slotDuration);
     await AuthStorage.setBufferTime(_bufferTime);
+    await AuthStorage.setAllowWalkInQueue(_allowWalkInQueue);
+    await AuthStorage.setRequireDoctorNotes(_requireDoctorNotes);
     await AuthStorage.setAllowDeleteService(_allowDeleteService);
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF10B981),
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'Appointment configuration saved successfully! (Format: ${_timeFormat == '12' ? '12-Hour AM/PM' : '24-Hour'})',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+    // Call Update Settings API to save changes to the database
+    try {
+      final res = await ApiService.updateSettings({
+        'time_format': _timeFormat,
+        'clock_display': _timeFormat == '24' ? '24h' : '12h',
+        'booking_slot_interval': _slotDuration,
+        'buffer_time_between_sessions': _bufferTime,
+        'open_time': cleanOpen,
+        'close_time': cleanClose,
+        'allow_walk_in_queue': _allowWalkInQueue,
+        'require_doctor_notes': _requireDoctorNotes,
+        'allow_delete_service': _allowDeleteService,
+      });
+
+      if (!mounted) return;
+      final formatDesc = _timeFormat == '12' ? '12-Hour AM/PM' : '24-Hour';
+
+      if (res.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF10B981),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Appointment configuration saved and synced to database! (Format: $formatDesc)',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                  ),
+                ),
+              ],
             ),
-          ],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFF59E0B),
+            content: Text('Saved locally, but server update failed: ${res.message}'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFF59E0B),
+          content: Text('Saved locally, but server update failed: $e'),
+          behavior: SnackBarBehavior.floating,
         ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -91,8 +211,50 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Appointment Configuration & Rules', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold)),
-              Text('Configure operational booking intervals, time format (12h/24h), buffer times, and clinic schedule policies.', style: GoogleFonts.inter(fontSize: 13, color: AppTheme.onSurfaceVariant)),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Appointment Configuration & Rules',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Configure operational booking intervals, time format (12h/24h), buffer times, and clinic schedule policies.',
+                          style: GoogleFonts.inter(fontSize: 13, color: AppTheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppTheme.primary,
+                      elevation: 0,
+                      side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.35), width: 1.2),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: _isSyncing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
+                          )
+                        : const Icon(Icons.sync_rounded, size: 18),
+                    label: Text(
+                      _isSyncing ? 'Syncing...' : 'Sync Settings',
+                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                    onPressed: _isSyncing ? null : _syncSettings,
+                  ),
+                ],
+              ),
               const SizedBox(height: 24),
 
               Container(
@@ -327,9 +489,18 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        icon: const Icon(Icons.save, size: 18),
-                        label: Text('Save Configuration', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
-                        onPressed: _saveConfig,
+                        icon: _isSaving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.save, size: 18),
+                        label: Text(
+                          _isSaving ? 'Saving & Syncing...' : 'Save Configuration',
+                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: _isSaving ? null : _saveConfig,
                       ),
                     ),
                   ],

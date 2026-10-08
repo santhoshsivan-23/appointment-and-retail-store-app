@@ -9,6 +9,7 @@ const categoryRoutes = require('./routes/categories');
 const productRoutes = require('./routes/products');
 const appointmentRoutes = require('./routes/appointments');
 const salesRoutes = require('./routes/sales');
+const settingsRoutes = require('./routes/settings');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -40,6 +41,8 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/appointments', appointmentRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/sales', salesRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/settings', settingsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -65,6 +68,7 @@ app.get('/', (req, res) => {
       products: '/api/products (list, create, update, delete)',
       appointments: '/api/appointments (list, create, status, update, delete, check-conflict)',
       sales: '/api/sales (list, create by id)',
+      settings: '/api/settings (get, update)',
     },
   });
 });
@@ -100,6 +104,7 @@ async function startServer() {
     console.log(`📦 Products API:     http://localhost:${PORT}/api/products`);
     console.log(`📅 Appointments API: http://localhost:${PORT}/api/appointments`);
     console.log(`💰 Sales API:         http://localhost:${PORT}/api/sales`);
+    console.log(`⚙️ Settings API:      http://localhost:${PORT}/api/settings`);
     console.log('====================================================');
   });
 }

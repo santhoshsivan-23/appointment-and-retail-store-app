@@ -16,6 +16,83 @@
   margin-bottom: 24px;
 }
 
+.ac-header-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ac-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ac-header-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(180, 41, 7, 0.1);
+  color: #B42907;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ac-update-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #B42907;
+  border: 1.2px solid rgba(180, 41, 7, 0.35);
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.ac-update-btn:hover:not(:disabled) {
+  background: rgba(180, 41, 7, 0.05);
+  border-color: #B42907;
+  transform: translateY(-1px);
+}
+
+.ac-update-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.ac-update-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ac-update-btn--secondary {
+  padding: 14px 22px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.ac-spin {
+  animation: ac-spin-anim 1s linear infinite;
+}
+
+@keyframes ac-spin-anim {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .ac-title {
   font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
   font-size: 20px;
@@ -435,7 +512,9 @@
 /* ── Actions Row ───────────────────────────────────────── */
 .ac-actions-row {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
   margin-top: 28px;
 }
 
@@ -660,12 +739,27 @@
     margin-top: 2px;
   }
 
+  .ac-header-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .ac-header-title-row .ac-update-btn {
+    width: 100%;
+    justify-content: center;
+    height: 44px;
+  }
+
   /* Actions / Save Button */
   .ac-actions-row {
     margin-top: 20px;
     width: 100%;
+    flex-direction: column-reverse;
+    gap: 10px;
   }
 
+  .ac-actions-row .ac-update-btn,
   .ac-save-btn {
     width: 100% !important;
     height: 48px !important;

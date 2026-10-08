@@ -553,4 +553,73 @@ class ApiService {
     }
     return {'has_conflict': false};
   }
+
+  // Settings API: Get Settings
+  static Future<ApiResponse> getSettings({int? businessId}) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final uri = Uri.parse('$baseUrl/settings${businessId != null ? '?business_id=$businessId' : ''}');
+      final response = await http
+          .get(uri, headers: await _getHeaders())
+          .timeout(const Duration(seconds: 12));
+
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return ApiResponse(
+          success: true,
+          message: body['message'] ?? 'Settings retrieved successfully',
+          data: body['data'],
+          statusCode: response.statusCode,
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: body['message'] ?? 'Failed to retrieve settings (${response.statusCode})',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error getting settings: $e');
+      return ApiResponse(
+        success: false,
+        message: 'Network error retrieving settings: $e',
+        statusCode: 500,
+      );
+    }
+  }
+
+  // Settings API: Update Settings
+  static Future<ApiResponse> updateSettings(Map<String, dynamic> settingsData) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final uri = Uri.parse('$baseUrl/settings');
+      final response = await http
+          .put(uri, headers: await _getHeaders(), body: jsonEncode(settingsData))
+          .timeout(const Duration(seconds: 12));
+
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return ApiResponse(
+          success: true,
+          message: body['message'] ?? 'Settings updated successfully',
+          data: body['data'],
+          statusCode: response.statusCode,
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: body['message'] ?? 'Failed to update settings (${response.statusCode})',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error updating settings: $e');
+      return ApiResponse(
+        success: false,
+        message: 'Network error updating settings: $e',
+        statusCode: 500,
+      );
+    }
+  }
 }
+

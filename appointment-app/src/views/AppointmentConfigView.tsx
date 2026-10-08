@@ -11,9 +11,14 @@ import {
   Circle,
   Sliders,
   Trash2,
+  RefreshCw,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { saveAppointmentConfig } from '../features/appointmentConfig/appointmentConfigSlice';
+import {
+  saveAppointmentConfig,
+  applySyncedSettings,
+} from '../features/appointmentConfig/appointmentConfigSlice';
+import { settingsApi } from '../api/settingsApi';
 import '../styles/appointment_config.css';
 
 export default function AppointmentConfigView() {
@@ -29,6 +34,8 @@ export default function AppointmentConfigView() {
   const [allowWalkInQueue, setAllowWalkInQueue] = useState<boolean>(config.allowWalkInQueue);
   const [requireDoctorNotes, setRequireDoctorNotes] = useState<boolean>(config.requireDoctorNotes);
   const [allowDeleteService, setAllowDeleteService] = useState<boolean>(config.allowDeleteService);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
 
   // Sync if Redux state updates externally
   useEffect(() => {
@@ -42,28 +49,97 @@ export default function AppointmentConfigView() {
     setAllowDeleteService(config.allowDeleteService);
   }, [config]);
 
+  /* ── Update Settings Action (Fetch from API & Save in Local Storage) ── */
+  const handleUpdateSettings = async () => {
+    setIsUpdating(true);
+    try {
+      const res = await settingsApi.getSettings();
+      if (res.data?.data) {
+        const data = res.data.data;
+        // 1. Dispatch applySyncedSettings which updates Redux and persists to Local Storage
+        dispatch(applySyncedSettings(data));
+
+        // 2. Refresh local form state
+        if (data.time_format) setTimeFormatState(data.time_format);
+        const slot = data.booking_slot_interval ?? data.slot_duration ?? 30;
+        setSlotDurationState(slot);
+        const buffer = data.buffer_time_between_sessions ?? data.buffer_time ?? 10;
+        setBufferTimeState(buffer);
+        const opOpen = data.open_time || data.operating_business_hours?.open_time || '08:00';
+        setOpenTime(opOpen);
+        const opClose = data.close_time || data.operating_business_hours?.close_time || '20:00';
+        setCloseTime(opClose);
+        if (data.allow_walk_in_queue !== undefined) setAllowWalkInQueue(Boolean(data.allow_walk_in_queue));
+        if (data.require_doctor_notes !== undefined) setRequireDoctorNotes(Boolean(data.require_doctor_notes));
+        if (data.allow_delete_service !== undefined) setAllowDeleteService(Boolean(data.allow_delete_service));
+
+        toast.success('Settings updated from database and saved to Local Storage!', {
+          icon: <CheckCircle2 color="#10B981" size={20} />,
+        });
+      } else {
+        toast.warn('No settings returned from server.');
+      }
+    } catch (err: any) {
+      console.error('Failed to update settings from database:', err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to fetch latest settings from server.';
+      toast.error(msg);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   /* ── Save Action ──────────────────────────────────────── */
-  const handleSave = () => {
+  const handleSave = async () => {
+    const clockDisplay = timeFormat === '24' ? '24h' : '12h';
+    const cleanOpen = openTime.trim() || '08:00';
+    const cleanClose = closeTime.trim() || '20:00';
+
     const payload = {
       timeFormat,
+      clockDisplay,
       slotDuration,
       bufferTime,
-      openTime: openTime.trim() || '08:00',
-      closeTime: closeTime.trim() || '20:00',
+      openTime: cleanOpen,
+      closeTime: cleanClose,
       allowWalkInQueue,
       requireDoctorNotes,
       allowDeleteService,
     };
 
+    // 1. Update settings locally in Redux & Local Storage
     dispatch(saveAppointmentConfig(payload));
 
-    const formatDesc = timeFormat === '12' ? '12-Hour AM/PM' : '24-Hour';
-    toast.success(
-      `Appointment configuration saved successfully! (Format: ${formatDesc})`,
-      {
-        icon: <CheckCircle2 color="#10B981" size={20} />,
-      },
-    );
+    // 2. Call the Update Settings API to save changes to the database
+    setIsSaving(true);
+    try {
+      await settingsApi.updateSettings({
+        time_format: timeFormat,
+        clock_display: clockDisplay,
+        booking_slot_interval: slotDuration,
+        buffer_time_between_sessions: bufferTime,
+        open_time: cleanOpen,
+        close_time: cleanClose,
+        allow_walk_in_queue: allowWalkInQueue,
+        require_doctor_notes: requireDoctorNotes,
+        allow_delete_service: allowDeleteService,
+      });
+
+      const formatDesc = timeFormat === '12' ? '12-Hour AM/PM' : '24-Hour';
+      toast.success(
+        `Appointment configuration saved and synced to database! (Format: ${formatDesc})`,
+        {
+          icon: <CheckCircle2 color="#10B981" size={20} />,
+        },
+      );
+    } catch (err: any) {
+      console.error('Error saving settings to database:', err);
+      toast.warn('Saved locally to Local Storage, but could not sync to database.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -71,15 +147,29 @@ export default function AppointmentConfigView() {
       {/* ── Page Header ────────────────────────────────────── */}
       <div className="ac-header">
         <div className="ac-header-title-row">
-          <div className="ac-header-badge">
-            <Sliders size={20} />
+          <div className="ac-header-left">
+            <div className="ac-header-badge">
+              <Sliders size={20} />
+            </div>
+            <div>
+              <h2 className="ac-title">Appointment Configuration & Rules</h2>
+              <p className="ac-subtitle">
+                Configure operational booking intervals, time format (12h/24h), buffer times, and clinic schedule policies.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="ac-title">Appointment Configuration & Rules</h2>
-            <p className="ac-subtitle">
-              Configure operational booking intervals, time format (12h/24h), buffer times, and clinic schedule policies.
-            </p>
-          </div>
+
+          {/* Update Settings Button */}
+          <button
+            type="button"
+            className="ac-update-btn"
+            onClick={handleUpdateSettings}
+            disabled={isUpdating || isSaving}
+            title="Fetch latest settings from database and save to Local Storage"
+          >
+            <RefreshCw size={16} className={isUpdating ? 'ac-spin' : ''} />
+            <span>{isUpdating ? 'Updating Settings...' : 'Update Settings'}</span>
+          </button>
         </div>
       </div>
 
@@ -340,11 +430,27 @@ export default function AppointmentConfigView() {
           </div>
         </div>
 
-        {/* Save Button */}
+        {/* Save & Update Buttons */}
         <div className="ac-actions-row">
-          <button type="button" className="ac-save-btn" onClick={handleSave}>
+          <button
+            type="button"
+            className="ac-update-btn ac-update-btn--secondary"
+            onClick={handleUpdateSettings}
+            disabled={isUpdating || isSaving}
+            title="Fetch latest settings from database and save to Local Storage"
+          >
+            <RefreshCw size={16} className={isUpdating ? 'ac-spin' : ''} />
+            <span>{isUpdating ? 'Updating Settings...' : 'Update Settings'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="ac-save-btn"
+            onClick={handleSave}
+            disabled={isSaving || isUpdating}
+          >
             <Save size={18} />
-            <span>Save Configuration</span>
+            <span>{isSaving ? 'Saving & Syncing...' : 'Save Configuration'}</span>
           </button>
         </div>
       </div>

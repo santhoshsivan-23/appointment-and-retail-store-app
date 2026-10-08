@@ -153,13 +153,30 @@ async function rebuild() {
       items JSON NULL,
       notes TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+    `CREATE TABLE settings (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      business_id INT NOT NULL DEFAULT 1,
+      time_format VARCHAR(10) DEFAULT '12',
+      clock_display VARCHAR(20) DEFAULT '12h',
+      booking_slot_interval INT DEFAULT 30,
+      buffer_time_between_sessions INT DEFAULT 10,
+      open_time VARCHAR(10) DEFAULT '08:00',
+      close_time VARCHAR(10) DEFAULT '20:00',
+      allow_walk_in_queue BOOLEAN DEFAULT TRUE,
+      require_doctor_notes BOOLEAN DEFAULT TRUE,
+      allow_delete_service BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_business (business_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   ];
 
   for (const s of schemas) {
     await conn.query(s);
   }
-  console.log('All 7 tables created successfully in InnoDB!');
+  console.log('All 8 tables created successfully in InnoDB!');
 
   // Seed Data from backend/data/*.json
   const dataPath = path.join(__dirname, 'data');
@@ -266,6 +283,23 @@ async function rebuild() {
       ]);
     }
     console.log(`Seeded ${list.length} sales.`);
+  }
+
+  // 8. Settings
+  if (fs.existsSync(path.join(dataPath, 'settings.json'))) {
+    const list = JSON.parse(fs.readFileSync(path.join(dataPath, 'settings.json'), 'utf8'));
+    for (const st of list) {
+      await conn.query(`
+        INSERT INTO settings (id, business_id, time_format, clock_display, booking_slot_interval, buffer_time_between_sessions, open_time, close_time, allow_walk_in_queue, require_doctor_notes, allow_delete_service)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        st.id || 1, st.business_id || 1, st.time_format || '12', st.clock_display || '12h',
+        st.booking_slot_interval || 30, st.buffer_time_between_sessions || 10,
+        st.open_time || '08:00', st.close_time || '20:00',
+        st.allow_walk_in_queue ? 1 : 0, st.require_doctor_notes ? 1 : 0, st.allow_delete_service ? 1 : 0
+      ]);
+    }
+    console.log(`Seeded ${list.length} settings.`);
   }
 
   console.log('\n--- VERIFYING ALL TABLES IN MARIADB ---');

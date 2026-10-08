@@ -19,6 +19,8 @@ import {
 import { useAppDispatch } from '../store/hooks';
 import { loginSuccess } from '../features/auth/authSlice';
 import { authApi } from '../api/authApi';
+import { settingsApi } from '../api/settingsApi';
+import { applySyncedSettings } from '../features/appointmentConfig/appointmentConfigSlice';
 import '../styles/auth.css';
 
 export default function LoginScreen() {
@@ -47,6 +49,18 @@ export default function LoginScreen() {
 
       const { token, business } = res.data;
       dispatch(loginSuccess({ token, business }));
+
+      // 1. Automatically call Settings API after login
+      // 2. Retrieve settings from database and store in Local Storage & Redux
+      try {
+        const settingsRes = await settingsApi.getSettings(business.id);
+        if (settingsRes.data?.data) {
+          dispatch(applySyncedSettings(settingsRes.data.data));
+        }
+      } catch (settingsErr) {
+        console.warn('Could not auto-sync settings after login:', settingsErr);
+      }
+
       toast.success(`Welcome back, ${business.owner_name || 'User'}!`);
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
