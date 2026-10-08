@@ -5,8 +5,10 @@ import {
   PackagePlus,
   Package,
   Trash2,
+  Pencil,
+  X,
 } from 'lucide-react';
-import { productApi, type Product } from '../api/productApi';
+import { productApi, type Product, type ProductPayload } from '../api/productApi';
 import { categoryApi, type Category } from '../api/categoryApi';
 import '../styles/products.css';
 
@@ -37,7 +39,7 @@ export default function ProductsView() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [editTarget, setEditTarget] = useState<Product | null | 'new'>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
   /* ── Data Loading ─────────────────────────────────────── */
@@ -95,7 +97,7 @@ export default function ProductsView() {
         <button
           type="button"
           className="products-add-btn"
-          onClick={() => setShowAddModal(true)}
+          onClick={() => setEditTarget('new')}
         >
           <PackagePlus size={20} />
           <span>New Product</span>
@@ -159,14 +161,24 @@ export default function ProductsView() {
                   >
                     {TYPE_BADGE_LABELS[prod.product_type] ?? 'Normal'}
                   </span>
-                  <button
-                    type="button"
-                    className="product-card__delete-btn"
-                    title="Delete product"
-                    onClick={() => setDeleteTarget(prod)}
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  <div className="product-card__actions">
+                    <button
+                      type="button"
+                      className="product-card__edit-btn"
+                      title="Edit product"
+                      onClick={() => setEditTarget(prod)}
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      className="product-card__delete-btn"
+                      title="Delete product"
+                      onClick={() => setDeleteTarget(prod)}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
                 <div className="product-card__name">{prod.name}</div>
                 {prod.sku && <div className="product-card__sku">SKU: {prod.sku}</div>}
@@ -189,13 +201,14 @@ export default function ProductsView() {
         </div>
       )}
 
-      {/* ── Add Product Modal ──────────────────────────── */}
-      {showAddModal && (
-        <AddProductModal
+      {/* ── Add/Edit Product Modal ──────────────────────── */}
+      {editTarget !== null && (
+        <ProductModal
+          existing={editTarget === 'new' ? null : editTarget}
           categories={categories}
-          onClose={() => setShowAddModal(false)}
+          onClose={() => setEditTarget(null)}
           onSaved={() => {
-            setShowAddModal(false);
+            setEditTarget(null);
             loadData();
           }}
         />
@@ -210,12 +223,20 @@ export default function ProductsView() {
           <div
             className="delete-confirm-dialog"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
           >
-            <h3 className="delete-confirm-dialog__title">Delete Product?</h3>
-            <p className="delete-confirm-dialog__body">
-              Delete "{deleteTarget.name}"? Past sales and appointments will
-              preserve the item line.
-            </p>
+            <div className="delete-confirm-dialog__header">
+              <div className="delete-confirm-dialog__icon-badge">
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 className="delete-confirm-dialog__title">Delete Product?</h3>
+                <p className="delete-confirm-dialog__body">
+                  Delete "{deleteTarget.name}"? Past sales and appointments will
+                  preserve the item line.
+                </p>
+              </div>
+            </div>
             <div className="delete-confirm-dialog__actions">
               <button
                 type="button"
@@ -240,22 +261,23 @@ export default function ProductsView() {
 }
 
 /* ================================================================
-   Add Product Modal (inline sub-component)
+   Add / Edit Product Modal
    ================================================================ */
-interface AddProductModalProps {
+interface ProductModalProps {
+  existing: Product | null;
   categories: Category[];
   onClose: () => void;
   onSaved: () => void;
 }
 
-function AddProductModal({ categories, onClose, onSaved }: AddProductModalProps) {
-  const [name, setName] = useState('');
-  const [sku, setSku] = useState(`PRD-${Date.now() % 1000}`);
-  const [price, setPrice] = useState('25.00');
-  const [description, setDescription] = useState('');
-  const [productType, setProductType] = useState('normal');
+function ProductModal({ existing, categories, onClose, onSaved }: ProductModalProps) {
+  const [name, setName] = useState(existing?.name ?? '');
+  const [sku, setSku] = useState(existing?.sku ?? `PRD-${Date.now() % 1000}`);
+  const [price, setPrice] = useState(existing ? String(existing.price) : '25.00');
+  const [description, setDescription] = useState(existing?.description ?? '');
+  const [productType, setProductType] = useState<string>(existing?.product_type ?? 'normal');
   const [categoryId, setCategoryId] = useState<number | string>(
-    categories.length > 0 ? categories[0].id : '',
+    existing?.category_id ?? (categories.length > 0 ? categories[0].id : ''),
   );
   const [isSaving, setIsSaving] = useState(false);
 
@@ -265,19 +287,25 @@ function AddProductModal({ categories, onClose, onSaved }: AddProductModalProps)
       return;
     }
     setIsSaving(true);
+    const payload: ProductPayload = {
+      name: name.trim(),
+      product_type: productType,
+      price: parseFloat(price) || 0,
+      sku: sku.trim(),
+      category_id: categoryId ? Number(categoryId) : null,
+      description: description.trim(),
+    };
     try {
-      await productApi.create({
-        name: name.trim(),
-        product_type: productType,
-        price: parseFloat(price) || 0,
-        sku: sku.trim(),
-        category_id: categoryId ? Number(categoryId) : null,
-        description: description.trim(),
-      });
-      toast.success('Product created successfully');
+      if (existing) {
+        await productApi.update(existing.id, payload);
+        toast.success('Product updated successfully');
+      } else {
+        await productApi.create(payload);
+        toast.success('Product created successfully');
+      }
       onSaved();
     } catch {
-      toast.error('Failed to create product');
+      toast.error(existing ? 'Failed to update product' : 'Failed to create product');
     } finally {
       setIsSaving(false);
     }
@@ -288,97 +316,124 @@ function AddProductModal({ categories, onClose, onSaved }: AddProductModalProps)
       <div
         className="product-modal"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
       >
-        <h3 className="product-modal__title">Create New Product / Service</h3>
-
-        {/* Product Type Selector */}
-        <span className="product-modal__label">Product Architecture Type *</span>
-        <div className="product-modal__type-chips">
-          {[
-            { key: 'normal', label: 'Normal Product' },
-            { key: 'modifier', label: 'Modifier / Addon' },
-            { key: 'combo', label: 'Combo Bundle' },
-          ].map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              className={`product-modal__type-chip ${productType === t.key ? 'product-modal__type-chip--active' : ''}`}
-              onClick={() => setProductType(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Name */}
-        <div className="product-modal__field">
-          <label>
-            {productType === 'combo' ? 'Combo Bundle Name *' : 'Product / Service Name *'}
-          </label>
-          <input
-            type="text"
-            placeholder={
-              productType === 'combo'
-                ? 'e.g. Grooming + Diet Pack'
-                : 'e.g. Executive Meeting Hall / Spa Bath'
-            }
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-
-        {/* Price + SKU */}
-        <div className="product-modal__row">
-          <div className="product-modal__field">
-            <label>Price ($) *</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-            />
+        {/* Fixed Header: Title with Icon Badge and Close Button */}
+        <div className="product-modal__header">
+          <div className="product-modal__header-left">
+            <div className="product-modal__icon-badge">
+              {existing ? <Pencil size={20} /> : <PackagePlus size={20} />}
+            </div>
+            <div>
+              <h3 className="product-modal__title">
+                {existing ? 'Edit Product / Service' : 'Create New Product / Service'}
+              </h3>
+              <p className="product-modal__subtitle">
+                Configure item details, architecture type, pricing, and category assignment.
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            className="product-modal__header-close-btn"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Scrollable Inner Body */}
+        <div className="product-modal__body">
+          {/* Product Type Selector */}
+          <span className="product-modal__label">Product Architecture Type *</span>
+          <div className="product-modal__type-chips">
+            {[
+              { key: 'normal', label: 'Normal Product' },
+              { key: 'modifier', label: 'Modifier / Addon' },
+              { key: 'combo', label: 'Combo Bundle' },
+            ].map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                className={`product-modal__type-chip ${productType === t.key ? 'product-modal__type-chip--active' : ''}`}
+                onClick={() => setProductType(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Name */}
           <div className="product-modal__field">
-            <label>SKU / Code</label>
+            <label>
+              {productType === 'combo' ? 'Combo Bundle Name *' : 'Product / Service Name *'}
+            </label>
             <input
               type="text"
-              placeholder="e.g. MED-01"
-              value={sku}
-              onChange={(e) => setSku(e.target.value)}
+              placeholder={
+                productType === 'combo'
+                  ? 'e.g. Grooming + Diet Pack'
+                  : 'e.g. Executive Meeting Hall / Spa Bath'
+              }
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          {/* Price + SKU */}
+          <div className="product-modal__row">
+            <div className="product-modal__field">
+              <label>Price ($) *</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            </div>
+            <div className="product-modal__field">
+              <label>SKU / Code</label>
+              <input
+                type="text"
+                placeholder="e.g. MED-01"
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Category */}
+          {categories.length > 0 && (
+            <div className="product-modal__field">
+              <label>Assign Category *</label>
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+              >
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Description */}
+          <div className="product-modal__field">
+            <label>Description</label>
+            <textarea
+              placeholder="Optional notes or item details"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
           </div>
         </div>
 
-        {/* Category */}
-        {categories.length > 0 && (
-          <div className="product-modal__field">
-            <label>Assign Category *</label>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Description */}
-        <div className="product-modal__field">
-          <label>Description</label>
-          <textarea
-            placeholder="Optional notes or item details"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-
-        {/* Actions */}
-        <div className="product-modal__actions">
+        {/* Fixed Footer: Action Buttons */}
+        <div className="product-modal__footer">
           <button
             type="button"
             className="product-modal__cancel-btn"
@@ -392,7 +447,11 @@ function AddProductModal({ categories, onClose, onSaved }: AddProductModalProps)
             disabled={isSaving}
             onClick={handleSave}
           >
-            {isSaving ? 'Saving...' : 'Save Product'}
+            {isSaving
+              ? 'Saving...'
+              : existing
+                ? 'Save Changes'
+                : 'Save Product'}
           </button>
         </div>
       </div>

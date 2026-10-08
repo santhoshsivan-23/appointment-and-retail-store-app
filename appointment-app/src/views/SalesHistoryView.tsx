@@ -628,18 +628,23 @@ export default function SalesHistoryView() {
               </div>
 
               {/* Purchased Items List */}
-              <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A', marginBottom: '8px' }}>
+              <div className="sale-detail-items-header" style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A', marginBottom: '8px' }}>
                 Purchased Items ({detailSale.items?.length || 0})
               </div>
               <div className="sale-detail-items-box">
                 {detailSale.items?.map((it, idx) => (
                   <div key={idx} className="sale-detail-item-row">
-                    <span style={{ color: '#334155' }}>
-                      {it.product_name} ×{it.quantity}
+                    <span className="sale-detail-item-name">
+                      {it.product_name}
                     </span>
-                    <span style={{ fontWeight: 600, color: '#0F172A' }}>
-                      ${fmtMoney(it.line_total)}
-                    </span>
+                    <div className="sale-detail-item-right">
+                      <span className="sale-detail-item-qty">
+                        ×{it.quantity}
+                      </span>
+                      <span className="sale-detail-item-price">
+                        ${fmtMoney(it.line_total)}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -697,7 +702,8 @@ export default function SalesHistoryView() {
                 className="sale-detail-close-btn"
                 onClick={() => setDetailSale(null)}
               >
-                Close
+                <X size={16} />
+                <span>Close</span>
               </button>
             </div>
           </div>

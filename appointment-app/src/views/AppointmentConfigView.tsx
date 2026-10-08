@@ -9,6 +9,8 @@ import {
   Save,
   CheckCircle2,
   Circle,
+  Sliders,
+  Trash2,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { saveAppointmentConfig } from '../features/appointmentConfig/appointmentConfigSlice';
@@ -68,10 +70,17 @@ export default function AppointmentConfigView() {
     <div className="appointment-config-view">
       {/* ── Page Header ────────────────────────────────────── */}
       <div className="ac-header">
-        <h2 className="ac-title">Appointment Configuration & Rules</h2>
-        <p className="ac-subtitle">
-          Configure operational booking intervals, time format (12h/24h), buffer times, and clinic schedule policies.
-        </p>
+        <div className="ac-header-title-row">
+          <div className="ac-header-badge">
+            <Sliders size={20} />
+          </div>
+          <div>
+            <h2 className="ac-title">Appointment Configuration & Rules</h2>
+            <p className="ac-subtitle">
+              Configure operational booking intervals, time format (12h/24h), buffer times, and clinic schedule policies.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* ── Configuration Card ─────────────────────────────── */}
@@ -133,12 +142,19 @@ export default function AppointmentConfigView() {
 
         {/* 2. Booking Slot Interval */}
         <div>
-          <h3 className="ac-section-title">2. Booking Slot Interval</h3>
+          <div className="ac-section-header">
+            <div className="ac-section-icon-badge">
+              <Clock size={16} />
+            </div>
+            <h3 className="ac-section-title" style={{ margin: 0 }}>
+              2. Booking Slot Interval
+            </h3>
+          </div>
           <p className="ac-section-desc">
             Controls duration grid for clinician slots and salon schedules:
           </p>
 
-          <div className="ac-chips-wrap">
+          <div className="ac-chips-wrap ac-chips-wrap--intervals">
             {[15, 30, 45, 60].map((mins) => {
               const isSelected = slotDuration === mins;
               return (
@@ -159,12 +175,19 @@ export default function AppointmentConfigView() {
 
         {/* 3. Buffer Time Between Sessions */}
         <div>
-          <h3 className="ac-section-title">3. Buffer Time Between Sessions</h3>
+          <div className="ac-section-header">
+            <div className="ac-section-icon-badge">
+              <Timer size={16} />
+            </div>
+            <h3 className="ac-section-title" style={{ margin: 0 }}>
+              3. Buffer Time Between Sessions
+            </h3>
+          </div>
           <p className="ac-section-desc">
             Automatic sanitation and preparation window added after each appointment:
           </p>
 
-          <div className="ac-chips-wrap">
+          <div className="ac-chips-wrap ac-chips-wrap--buffers">
             {[0, 5, 10, 15, 20].map((mins) => {
               const isSelected = bufferTime === mins;
               return (
@@ -174,7 +197,7 @@ export default function AppointmentConfigView() {
                   className={`ac-chip ${isSelected ? 'ac-chip--active-secondary' : ''}`}
                   onClick={() => setBufferTimeState(mins)}
                 >
-                  {mins} Min Buffer
+                  {mins === 0 ? 'No Buffer' : `${mins} Min Buffer`}
                 </button>
               );
             })}
@@ -185,14 +208,21 @@ export default function AppointmentConfigView() {
 
         {/* 4. Operating Business Hours */}
         <div>
-          <h3 className="ac-section-title">4. Operating Business Hours</h3>
+          <div className="ac-section-header">
+            <div className="ac-section-icon-badge">
+              <Sun size={16} />
+            </div>
+            <h3 className="ac-section-title" style={{ margin: 0 }}>
+              4. Operating Business Hours
+            </h3>
+          </div>
           <p className="ac-section-desc">
             Only appointment bookings within these operating hours will be validated and accepted:
           </p>
 
           <div className="ac-hours-grid">
             <div className="ac-hour-field">
-              <label className="ac-hour-label">Opening Time (e.g. 08:00)</label>
+              <label className="ac-hour-label">Opening Time (24h e.g. 08:00)</label>
               <div className="ac-hour-input-wrap">
                 <Sun size={18} className="ac-hour-input-icon" />
                 <input
@@ -206,7 +236,7 @@ export default function AppointmentConfigView() {
             </div>
 
             <div className="ac-hour-field">
-              <label className="ac-hour-label">Closing Time (e.g. 20:00)</label>
+              <label className="ac-hour-label">Closing Time (24h e.g. 20:00)</label>
               <div className="ac-hour-input-wrap">
                 <Moon size={18} className="ac-hour-input-icon" />
                 <input
@@ -225,7 +255,14 @@ export default function AppointmentConfigView() {
 
         {/* 5. Terminal Policies */}
         <div>
-          <h3 className="ac-section-title">5. Terminal Policies</h3>
+          <div className="ac-section-header">
+            <div className="ac-section-icon-badge">
+              <Sliders size={16} />
+            </div>
+            <h3 className="ac-section-title" style={{ margin: 0 }}>
+              5. Terminal Policies
+            </h3>
+          </div>
           <p className="ac-section-desc">
             Operational rules enforced across the appointments terminal:
           </p>
@@ -271,7 +308,14 @@ export default function AppointmentConfigView() {
 
         {/* 6. Delete Service Configuration */}
         <div>
-          <h3 className="ac-section-title">6. Delete Service Configuration</h3>
+          <div className="ac-section-header">
+            <div className="ac-section-icon-badge ac-section-icon-badge--error">
+              <Trash2 size={16} />
+            </div>
+            <h3 className="ac-section-title" style={{ margin: 0 }}>
+              6. Delete Service Configuration
+            </h3>
+          </div>
           <p className="ac-section-desc">
             Controls whether appointments that are currently In Service can be deleted directly:
           </p>

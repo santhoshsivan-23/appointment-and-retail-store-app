@@ -47,6 +47,9 @@ export const productApi = {
   create: (data: ProductPayload) =>
     axiosClient.post('/products', data),
 
+  update: (id: number, data: Partial<ProductPayload>) =>
+    axiosClient.put(`/products/${id}`, data),
+
   delete: (id: number) =>
     axiosClient.delete(`/products/${id}`),
 };

@@ -819,11 +819,12 @@
 
 .sales-modal-item-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  height: 32px;
+  padding: 8px 0;
   border-bottom: 1px solid #F1F5F9;
   font-size: 12.5px;
+  gap: 12px;
 }
 
 .sales-modal-item-row:last-child {
@@ -833,10 +834,14 @@
 .sales-modal-item-name {
   color: #334155;
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.4;
   padding-right: 8px;
+  text-align: left;
 }
 
 .sales-modal-item-price {
@@ -844,6 +849,78 @@
   font-weight: 600;
   color: #0F172A;
   flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Sale Detail Dialog Purchased Items */
+.sale-detail-items-header {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 8px;
+}
+
+.sale-detail-items-box {
+  background: #F8FAFC;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 6px 12px;
+  margin-bottom: 14px;
+}
+
+.sale-detail-item-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid #F1F5F9;
+  font-size: 12.5px;
+  gap: 12px;
+}
+
+.sale-detail-item-row:last-child {
+  border-bottom: none;
+}
+
+.sale-detail-item-name {
+  color: #0F172A;
+  font-weight: 600;
+  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+  padding-right: 10px;
+  text-align: left;
+}
+
+.sale-detail-item-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  text-align: right;
+  padding-top: 1px;
+}
+
+.sale-detail-item-qty {
+  font-size: 12px;
+  font-weight: 700;
+  color: #E11D48;
+  white-space: nowrap;
+}
+
+.sale-detail-item-price {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-weight: 700;
+  color: #0F172A;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .sales-modal-total-row {
@@ -868,30 +945,51 @@
   color: #E11D48;
 }
 
+.sale-detail-close-btn,
 .sales-modal-close-btn {
   width: 100%;
-  padding: 12px;
+  height: 44px;
+  padding: 0 18px;
   background: #0F172A;
   color: #ffffff;
   border: none;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: 12px;
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   cursor: pointer;
-  transition: background 0.15s ease;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
 }
 
+.sale-detail-close-btn:hover,
 .sales-modal-close-btn:hover {
   background: #1E293B;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.22);
+}
+
+.sale-detail-close-btn:active,
+.sales-modal-close-btn:active {
+  transform: translateY(0);
+  background: #0F172A;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
 .sale-detail-header-close-btn {
-  background: transparent;
-  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
   color: #64748B;
   cursor: pointer;
-  padding: 6px;
-  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -900,7 +998,7 @@
 }
 
 .sale-detail-header-close-btn:hover {
-  background: #F1F5F9;
+  background: #E2E8F0;
   color: #0F172A;
 }
 
@@ -1306,7 +1404,8 @@
   }
 
   /* 6. Receipt Modal on Mobile – Neatly Centered with Scroller */
-  .cart-modal-overlay {
+  .cart-modal-overlay,
+  .sales-modal-overlay {
     padding: 16px;
     align-items: center !important;
     justify-content: center !important;
@@ -1317,13 +1416,15 @@
     z-index: 2000 !important;
   }
 
-  .cart-modal-overlay::-webkit-scrollbar {
+  .cart-modal-overlay::-webkit-scrollbar,
+  .sales-modal-overlay::-webkit-scrollbar {
     display: none !important;
     width: 0 !important;
     height: 0 !important;
   }
 
-  .sale-detail-dialog {
+  .sale-detail-dialog,
+  .sales-modal-dialog {
     width: 100% !important;
     max-width: 440px !important;
     margin: auto auto calc(68px + env(safe-area-inset-bottom, 0px)) auto !important;
@@ -1372,13 +1473,73 @@
   }
 
   .sale-detail-items-box {
-    max-height: 150px;
-    margin-bottom: 12px;
+    background: #F8FAFC !important;
+    border-radius: 12px !important;
+    border: 1px solid #E2E8F0 !important;
+    max-height: 160px !important;
+    padding: 6px 12px !important;
+    margin-bottom: 12px !important;
+    overflow-y: auto !important;
   }
 
   .sale-detail-item-row {
-    padding: 7px 0;
-    font-size: 12.5px;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    padding: 8px 0 !important;
+    border-bottom: 1px solid #F1F5F9 !important;
+    gap: 10px !important;
+  }
+
+  .sale-detail-item-row:last-child {
+    border-bottom: none !important;
+  }
+
+  .sale-detail-item-name {
+    color: #0F172A !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    line-height: 1.4 !important;
+    padding-right: 8px !important;
+    text-align: left !important;
+  }
+
+  .sale-detail-item-right {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+    text-align: right !important;
+    padding-top: 1px !important;
+  }
+
+  .sale-detail-item-qty {
+    color: #E11D48 !important;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+    background: #FFF1F2 !important;
+    border: 1px solid #FECDD3 !important;
+    padding: 1px 7px !important;
+    border-radius: 6px !important;
+    letter-spacing: 0.2px !important;
+    display: inline-block !important;
+    white-space: nowrap !important;
+  }
+
+  .sale-detail-item-price {
+    color: #0F172A !important;
+    font-weight: 700 !important;
+    font-size: 13.5px !important;
+    font-family: var(--font-display, inherit) !important;
+    white-space: nowrap !important;
   }
 
   .sale-detail-totals {
@@ -1394,17 +1555,28 @@
     font-size: 15px;
   }
 
+  .sale-detail-close-btn,
   .sales-modal-close-btn {
-    height: 44px;
-    border-radius: 12px;
-    font-size: 13.5px;
-    background: #0F172A;
-    color: #ffffff;
-    font-weight: 700;
+    width: 100% !important;
+    height: 46px !important;
+    border-radius: 12px !important;
+    font-size: 14px !important;
+    background: #0F172A !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15) !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
   }
 
+  .sale-detail-close-btn:active,
   .sales-modal-close-btn:active {
-    background: #1E293B;
-    transform: scale(0.98);
+    background: #1E293B !important;
+    transform: scale(0.98) !important;
   }
 }

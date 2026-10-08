@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import {
   Plus,
   FolderTree,
+  FolderPlus,
   Pencil,
   Trash2,
   CalendarCheck,
@@ -18,6 +19,7 @@ import {
   Flower2,
   PawPrint,
   Layers,
+  X,
 } from 'lucide-react';
 import { categoryApi, type Category, type CategoryPayload } from '../api/categoryApi';
 import '../styles/categories.css';
@@ -40,6 +42,20 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
 function resolveIcon(iconName: string) {
   return ICON_MAP[iconName] ?? Layers;
 }
+
+const AVAILABLE_ICONS: Array<{ key: string; label: string; icon: React.ComponentType<{ size?: number }> }> = [
+  { key: 'category', label: 'General', icon: Layers },
+  { key: 'medical_services', label: 'Medical', icon: Stethoscope },
+  { key: 'content_cut', label: 'Salon', icon: Scissors },
+  { key: 'spa', label: 'Spa', icon: Flower2 },
+  { key: 'hotel', label: 'Hotel', icon: Hotel },
+  { key: 'restaurant', label: 'Dining', icon: UtensilsCrossed },
+  { key: 'local_bar', label: 'Bar', icon: Wine },
+  { key: 'meeting_room', label: 'Room', icon: DoorOpen },
+  { key: 'shopping_bag', label: 'Retail', icon: ShoppingBag },
+  { key: 'fitness_center', label: 'Fitness', icon: Dumbbell },
+  { key: 'pets', label: 'Pets', icon: PawPrint },
+];
 
 /* ================================================================
    CategoriesView
@@ -240,12 +256,20 @@ export default function CategoriesView() {
           <div
             className="delete-confirm-dialog"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
           >
-            <h3 className="delete-confirm-dialog__title">Delete Category?</h3>
-            <p className="delete-confirm-dialog__body">
-              Are you sure you want to remove "{deleteTarget.name}"? Products in
-              this category will remain available.
-            </p>
+            <div className="delete-confirm-dialog__header">
+              <div className="delete-confirm-dialog__icon-badge">
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 className="delete-confirm-dialog__title">Delete Category?</h3>
+                <p className="delete-confirm-dialog__body">
+                  Are you sure you want to remove "{deleteTarget.name}"? Products in
+                  this category will remain available.
+                </p>
+              </div>
+            </div>
             <div className="delete-confirm-dialog__actions">
               <button
                 type="button"
@@ -281,6 +305,7 @@ interface CategoryModalProps {
 function CategoryModal({ existing, onClose, onSaved }: CategoryModalProps) {
   const [name, setName] = useState(existing?.name ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
+  const [icon, setIcon] = useState(existing?.icon || 'category');
   const [sortOrder, setSortOrder] = useState(
     existing ? String(existing.sort_order) : '1',
   );
@@ -298,7 +323,7 @@ function CategoryModal({ existing, onClose, onSaved }: CategoryModalProps) {
     const payload: CategoryPayload = {
       name: name.trim(),
       description: description.trim(),
-      icon: existing?.icon ?? 'category',
+      icon: icon || 'category',
       sort_order: parseInt(sortOrder, 10) || 0,
       show_in_appointment: showInAppointment,
     };
@@ -323,71 +348,115 @@ function CategoryModal({ existing, onClose, onSaved }: CategoryModalProps) {
       <div
         className="category-modal"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
       >
-        <h3 className="category-modal__title">
-          {existing ? 'Edit Category' : 'Create Category'}
-        </h3>
-        <p className="category-modal__subtitle">
-          Configure category details and manage visibility in the appointment
-          booking flow.
-        </p>
-
-        {/* Name */}
-        <div className="category-modal__field">
-          <label>Category Name *</label>
-          <input
-            type="text"
-            placeholder="e.g. Meeting Hall, Spa, Food, Room, Clinic..."
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-
-        {/* Description */}
-        <div className="category-modal__field">
-          <label>Description</label>
-          <textarea
-            placeholder="Brief category overview or notes"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-
-        {/* Sort Order */}
-        <div className="category-modal__field">
-          <label>Display Sort Order</label>
-          <input
-            type="number"
-            min="0"
-            placeholder="1, 2, 3..."
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-          />
-        </div>
-
-        {/* Show in Appointment toggle box */}
-        <div className="category-modal__toggle-box">
-          <div className="category-modal__toggle-info">
-            <div className="category-modal__toggle-title">
-              Show in Appointment
+        {/* Fixed Header: Title with Icon Badge and Close Button */}
+        <div className="category-modal__header">
+          <div className="category-modal__header-left">
+            <div className="category-modal__icon-badge">
+              {existing ? <Pencil size={20} /> : <FolderPlus size={20} />}
             </div>
-            <div className="category-modal__toggle-desc">
-              Enable to show this category and its products in Book New
-              Appointment popup.
+            <div>
+              <h3 className="category-modal__title">
+                {existing ? 'Edit Category' : 'Add Category'}
+              </h3>
+              <p className="category-modal__subtitle">
+                Configure category details, icon, and visibility rules.
+              </p>
             </div>
           </div>
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={showInAppointment}
-              onChange={(e) => setShowInAppointment(e.target.checked)}
-            />
-            <span className="toggle-switch__slider" />
-          </label>
+          <button
+            type="button"
+            className="category-modal__header-close-btn"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        {/* Actions */}
-        <div className="category-modal__actions">
+        {/* Scrollable Inner Body */}
+        <div className="category-modal__body">
+          {/* Name */}
+          <div className="category-modal__field">
+            <label>Category Name *</label>
+            <input
+              type="text"
+              placeholder="e.g. Meeting Hall, Spa, Food, Room, Clinic..."
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          {/* Category Icon Picker */}
+          <div className="category-modal__field">
+            <label>Select Category Icon</label>
+            <div className="category-modal__icon-grid">
+              {AVAILABLE_ICONS.map((item) => {
+                const ItemIcon = item.icon;
+                const isSelected = icon === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={`category-icon-picker-btn ${isSelected ? 'category-icon-picker-btn--active' : ''}`}
+                    onClick={() => setIcon(item.key)}
+                    title={item.label}
+                  >
+                    <ItemIcon size={18} />
+                    <span className="category-icon-picker-label">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="category-modal__field">
+            <label>Description</label>
+            <textarea
+              placeholder="Brief category overview or notes"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          {/* Display Sort Order */}
+          <div className="category-modal__field">
+            <label>Display Sort Order</label>
+            <input
+              type="number"
+              min="0"
+              placeholder="1, 2, 3..."
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+            />
+          </div>
+
+          {/* Show in Appointment toggle box */}
+          <div className="category-modal__toggle-box">
+            <div className="category-modal__toggle-info">
+              <div className="category-modal__toggle-title">
+                Show in Appointment
+              </div>
+              <div className="category-modal__toggle-desc">
+                Enable to show this category and its products in Book New
+                Appointment popup.
+              </div>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={showInAppointment}
+                onChange={(e) => setShowInAppointment(e.target.checked)}
+              />
+              <span className="toggle-switch__slider" />
+            </label>
+          </div>
+        </div>
+
+        {/* Fixed Footer: Action Buttons */}
+        <div className="category-modal__footer">
           <button
             type="button"
             className="category-modal__cancel-btn"
