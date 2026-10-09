@@ -6,13 +6,8 @@ import {
   CalendarDays,
   CalendarCheck2,
   Clock,
-  List as ListIcon,
-  LayoutGrid,
-  Filter,
-  Plus,
   RefreshCw,
   Search,
-  ChevronLeft,
   ChevronRight,
   User,
   Phone,
@@ -21,10 +16,15 @@ import {
   X,
   Play,
   Trash2,
-  CalendarCheck,
   Check,
   Briefcase,
   FileText,
+  Tag,
+  CreditCard,
+  Scissors,
+  UserX,
+  XCircle,
+  ArrowRight,
 } from 'lucide-react';
 import { useAppSelector } from '../store/hooks';
 import {
@@ -49,6 +49,9 @@ import {
 } from '../utils/appointmentV2Utils';
 import WheelTimePicker from '../components/WheelTimePicker';
 import ClockTimePickerModal from '../components/ClockTimePickerModal';
+import AppointmentV2Header from '../components/AppointmentV2Header';
+import AppointmentV2Calender from '../components/AppointmentV2Calender';
+import AppointmentV2LayoutData from '../components/AppointmentV2LayoutData';
 import '../styles/appointment_v2.css';
 
 /* ── Props ───────────────────────────────────────────────────────────────── */
@@ -99,8 +102,22 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoadingAppts, setIsLoadingAppts] = useState<boolean>(false);
 
-  // Time View: selected expanded slot (e.g. "08:00")
-  const [expandedTimeSlot, setExpandedTimeSlot] = useState<string | null>(null);
+  // Unified expanded appointment ID for smooth expand/collapse across List, Time, and Grid layouts
+  const [expandedApptId, setExpandedApptId] = useState<number | null>(null);
+
+  // Real-time clock minutes for live indicator in Time View
+  const [nowMinutes, setNowMinutes] = useState<number>(() => {
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      setNowMinutes(now.getHours() * 60 + now.getMinutes());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Time Slot Filter Modal
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
@@ -109,12 +126,17 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
   // Add Appointment Modal
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [prefilledAddSlot, setPrefilledAddSlot] = useState<{ start24: string; end24: string } | null>(null);
+  const [prefilledAddCustomer, setPrefilledAddCustomer] = useState<Customer | null>(null);
+
 
   // Details Modal
   const [selectedDetailsAppt, setSelectedDetailsAppt] = useState<Appointment | null>(null);
 
   // Calendar Navigator Month (for right calendar widget)
   const [calendarViewDate, setCalendarViewDate] = useState<Date>(() => new Date());
+
+  // Track failed staff images so fallback initials are displayed cleanly without conflict
+  const [failedStaffImageIds, setFailedStaffImageIds] = useState<Set<number>>(new Set());
 
   /* ── 1. Fetch Staff List ───────────────────────────────────────────────── */
   const fetchStaff = useCallback(async () => {
@@ -219,15 +241,43 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
 
   /* ── Status Actions ────────────────────────────────────────────────────── */
   const handleUpdateStatus = async (apptId: number, newStatus: AppointmentStatus) => {
+    // 1. Immediate optimistic UI update
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === apptId ? { ...a, status: newStatus } : a))
+    );
+    if (selectedDetailsAppt && selectedDetailsAppt.id === apptId) {
+      setSelectedDetailsAppt((prev) => (prev ? { ...prev, status: newStatus } : null));
+    }
+
     try {
       await appointmentApi.updateStatus(apptId, newStatus);
-      toast.success(`Appointment marked as ${newStatus.replace('_', ' ')}`);
-      fetchAppointments();
-      if (selectedDetailsAppt && selectedDetailsAppt.id === apptId) {
-        setSelectedDetailsAppt((prev) => (prev ? { ...prev, status: newStatus } : null));
+      const label =
+        newStatus === 'in_service'
+          ? 'In Service'
+          : newStatus === 'no_show'
+          ? 'No Show'
+          : newStatus === 'completed'
+          ? 'Completed'
+          : newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+      toast.success(`Appointment marked as ${label}`);
+
+      // Silent sync with backend
+      if (selectedStaff) {
+        const res = await appointmentApi.getAppointments({
+          staff_id: selectedStaff.id,
+          date: selectedDate,
+        });
+        if (res.data?.data) {
+          const sorted = [...res.data.data].sort((a, b) =>
+            (a.start_time || '').localeCompare(b.start_time || '')
+          );
+          setAppointments(sorted);
+        }
       }
-    } catch {
+    } catch (err) {
+      console.error('Failed to update status:', err);
       toast.error('Failed to update status.');
+      fetchAppointments();
     }
   };
 
@@ -245,23 +295,54 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
     }
   };
 
-  const handleStartServiceClick = (appt: Appointment) => {
-    if (onStartService) {
-      const customer = {
-        id: appt.customer_id,
-        name: appt.customer_name,
-        phone: appt.customer_phone,
-      };
-      const products = (appt.services || []).map((s) => ({
-        id: s.product_id || s.id,
-        name: s.name || s.product_name,
-        price: s.price || 0,
-        quantity: s.quantity || 1,
-      }));
-      onStartService(customer, products, appt);
-    } else {
-      handleUpdateStatus(appt.id, 'in_service');
+  const navigateToCart = (appt: Appointment) => {
+    if (!onStartService) {
+      toast.info('POS Cart connection ready');
+      return;
     }
+
+    const customerObj = {
+      id: appt.customer_id || 0,
+      name: appt.customer_name || 'Walk-in Customer',
+      phone: appt.customer_phone || '',
+    };
+
+    const productsList: any[] = [];
+    if (appt.services && appt.services.length > 0) {
+      appt.services.forEach((s) => {
+        const pid = s.product_id || s.id || Math.floor(Math.random() * 900000) + 10000;
+        const price = typeof s.price === 'number' ? s.price : parseFloat(String(s.price || 0)) || 0;
+        const sName = s.name || s.product_name || 'Service';
+        const qty = s.quantity && s.quantity > 0 ? s.quantity : 1;
+        for (let i = 0; i < qty; i++) {
+          productsList.push({
+            id: pid,
+            name: sName,
+            price: price,
+            quantity: 1,
+          });
+        }
+      });
+    } else {
+      const total = Number(appt.total_amount || 0);
+      productsList.push({
+        id: Math.floor(Math.random() * 900000) + 10000,
+        name: 'General Service',
+        price: total,
+        quantity: 1,
+      });
+    }
+
+    onStartService(customerObj, productsList, appt);
+  };
+
+  const handleStartServiceClick = async (appt: Appointment) => {
+    await handleUpdateStatus(appt.id, 'in_service');
+    navigateToCart({ ...appt, status: 'in_service' });
+  };
+
+  const handleContinueServiceClick = (appt: Appointment) => {
+    navigateToCart(appt);
   };
 
   /* ========================================================================
@@ -269,68 +350,89 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
      ======================================================================== */
   if (!selectedStaff) {
     const filteredStaff = staffList.filter((s) => {
-      const q = staffSearchQuery.toLowerCase();
+      const q = staffSearchQuery.toLowerCase().trim();
       return (
         s.name.toLowerCase().includes(q) ||
-        (s.role && s.role.toLowerCase().includes(q))
+        (s.role && s.role.toLowerCase().includes(q)) ||
+        (s.phone && s.phone.toLowerCase().includes(q))
       );
     });
 
     return (
-      <div className="appointment-v2-container">
-        <div className="v2-staff-screen">
-          <div className="v2-staff-header">
-            <div className="v2-staff-header__badge">
-              <Users size={14} />
-              <span>Appointment V2</span>
+      <div className="appointment-v2-container appointment-v2-screen h-full max-h-full w-full flex flex-col bg-[#F8FAF9] text-gray-800 antialiased overflow-hidden">
+        <div className="v2-staff-screen w-full h-full flex flex-col overflow-y-auto v2-custom-scroll">
+          {/* Header Card Banner utilizing full available width */}
+          <div className="v2-staff-header-card">
+            <div className="v2-staff-header-left">
+              <div className="v2-staff-header-badge-row">
+                <span className="v2-staff-badge">
+                  <Users size={13} />
+                  <span>Appointment V2</span>
+                </span>
+                <span className="v2-staff-count-chip">
+                  {filteredStaff.length} {filteredStaff.length === 1 ? 'Specialist' : 'Specialists'}
+                </span>
+              </div>
+              <h1 className="v2-staff-title">Select Staff Member</h1>
+              <p className="v2-staff-subtitle">
+                Choose a specialist to view today's schedule, navigate available time slots, and manage appointments in V2 view.
+              </p>
             </div>
-            <h1 className="v2-staff-header__title">Select Staff Member</h1>
-            <p className="v2-staff-header__subtitle">
-              Choose a staff member to view today's schedule, navigate available time slots, and manage appointments in V2 view.
-            </p>
 
-            <div className="v2-staff-search-bar">
-              <Search size={18} color="#64748b" />
-              <input
-                type="text"
-                className="v2-staff-search-input"
-                placeholder="Search staff by name or role..."
-                value={staffSearchQuery}
-                onChange={(e) => setStaffSearchQuery(e.target.value)}
-              />
-              {staffSearchQuery && (
-                <button
-                  type="button"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
-                  onClick={() => setStaffSearchQuery('')}
-                >
-                  <X size={16} />
-                </button>
-              )}
+            <div className="v2-staff-header-right">
+              <div className="v2-staff-search-box">
+                <Search size={16} className="v2-staff-search-icon" />
+                <input
+                  type="text"
+                  className="v2-staff-search-input"
+                  placeholder="Search staff by name, role, phone..."
+                  value={staffSearchQuery}
+                  onChange={(e) => setStaffSearchQuery(e.target.value)}
+                />
+                {staffSearchQuery && (
+                  <button
+                    type="button"
+                    className="v2-staff-search-clear"
+                    title="Clear search"
+                    onClick={() => setStaffSearchQuery('')}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
           {isLoadingStaff ? (
-            <div className="v2-loading-screen">
-              <div className="v2-spinner" />
-              <span>Loading staff roster...</span>
+            <div className="v2-loading-screen flex-1 flex flex-col items-center justify-center p-12">
+              <div className="v2-spinner mb-3" />
+              <span className="text-sm font-medium text-slate-500">Loading staff roster...</span>
             </div>
           ) : filteredStaff.length === 0 ? (
-            <div className="v2-empty-state" style={{ maxWidth: 600, margin: '40px auto' }}>
-              <div className="v2-empty-state__icon">
+            <div className="v2-staff-empty-state">
+              <div className="v2-staff-empty-icon">
                 <Users size={28} />
               </div>
-              <h3 className="v2-empty-state__title">No Staff Found</h3>
-              <p className="v2-empty-state__desc">
+              <h3 className="v2-staff-empty-title">No Staff Found</h3>
+              <p className="v2-staff-empty-desc">
                 {staffSearchQuery
                   ? `No staff members matched "${staffSearchQuery}".`
                   : 'No active staff members are registered in the terminal.'}
               </p>
+              {staffSearchQuery && (
+                <button
+                  type="button"
+                  className="v2-staff-empty-btn"
+                  onClick={() => setStaffSearchQuery('')}
+                >
+                  Clear Search Filter
+                </button>
+              )}
             </div>
           ) : (
             <div className="v2-staff-grid">
               {filteredStaff.map((staff, idx) => {
-                const bg = STAFF_BG_COLORS[idx % STAFF_BG_COLORS.length];
+                const bg = staff.color_code || STAFF_BG_COLORS[idx % STAFF_BG_COLORS.length];
                 const initials = staff.name
                   .split(' ')
                   .map((n) => n[0])
@@ -339,6 +441,12 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
                   .toUpperCase();
                 const isActive = staff.is_active === 1 || staff.is_active === true || staff.is_active === undefined;
 
+                const hasImage = Boolean(
+                  staff.image &&
+                  staff.image.trim().length > 0 &&
+                  !failedStaffImageIds.has(staff.id)
+                );
+
                 return (
                   <div
                     key={staff.id}
@@ -346,29 +454,56 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
                     onClick={() => {
                       setSelectedStaff(staff);
                       setSelectedDate(getTodayDateStr());
-                      setExpandedTimeSlot(null);
+                      setExpandedApptId(null);
                     }}
                   >
                     <div className="v2-staff-card__top">
                       <div className="v2-staff-avatar" style={{ backgroundColor: bg }}>
-                        {initials}
+                        {hasImage ? (
+                          <img
+                            src={staff.image!}
+                            alt={staff.name}
+                            className="v2-staff-avatar-img"
+                            onError={() => {
+                              setFailedStaffImageIds((prev) => new Set(prev).add(staff.id));
+                            }}
+                          />
+                        ) : (
+                          <span className="v2-staff-avatar-fallback">
+                            {initials}
+                          </span>
+                        )}
                       </div>
                       <span
-                        className={`v2-staff-status-badge ${
-                          isActive ? 'v2-staff-status-badge--active' : ''
-                        }`}
+                        className={`v2-staff-status-badge ${isActive ? 'v2-staff-status-badge--active' : ''
+                          }`}
                       >
                         <span className="v2-staff-status-dot" />
                         <span>{isActive ? 'Active' : 'Offline'}</span>
                       </span>
                     </div>
 
-                    <h3 className="v2-staff-card__name">{staff.name}</h3>
-                    <p className="v2-staff-card__role">{staff.role || 'Service Specialist'}</p>
+                    <div className="v2-staff-card__body">
+                      <h3 className="v2-staff-card__name" title={staff.name}>
+                        {staff.name}
+                      </h3>
+                      <p className="v2-staff-card__role" title={staff.role || 'Service Specialist'}>
+                        <Briefcase size={13} className="text-emerald-600 flex-shrink-0" />
+                        <span>{staff.role || 'Service Specialist'}</span>
+                      </p>
+                      {staff.phone && (
+                        <p className="v2-staff-card__contact" title={staff.phone}>
+                          <Phone size={12} className="text-slate-400 flex-shrink-0" />
+                          <span>{staff.phone}</span>
+                        </p>
+                      )}
+                    </div>
 
                     <div className="v2-staff-card__footer">
-                      <span>View Appointments</span>
-                      <ChevronRight size={16} />
+                      <span className="v2-staff-card__cta-text">View Appointments</span>
+                      <span className="v2-staff-card__cta-icon">
+                        <ChevronRight size={15} />
+                      </span>
                     </div>
                   </div>
                 );
@@ -385,8 +520,8 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
      ======================================================================== */
   const staffBg =
     STAFF_BG_COLORS[
-      staffList.findIndex((s) => s.id === selectedStaff.id) %
-        STAFF_BG_COLORS.length
+    staffList.findIndex((s) => s.id === selectedStaff.id) %
+    STAFF_BG_COLORS.length
     ] || '#0284c7';
   const staffInitials = selectedStaff.name
     .split(' ')
@@ -396,723 +531,86 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
     .toUpperCase();
 
   return (
-    <div className="appointment-v2-container">
-      {/* ── Top Header Bar ───────────────────────────────────────────── */}
-      <header className="v2-top-header">
-        <div className="v2-top-header__left">
-          {/* Selected Staff Pill */}
-          <div className="v2-staff-pill">
-            <div className="v2-staff-pill__avatar" style={{ backgroundColor: staffBg }}>
-              {staffInitials}
-            </div>
-            <span>{selectedStaff.name}</span>
-            <button
-              type="button"
-              className="v2-staff-switch-btn"
-              onClick={() => setSelectedStaff(null)}
-              title="Switch Staff Member"
-            >
-              Switch Staff
-            </button>
-          </div>
+    <div
+      className="appointment-v2-container appointment-v2-screen h-full max-h-full w-full flex flex-col bg-[#F8FAF9] text-gray-800 antialiased selection:bg-emerald-100 selection:text-emerald-900 overflow-hidden"
+      data-purpose="appointment-v2-screen"
+    >
+      {/* BEGIN: MainContainer */}
+      <div className="appointment-v2-inner-wrap w-full max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-2 flex flex-col h-full flex-1 min-h-0 overflow-hidden">
+        {/* SECTION 1: Top Header (Permanently Fixed in Top) */}
+        <AppointmentV2Header
+          selectedStaff={selectedStaff}
+          staffBg={staffBg}
+          staffInitials={staffInitials}
+          selectedDate={selectedDate}
+          viewMode={viewMode}
+          isLoadingAppts={isLoadingAppts}
+          onSwitchStaff={() => setSelectedStaff(null)}
+          onViewModeChange={setViewMode}
+          onOpenFilterModal={() => setShowFilterModal(true)}
+          onRefresh={fetchAppointments}
+          onOpenAddModal={() => {
+            setPrefilledAddSlot(null);
+            setPrefilledAddCustomer(null);
+            setShowAddModal(true);
+          }}
+          onSelectCustomerToBook={(cust) => {
+            setPrefilledAddCustomer(cust);
+            setPrefilledAddSlot(null);
+            setShowAddModal(true);
+          }}
+        />
 
-          {/* Selected Date Indicator */}
-          <div className="v2-date-indicator">
-            <CalendarIcon size={16} color="#0284c7" />
-            <span>{formatDatePretty(selectedDate)}</span>
-            {selectedDate === getTodayDateStr() && (
-              <span
-                style={{
-                  fontSize: 11,
-                  background: '#dbeafe',
-                  color: '#1d4ed8',
-                  padding: '2px 8px',
-                  borderRadius: 12,
-                  fontWeight: 700,
-                }}
-              >
-                Today
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="v2-top-header__right">
-          {/* Layout / View Selector */}
-          <div className="v2-view-selector" role="group" aria-label="Layout View Selector">
-            <button
-              type="button"
-              className={`v2-view-tab-btn ${viewMode === 'list' ? 'v2-view-tab-btn--active' : ''}`}
-              onClick={() => setViewMode('list')}
-              title="List View"
-            >
-              <ListIcon size={16} />
-              <span>List</span>
-            </button>
-            <button
-              type="button"
-              className={`v2-view-tab-btn ${viewMode === 'grid' ? 'v2-view-tab-btn--active' : ''}`}
-              onClick={() => setViewMode('grid')}
-              title="Grid View"
-            >
-              <LayoutGrid size={16} />
-              <span>Grid</span>
-            </button>
-            <button
-              type="button"
-              className={`v2-view-tab-btn ${viewMode === 'time' ? 'v2-view-tab-btn--active' : ''}`}
-              onClick={() => setViewMode('time')}
-              title="Time View (30-min slots)"
-            >
-              <Clock size={16} />
-              <span>Time</span>
-            </button>
-          </div>
-
-          {/* Time Slot Filter Button */}
-          <button
-            type="button"
-            className="v2-btn v2-btn--secondary"
-            onClick={() => setShowFilterModal(true)}
-            title="Filter 30-minute time slots"
-          >
-            <Filter size={15} />
-            <span>Slot Filter</span>
-          </button>
-
-          {/* Refresh Button */}
-          <button
-            type="button"
-            className="v2-btn v2-btn--secondary"
-            onClick={fetchAppointments}
-            disabled={isLoadingAppts}
-            title="Refresh appointments"
-          >
-            <RefreshCw size={15} className={isLoadingAppts ? 'v2-spin' : ''} />
-          </button>
-
-          {/* Add Appointment Button */}
-          <button
-            type="button"
-            className="v2-btn v2-btn--primary"
-            onClick={() => {
-              setPrefilledAddSlot(null);
+        {/* BEGIN: DashboardBody with 2 Independently Scrollable Columns */}
+        <main className="appointment-v2-columns-row flex-1 min-h-0 overflow-hidden items-stretch">
+          {/* SECTION 2: Left Section (Appointment Data - Independently Scrollable) */}
+          <AppointmentV2LayoutData
+            isLoadingAppts={isLoadingAppts}
+            viewMode={viewMode}
+            selectedStaff={selectedStaff}
+            selectedDate={selectedDate}
+            appointments={appointments}
+            businessSlots={businessSlots}
+            slotAppointmentMap={slotAppointmentMap}
+            expandedApptId={expandedApptId}
+            onToggleExpandAppt={(id) => setExpandedApptId(expandedApptId === id ? null : id)}
+            timeFormat={timeFormat}
+            nowMinutes={nowMinutes}
+            onStartServiceClick={handleStartServiceClick}
+            onContinueServiceClick={handleContinueServiceClick}
+            onOpenDetailsModal={(appt) => setSelectedDetailsAppt(appt)}
+            onOpenAddModal={(slot) => {
+              setPrefilledAddSlot(slot || null);
+              setPrefilledAddCustomer(null);
               setShowAddModal(true);
             }}
-          >
-            <Plus size={16} />
-            <span>Add Appointment</span>
-          </button>
-        </div>
-      </header>
-
-      {/* ── Main Split View Body ─────────────────────────────────────── */}
-      <div className="v2-main-body">
-        {/* ==============================================================
-            LEFT SECTION: Appointments / Time Section
-            ============================================================== */}
-        <section className="v2-appointments-section">
-          {isLoadingAppts ? (
-            <div className="v2-loading-screen">
-              <div className="v2-spinner" />
-              <span>Loading schedule for {selectedStaff.name}...</span>
-            </div>
-          ) : viewMode === 'list' ? (
-            /* ── VIEW 1: LIST VIEW ────────────────────────────────────── */
-            <div className="v2-list-view">
-              {appointments.length === 0 ? (
-                <div className="v2-empty-state">
-                  <div className="v2-empty-state__icon">
-                    <CalendarCheck size={28} />
-                  </div>
-                  <h3 className="v2-empty-state__title">No Appointments Scheduled</h3>
-                  <p className="v2-empty-state__desc">
-                    {selectedStaff.name} has no appointments on {formatDatePretty(selectedDate)}.
-                  </p>
-                  <button
-                    type="button"
-                    className="v2-btn v2-btn--primary"
-                    onClick={() => {
-                      setPrefilledAddSlot(null);
-                      setShowAddModal(true);
-                    }}
-                  >
-                    <Plus size={16} />
-                    <span>Book An Appointment</span>
-                  </button>
-                </div>
-              ) : (
-                appointments.map((appt) => {
-                  const statusMeta = getStatusMeta(appt.status);
-                  const servicesStr = (appt.services || [])
-                    .map((s) => s.name || s.product_name)
-                    .filter(Boolean);
-
-                  return (
-                    <div
-                      key={appt.id}
-                      className="v2-list-card"
-                      onClick={() => setSelectedDetailsAppt(appt)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div className="v2-list-card__left">
-                        {/* Time Badge */}
-                        <div className="v2-time-badge">
-                          <Clock size={14} color="#0284c7" />
-                          <span>
-                            {formatTimeSlotLabel(appt.start_time, appt.end_time, timeFormat)}
-                          </span>
-                        </div>
-
-                        {/* Customer Info */}
-                        <div className="v2-customer-block">
-                          <span className="v2-customer-name">
-                            <User size={15} color="#475569" />
-                            {appt.customer_name || 'Walk-in Guest'}
-                          </span>
-                          {appt.customer_phone && (
-                            <span className="v2-customer-phone">
-                              {appt.customer_phone}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Services */}
-                        <div className="v2-services-summary">
-                          {servicesStr.length > 0 ? (
-                            servicesStr.map((svc, i) => (
-                              <span key={i} className="v2-service-tag">
-                                {svc}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="v2-service-tag">General Service</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="v2-list-card__right">
-                        {/* Status Badge */}
-                        <span className={`v2-status-pill v2-status-pill--${statusMeta.key}`}>
-                          {statusMeta.label}
-                        </span>
-
-                        {/* Price */}
-                        <div className="v2-price-tag">
-                          ${Number(appt.total_amount || 0).toFixed(2)}
-                        </div>
-
-                        {/* Quick Action Button */}
-                        {appt.status === 'booked' && (
-                          <button
-                            type="button"
-                            className="v2-btn v2-btn--secondary"
-                            style={{ padding: '5px 10px', fontSize: 12 }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleStartServiceClick(appt);
-                            }}
-                            title="Start Service"
-                          >
-                            <Play size={13} color="#0284c7" />
-                            <span>Start</span>
-                          </button>
-                        )}
-                        {appt.status === 'in_service' && (
-                          <button
-                            type="button"
-                            className="v2-btn v2-btn--secondary"
-                            style={{ padding: '5px 10px', fontSize: 12, borderColor: '#10b981', color: '#047857' }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUpdateStatus(appt.id, 'completed');
-                            }}
-                            title="Complete Service"
-                          >
-                            <Check size={13} color="#047857" />
-                            <span>Complete</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          ) : viewMode === 'grid' ? (
-            /* ── VIEW 2: GRID VIEW ────────────────────────────────────── */
-            <div className="v2-grid-view">
-              {appointments.length === 0 ? (
-                <div className="v2-empty-state" style={{ gridColumn: '1 / -1' }}>
-                  <div className="v2-empty-state__icon">
-                    <CalendarCheck size={28} />
-                  </div>
-                  <h3 className="v2-empty-state__title">No Appointments In Grid</h3>
-                  <p className="v2-empty-state__desc">
-                    {selectedStaff.name} has no appointments on {formatDatePretty(selectedDate)}.
-                  </p>
-                  <button
-                    type="button"
-                    className="v2-btn v2-btn--primary"
-                    onClick={() => {
-                      setPrefilledAddSlot(null);
-                      setShowAddModal(true);
-                    }}
-                  >
-                    <Plus size={16} />
-                    <span>Book An Appointment</span>
-                  </button>
-                </div>
-              ) : (
-                appointments.map((appt) => {
-                  const statusMeta = getStatusMeta(appt.status);
-                  const servicesStr = (appt.services || [])
-                    .map((s) => s.name || s.product_name)
-                    .join(', ') || 'General Service';
-
-                  return (
-                    <div
-                      key={appt.id}
-                      className="v2-grid-card"
-                      onClick={() => setSelectedDetailsAppt(appt)}
-                    >
-                      {/* Appointment time displayed INSIDE the appointment/grid area */}
-                      <div
-                        className={`v2-grid-card__time-header v2-grid-card__time-header--${statusMeta.key}`}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <Clock size={14} />
-                          <span>
-                            {formatTimeSlotLabel(appt.start_time, appt.end_time, timeFormat)}
-                          </span>
-                        </div>
-                        <span className={`v2-status-pill v2-status-pill--${statusMeta.key}`}>
-                          {statusMeta.label}
-                        </span>
-                      </div>
-
-                      <div className="v2-grid-card__body">
-                        <div className="v2-grid-card__customer">
-                          {appt.customer_name || 'Walk-in Guest'}
-                        </div>
-                        <div className="v2-grid-card__service">{servicesStr}</div>
-                        {appt.customer_phone && (
-                          <div style={{ fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Phone size={12} />
-                            <span>{appt.customer_phone}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="v2-grid-card__footer">
-                        <span>${Number(appt.total_amount || 0).toFixed(2)}</span>
-                        <span style={{ fontSize: 12, color: '#0284c7' }}>View Details →</span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          ) : (
-            /* ── VIEW 3: TIME VIEW (30-min slots + expand below) ──────── */
-            <div className="v2-time-view">
-              {businessSlots.map((slot) => {
-                const apptsInSlot = slotAppointmentMap.get(slot.start24) || [];
-                const isBooked = apptsInSlot.length > 0;
-                const primaryAppt = apptsInSlot[0];
-                const statusMeta = primaryAppt ? getStatusMeta(primaryAppt.status) : null;
-                const isExpanded = expandedTimeSlot === slot.start24;
-
-                return (
-                  <div
-                    key={slot.start24}
-                    id={`v2-slot-${slot.start24}`}
-                    className={`v2-time-slot-item ${
-                      isExpanded ? 'v2-time-slot-item--selected' : ''
-                    }`}
-                  >
-                    {/* Time Slot Row Header */}
-                    <div
-                      className="v2-time-slot-row"
-                      onClick={() => {
-                        setExpandedTimeSlot(isExpanded ? null : slot.start24);
-                      }}
-                    >
-                      <div className="v2-time-slot-row__left">
-                        <div className="v2-time-slot-clock">
-                          <Clock size={15} color="#0284c7" />
-                          <span>{slot.label}</span>
-                        </div>
-
-                        {/* Status Tag */}
-                        {isBooked && statusMeta ? (
-                          <span
-                            className={`v2-slot-status-tag v2-slot-status-tag--${statusMeta.key}`}
-                          >
-                            <span>{statusMeta.label}</span>
-                            {primaryAppt.customer_name && (
-                              <span style={{ opacity: 0.9, fontWeight: 500 }}>
-                                • {primaryAppt.customer_name}
-                              </span>
-                            )}
-                          </span>
-                        ) : (
-                          <span className="v2-slot-status-tag v2-slot-status-tag--available">
-                            Available
-                          </span>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 12, color: '#64748b' }}>
-                          {isExpanded ? 'Hide Details' : 'View Details'}
-                        </span>
-                        <ChevronRight
-                          size={16}
-                          color="#64748b"
-                          style={{
-                            transform: isExpanded ? 'rotate(90deg)' : 'none',
-                            transition: 'transform 0.2s ease',
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Expandable Appointment Details Displayed BELOW the Selected Slot */}
-                    {isExpanded && (
-                      <div className="v2-slot-details-panel">
-                        {isBooked ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            {apptsInSlot.map((appt) => {
-                              const stMeta = getStatusMeta(appt.status);
-                              const svcNames = (appt.services || [])
-                                .map((s) => s.name || s.product_name)
-                                .join(', ') || 'General Service';
-
-                              return (
-                                <div key={appt.id} className="v2-slot-details-card">
-                                  <div className="v2-slot-details-card__header">
-                                    <div className="v2-slot-details-card__title">
-                                      <User size={16} color="#0284c7" />
-                                      <span>Appointment Details</span>
-                                    </div>
-                                    <span className={`v2-status-pill v2-status-pill--${stMeta.key}`}>
-                                      {stMeta.label}
-                                    </span>
-                                  </div>
-
-                                  <div className="v2-slot-details-grid">
-                                    <div className="v2-detail-item">
-                                      <span className="v2-detail-label">Customer</span>
-                                      <span className="v2-detail-value">
-                                        {appt.customer_name || 'Walk-in Guest'}
-                                      </span>
-                                    </div>
-
-                                    <div className="v2-detail-item">
-                                      <span className="v2-detail-label">Contact</span>
-                                      <span className="v2-detail-value">
-                                        {appt.customer_phone || 'None'}
-                                      </span>
-                                    </div>
-
-                                    <div className="v2-detail-item">
-                                      <span className="v2-detail-label">Service</span>
-                                      <span className="v2-detail-value">{svcNames}</span>
-                                    </div>
-
-                                    <div className="v2-detail-item">
-                                      <span className="v2-detail-label">Staff Member</span>
-                                      <span className="v2-detail-value">
-                                        {appt.staff_name || selectedStaff.name}
-                                      </span>
-                                    </div>
-
-                                    <div className="v2-detail-item">
-                                      <span className="v2-detail-label">Time Window</span>
-                                      <span className="v2-detail-value">
-                                        {formatTimeSlotLabel(appt.start_time, appt.end_time, timeFormat)}
-                                      </span>
-                                    </div>
-
-                                    <div className="v2-detail-item">
-                                      <span className="v2-detail-label">Amount</span>
-                                      <span className="v2-detail-value">
-                                        ${Number(appt.total_amount || 0).toFixed(2)}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {/* Action Buttons for this appointment */}
-                                  <div className="v2-slot-details-actions">
-                                    {appt.status === 'booked' && (
-                                      <button
-                                        type="button"
-                                        className="v2-btn v2-btn--primary"
-                                        onClick={() => handleStartServiceClick(appt)}
-                                      >
-                                        <Play size={14} />
-                                        <span>Start Service</span>
-                                      </button>
-                                    )}
-
-                                    {appt.status === 'in_service' && (
-                                      <button
-                                        type="button"
-                                        className="v2-btn v2-btn--primary"
-                                        style={{ backgroundColor: '#10b981' }}
-                                        onClick={() => handleUpdateStatus(appt.id, 'completed')}
-                                      >
-                                        <Check size={14} />
-                                        <span>Mark Completed</span>
-                                      </button>
-                                    )}
-
-                                    <button
-                                      type="button"
-                                      className="v2-btn v2-btn--secondary"
-                                      onClick={() => setSelectedDetailsAppt(appt)}
-                                    >
-                                      <span>Full Details & Actions</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="v2-slot-empty-notice">
-                            <span>No appointment booked for this time slot.</span>
-                            <button
-                              type="button"
-                              className="v2-btn v2-btn--primary"
-                              onClick={() => {
-                                setPrefilledAddSlot({
-                                  start24: slot.start24,
-                                  end24: slot.end24,
-                                });
-                                setShowAddModal(true);
-                              }}
-                            >
-                              <Plus size={14} />
-                              <span>Book this time slot</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* ==============================================================
-            RIGHT SECTION: Calendar / Date Section
-            ============================================================== */}
-        <aside className="v2-calendar-section">
-          {/* Interactive Mini-Calendar */}
-          <div className="v2-calendar-widget">
-            <div className="v2-calendar-header">
-              <span className="v2-calendar-month-title">
-                {calendarViewDate.toLocaleDateString('en-US', {
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </span>
-              <div className="v2-calendar-nav-btns">
-                <button
-                  type="button"
-                  className="v2-calendar-icon-btn"
-                  onClick={() => {
-                    const d = new Date(calendarViewDate);
-                    d.setMonth(d.getMonth() - 1);
-                    setCalendarViewDate(d);
-                  }}
-                  title="Previous month"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  type="button"
-                  className="v2-calendar-icon-btn"
-                  style={{ width: 'auto', padding: '0 8px', fontSize: 12, fontWeight: 600 }}
-                  onClick={() => {
-                    const today = new Date();
-                    setCalendarViewDate(today);
-                    setSelectedDate(getTodayDateStr());
-                  }}
-                  title="Jump to today"
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  className="v2-calendar-icon-btn"
-                  onClick={() => {
-                    const d = new Date(calendarViewDate);
-                    d.setMonth(d.getMonth() + 1);
-                    setCalendarViewDate(d);
-                  }}
-                  title="Next month"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-
-            <div className="v2-calendar-weekdays">
-              <span>Su</span>
-              <span>Mo</span>
-              <span>Tu</span>
-              <span>We</span>
-              <span>Th</span>
-              <span>Fr</span>
-              <span>Sa</span>
-            </div>
-
-            <div className="v2-calendar-grid">
-              {(() => {
-                const year = calendarViewDate.getFullYear();
-                const month = calendarViewDate.getMonth();
-                const firstDayIdx = new Date(year, month, 1).getDay();
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
-                const daysInPrevMonth = new Date(year, month, 0).getDate();
-
-                const cells = [];
-                // Prev month trailing days
-                for (let i = firstDayIdx - 1; i >= 0; i--) {
-                  const dayNum = daysInPrevMonth - i;
-                  cells.push(
-                    <button
-                      key={`prev-${dayNum}`}
-                      type="button"
-                      className="v2-calendar-day-btn v2-calendar-day-btn--other-month"
-                      disabled
-                    >
-                      {dayNum}
-                    </button>
-                  );
-                }
-
-                // Current month days
-                const todayStr = getTodayDateStr();
-                for (let d = 1; d <= daysInMonth; d++) {
-                  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(
-                    d
-                  ).padStart(2, '0')}`;
-                  const isToday = dateStr === todayStr;
-                  const isSelected = dateStr === selectedDate;
-
-                  cells.push(
-                    <button
-                      key={dateStr}
-                      type="button"
-                      className={`v2-calendar-day-btn ${
-                        isToday ? 'v2-calendar-day-btn--today' : ''
-                      } ${isSelected ? 'v2-calendar-day-btn--selected' : ''}`}
-                      onClick={() => {
-                        setSelectedDate(dateStr);
-                        setExpandedTimeSlot(null);
-                      }}
-                    >
-                      <span>{d}</span>
-                      {isSelected && <span className="v2-calendar-day-dot" />}
-                    </button>
-                  );
-                }
-
-                return cells;
-              })()}
-            </div>
-          </div>
-
-          {/* Selected Day Summary Card */}
-          <div className="v2-day-summary-card">
-            <h4 className="v2-day-summary-card__title">
-              Summary for {formatDatePretty(selectedDate)}
-            </h4>
-            <div className="v2-stats-row">
-              <div className="v2-stat-chip">
-                <span className="v2-stat-chip__label">Total Appts</span>
-                <span className="v2-stat-chip__value">{dayStats.total}</span>
-              </div>
-              <div className="v2-stat-chip">
-                <span className="v2-stat-chip__label" style={{ color: '#1d4ed8' }}>
-                  Booked
-                </span>
-                <span className="v2-stat-chip__value" style={{ color: '#1d4ed8' }}>
-                  {dayStats.booked}
-                </span>
-              </div>
-              <div className="v2-stat-chip">
-                <span className="v2-stat-chip__label" style={{ color: '#b45309' }}>
-                  In Service
-                </span>
-                <span className="v2-stat-chip__value" style={{ color: '#b45309' }}>
-                  {dayStats.inService}
-                </span>
-              </div>
-              <div className="v2-stat-chip">
-                <span className="v2-stat-chip__label" style={{ color: '#047857' }}>
-                  Completed
-                </span>
-                <span className="v2-stat-chip__value" style={{ color: '#047857' }}>
-                  {dayStats.completed}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Staff Card */}
-          <div
-            style={{
-              padding: 16,
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: 12,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
+            onSelectToday={() => {
+              setSelectedDate(getTodayDateStr());
+              setCalendarViewDate(new Date());
+              setExpandedApptId(null);
             }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  backgroundColor: staffBg,
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: 14,
-                }}
-              >
-                {staffInitials}
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
-                  {selectedStaff.name}
-                </div>
-                <div style={{ fontSize: 12, color: '#64748b' }}>
-                  {selectedStaff.role || 'Specialist'}
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="v2-staff-switch-btn"
-              onClick={() => setSelectedStaff(null)}
-            >
-              Change
-            </button>
-          </div>
-        </aside>
+          />
+
+          {/* SECTION 3: Right Section (Calendar and Status Section - Independently Scrollable) */}
+          <AppointmentV2Calender
+            selectedStaff={selectedStaff}
+            staffBg={staffBg}
+            staffInitials={staffInitials}
+            selectedDate={selectedDate}
+            calendarViewDate={calendarViewDate}
+            appointments={appointments}
+            dayStats={dayStats}
+            onSelectDate={(dateStr) => {
+              setSelectedDate(dateStr);
+              setExpandedApptId(null);
+            }}
+            onChangeCalendarMonth={setCalendarViewDate}
+            onSwitchStaff={() => setSelectedStaff(null)}
+          />
+        </main>
+        {/* END: DashboardBody */}
       </div>
+      {/* END: MainContainer */}
 
       {/* ====================================================================
           MODAL 1: ADD APPOINTMENT (DATE + SCROLLABLE START/END TIME + CONFLICT)
@@ -1122,6 +620,7 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
           staff={selectedStaff}
           defaultDate={selectedDate}
           prefilledSlot={prefilledAddSlot}
+          preselectedCustomer={prefilledAddCustomer}
           openTime={openTime}
           closeTime={closeTime}
           timeFormat={timeFormat}
@@ -1130,10 +629,12 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
           onClose={() => {
             setShowAddModal(false);
             setPrefilledAddSlot(null);
+            setPrefilledAddCustomer(null);
           }}
           onSuccess={() => {
             setShowAddModal(false);
             setPrefilledAddSlot(null);
+            setPrefilledAddCustomer(null);
             fetchAppointments();
           }}
         />
@@ -1151,7 +652,10 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
           onSelectSlot={(start24) => {
             setShowFilterModal(false);
             setViewMode('time');
-            setExpandedTimeSlot(start24);
+            const appts = slotAppointmentMap.get(start24) || [];
+            if (appts[0]) {
+              setExpandedApptId(appts[0].id);
+            }
             const el = document.getElementById(`v2-slot-${start24}`);
             if (el) {
               el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1174,6 +678,11 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
             setSelectedDetailsAppt(null);
             handleStartServiceClick(cur);
           }}
+          onContinueService={() => {
+            const cur = selectedDetailsAppt;
+            setSelectedDetailsAppt(null);
+            handleContinueServiceClick(cur);
+          }}
           onStatusChange={(newStatus) => {
             handleUpdateStatus(selectedDetailsAppt.id, newStatus);
           }}
@@ -1193,6 +702,7 @@ interface AddAppointmentV2ModalProps {
   staff: Staff;
   defaultDate: string;
   prefilledSlot?: { start24: string; end24: string } | null;
+  preselectedCustomer?: Customer | null;
   openTime: string;
   closeTime: string;
   timeFormat: '12' | '24';
@@ -1206,6 +716,7 @@ function AddAppointmentV2Modal({
   staff,
   defaultDate,
   prefilledSlot,
+  preselectedCustomer,
   openTime,
   closeTime,
   timeFormat,
@@ -1227,46 +738,109 @@ function AddAppointmentV2Modal({
   const [endTime, setEndTime] = useState<string>(defaultEnd);
   const [clockPickerTarget, setClockPickerTarget] = useState<'start' | 'end' | null>(null);
 
-  // Customer Selection
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
-  const [isWalkIn, setIsWalkIn] = useState<boolean>(true);
+  // Customer Selection State (NO INITIAL FULL LIST CALL)
+  const [isWalkIn, setIsWalkIn] = useState<boolean>(!preselectedCustomer);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    preselectedCustomer || null
+  );
+  const [customerSearch, setCustomerSearch] = useState<string>('');
+  const [customerResults, setCustomerResults] = useState<Customer[]>([]);
+  const [isSearchingCustomers, setIsSearchingCustomers] = useState<boolean>(false);
   const [walkInName, setWalkInName] = useState<string>('');
   const [walkInPhone, setWalkInPhone] = useState<string>('');
 
-  // Service Selection
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+  // Service Selection State (NO INITIAL FULL LIST CALL)
+  const [serviceSearch, setServiceSearch] = useState<string>('');
+  const [serviceResults, setServiceResults] = useState<Product[]>([]);
+  const [isSearchingServices, setIsSearchingServices] = useState<boolean>(false);
+  const [selectedServices, setSelectedServices] = useState<Product[]>([]);
 
   // Notes & Validation Error
   const [notes, setNotes] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Load Customers & Products
+  // Customer Search: Call API only when user enters search term
   useEffect(() => {
-    customerApi.getAll().then((res) => {
-      if (res.data?.data) setCustomers(res.data.data);
+    if (selectedCustomer) {
+      setCustomerResults([]);
+      setIsSearchingCustomers(false);
+      return;
+    }
+    const q = customerSearch.trim();
+    if (!q) {
+      setCustomerResults([]);
+      setIsSearchingCustomers(false);
+      return;
+    }
+
+    setIsSearchingCustomers(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await customerApi.getAll(q);
+        const list = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        setCustomerResults(list);
+      } catch (err) {
+        console.error('Customer search error:', err);
+        setCustomerResults([]);
+      } finally {
+        setIsSearchingCustomers(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [customerSearch, selectedCustomer]);
+
+  // Service Search: Call dedicated search API only when user enters search term
+  useEffect(() => {
+    const q = serviceSearch.trim();
+    if (!q) {
+      setServiceResults([]);
+      setIsSearchingServices(false);
+      return;
+    }
+
+    setIsSearchingServices(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await productApi.search(q);
+        const list = Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data)
+            ? res.data
+            : [];
+        setServiceResults(list);
+      } catch (err) {
+        console.error('Service search error:', err);
+        setServiceResults([]);
+      } finally {
+        setIsSearchingServices(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [serviceSearch]);
+
+  // Toggle Service Selection
+  const handleToggleService = (product: Product) => {
+    setSelectedServices((prev) => {
+      const exists = prev.some((p) => p.id === product.id);
+      if (exists) {
+        return prev.filter((p) => p.id !== product.id);
+      } else {
+        return [...prev, product];
+      }
     });
-    productApi.getAll().then((res) => {
-      if (res.data?.data) setProducts(res.data.data);
-    });
-  }, []);
+  };
+
+  const handleRemoveService = (productId: number) => {
+    setSelectedServices((prev) => prev.filter((p) => p.id !== productId));
+  };
 
   // Compute Total Price
-  const selectedProducts = useMemo(() => {
-    return products.filter((p) => selectedProductIds.includes(p.id));
-  }, [products, selectedProductIds]);
-
   const totalPrice = useMemo(() => {
-    return selectedProducts.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
-  }, [selectedProducts]);
-
-  const handleToggleProduct = (prodId: number) => {
-    setSelectedProductIds((prev) =>
-      prev.includes(prodId) ? prev.filter((id) => id !== prodId) : [...prev, prodId]
-    );
-  };
+    return selectedServices.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
+  }, [selectedServices]);
 
   // Submission & Validations
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1291,11 +865,25 @@ function AddAppointmentV2Modal({
     // 3. Customer validation
     const customerName = isWalkIn
       ? walkInName.trim()
-      : customers.find((c) => c.id === selectedCustomerId)?.name || '';
+      : selectedCustomer?.name || '';
     if (!customerName) {
-      setErrorMsg('Please enter customer name or select an existing customer.');
+      setErrorMsg(
+        isWalkIn
+          ? 'Please enter walk-in customer name.'
+          : 'Please search and select a customer.'
+      );
       return;
     }
+
+    const customerPhone = isWalkIn
+      ? walkInPhone.trim()
+      : selectedCustomer?.phone || '';
+
+    const customerId = isWalkIn
+      ? null
+      : selectedCustomer?.id && selectedCustomer.id > 0
+        ? selectedCustomer.id
+        : null;
 
     setIsSubmitting(true);
 
@@ -1336,19 +924,17 @@ function AddAppointmentV2Modal({
       const payload = {
         staff_id: staff.id,
         staff_name: staff.name,
-        customer_id: isWalkIn ? null : selectedCustomerId,
+        customer_id: customerId,
         customer_name: customerName,
-        customer_phone: isWalkIn
-          ? walkInPhone.trim()
-          : customers.find((c) => c.id === selectedCustomerId)?.phone || '',
+        customer_phone: customerPhone,
         appointment_date: apptDate,
         start_time: startTime,
         end_time: endTime,
         total_amount: totalPrice,
-        services: selectedProducts.map((p) => ({
+        services: selectedServices.map((p) => ({
           product_id: p.id,
           name: p.name,
-          price: p.price,
+          price: Number(p.price) || 0,
           quantity: 1,
         })),
         notes: notes.trim(),
@@ -1540,11 +1126,10 @@ function AddAppointmentV2Modal({
                       {formatTimeSlotLabel(startTime, endTime, timeFormat)}
                     </span>
                     <span
-                      className={`v2-time-duration-badge ${
-                        timeToMinutes(endTime) > timeToMinutes(startTime)
-                          ? 'v2-time-duration-badge--valid'
-                          : 'v2-time-duration-badge--invalid'
-                      }`}
+                      className={`v2-time-duration-badge ${timeToMinutes(endTime) > timeToMinutes(startTime)
+                        ? 'v2-time-duration-badge--valid'
+                        : 'v2-time-duration-badge--invalid'
+                        }`}
                     >
                       {timeToMinutes(endTime) > timeToMinutes(startTime)
                         ? `${timeToMinutes(endTime) - timeToMinutes(startTime)} mins`
@@ -1583,7 +1168,7 @@ function AddAppointmentV2Modal({
                   </span>
                   <div className="v2-section-header-text">
                     <h4 className="v2-section-title">Customer Information</h4>
-                    <span className="v2-section-subtitle">Assign a guest or registered customer</span>
+                    <span className="v2-section-subtitle">Search registered customer or enter guest</span>
                   </div>
                 </div>
               </div>
@@ -1593,17 +1178,23 @@ function AddAppointmentV2Modal({
                 <div className="v2-customer-type-toggle">
                   <button
                     type="button"
-                    className={`v2-customer-toggle-btn ${isWalkIn ? 'v2-customer-toggle-btn--active' : ''}`}
-                    onClick={() => setIsWalkIn(true)}
+                    className={`v2-customer-toggle-btn ${!isWalkIn ? 'v2-customer-toggle-btn--active' : ''}`}
+                    onClick={() => {
+                      setIsWalkIn(false);
+                      setErrorMsg(null);
+                    }}
                   >
-                    <span>Walk-in Guest</span>
+                    <span>Registered Customer</span>
                   </button>
                   <button
                     type="button"
-                    className={`v2-customer-toggle-btn ${!isWalkIn ? 'v2-customer-toggle-btn--active' : ''}`}
-                    onClick={() => setIsWalkIn(false)}
+                    className={`v2-customer-toggle-btn ${isWalkIn ? 'v2-customer-toggle-btn--active' : ''}`}
+                    onClick={() => {
+                      setIsWalkIn(true);
+                      setErrorMsg(null);
+                    }}
                   >
-                    <span>Registered Customer</span>
+                    <span>Walk-in Guest</span>
                   </button>
                 </div>
 
@@ -1616,7 +1207,10 @@ function AddAppointmentV2Modal({
                         className="v2-input v2-input--has-icon"
                         placeholder="Customer Name *"
                         value={walkInName}
-                        onChange={(e) => setWalkInName(e.target.value)}
+                        onChange={(e) => {
+                          setWalkInName(e.target.value);
+                          setErrorMsg(null);
+                        }}
                         required
                       />
                     </div>
@@ -1631,21 +1225,130 @@ function AddAppointmentV2Modal({
                       />
                     </div>
                   </div>
-                ) : (
-                  <div className="v2-customer-select-wrap">
-                    <select
-                      className="v2-input v2-select"
-                      value={selectedCustomerId || ''}
-                      onChange={(e) => setSelectedCustomerId(Number(e.target.value) || null)}
-                      required
+                ) : selectedCustomer ? (
+                  /* Display Selected Customer Chip/Card */
+                  <div className="v2-cust-selected-card">
+                    <div className="v2-cust-selected-left">
+                      <div className="v2-cust-selected-avatar">
+                        {selectedCustomer.name ? selectedCustomer.name[0].toUpperCase() : 'C'}
+                      </div>
+                      <div className="v2-cust-selected-info">
+                        <div className="v2-cust-selected-name">{selectedCustomer.name}</div>
+                        <div className="v2-cust-selected-phone">
+                          <Phone size={12} />
+                          <span>{selectedCustomer.phone || 'No phone provided'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="v2-cust-selected-change-btn"
+                      title="Change customer"
+                      onClick={() => {
+                        setSelectedCustomer(null);
+                        setCustomerSearch('');
+                        setCustomerResults([]);
+                      }}
                     >
-                      <option value="">-- Choose Registered Customer --</option>
-                      {customers.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} {c.phone ? `(${c.phone})` : ''}
-                        </option>
-                      ))}
-                    </select>
+                      <X size={13} />
+                      <span>Change</span>
+                    </button>
+                  </div>
+                ) : (
+                  /* Live Search Input & Dropdown */
+                  <div className="v2-search-input-box">
+                    <div className="v2-input-with-icon">
+                      <Search size={16} className="v2-input-icon" />
+                      <input
+                        type="text"
+                        className="v2-input v2-input--has-icon v2-input--has-icon-and-clear"
+                        placeholder="Search by customer name or phone..."
+                        value={customerSearch}
+                        onChange={(e) => {
+                          setCustomerSearch(e.target.value);
+                          setErrorMsg(null);
+                        }}
+                        autoComplete="off"
+                      />
+                      {customerSearch && (
+                        <button
+                          type="button"
+                          className="v2-input-clear-btn"
+                          title="Clear search"
+                          onClick={() => {
+                            setCustomerSearch('');
+                            setCustomerResults([]);
+                          }}
+                        >
+                          <X size={13} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Dropdown panel when searching */}
+                    {customerSearch.trim().length > 0 && (
+                      <div className="v2-search-dropdown-panel">
+                        <div className="v2-search-dropdown-header">
+                          <span>Matching Customers ({customerResults.length})</span>
+                          {customerResults.length > 0 && (
+                            <span className="v2-search-dropdown-badge">Tap to select</span>
+                          )}
+                        </div>
+
+                        {isSearchingCustomers ? (
+                          <div className="v2-search-item-empty">
+                            <RefreshCw size={14} className="v2-spin inline mr-2 text-blue-600" />
+                            <span>Searching database for "{customerSearch.trim()}"...</span>
+                          </div>
+                        ) : customerResults.length === 0 ? (
+                          <div className="v2-search-item-empty">
+                            <span>No matching customers found for "{customerSearch.trim()}"</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="v2-search-dropdown-list">
+                              {customerResults.map((c) => (
+                                <div
+                                  key={c.id}
+                                  className="v2-search-item"
+                                  onClick={() => {
+                                    setSelectedCustomer(c);
+                                    setCustomerSearch('');
+                                    setCustomerResults([]);
+                                    setErrorMsg(null);
+                                  }}
+                                >
+                                  <div className="v2-search-item__left">
+                                    <div className="v2-search-avatar">
+                                      {c.name ? c.name[0].toUpperCase() : 'C'}
+                                    </div>
+                                    <div className="v2-search-item__info">
+                                      <div className="v2-search-item__title">{c.name}</div>
+                                      <div className="v2-search-item__sub">
+                                        <Phone size={11} />
+                                        <span>{c.phone || 'No phone'}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {customerResults.length > 5 && (
+                              <div className="v2-search-dropdown-footer">
+                                ↕ Scroll for more ({customerResults.length} customers found)
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {!customerSearch.trim() && (
+                      <div className="v2-hint-tip">
+                        <AlertCircle size={13} className="text-slate-400" />
+                        <span>Type customer name or phone above to search and select.</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1661,7 +1364,7 @@ function AddAppointmentV2Modal({
                   <div className="v2-section-header-text">
                     <h4 className="v2-section-title">Select Service</h4>
                     <span className="v2-section-subtitle">
-                      {selectedProducts.length} service{selectedProducts.length === 1 ? '' : 's'} selected
+                      {selectedServices.length} service{selectedServices.length === 1 ? '' : 's'} selected
                     </span>
                   </div>
                 </div>
@@ -1672,32 +1375,129 @@ function AddAppointmentV2Modal({
               </div>
 
               <div className="v2-section-content">
-                <div className="v2-services-picker-grid">
-                  {products.map((p) => {
-                    const isSel = selectedProductIds.includes(p.id);
-                    return (
-                      <div
-                        key={p.id}
-                        className={`v2-service-pick-chip ${isSel ? 'v2-service-pick-chip--selected' : ''}`}
-                        onClick={() => handleToggleProduct(p.id)}
+                {/* Search Bar for Services (calls dedicated API on typing) */}
+                <div className="v2-search-input-box">
+                  <div className="v2-input-with-icon">
+                    <Search size={16} className="v2-input-icon" />
+                    <input
+                      type="text"
+                      className="v2-input v2-input--has-icon v2-input--has-icon-and-clear"
+                      placeholder="Search service or product name..."
+                      value={serviceSearch}
+                      onChange={(e) => {
+                        setServiceSearch(e.target.value);
+                      }}
+                      autoComplete="off"
+                    />
+                    {serviceSearch && (
+                      <button
+                        type="button"
+                        className="v2-input-clear-btn"
+                        title="Clear service search"
+                        onClick={() => {
+                          setServiceSearch('');
+                          setServiceResults([]);
+                        }}
                       >
-                        <div className="v2-service-pick-chip__left">
-                          <span
-                            className={`v2-service-pick-chip__check ${
-                              isSel ? 'v2-service-pick-chip__check--checked' : ''
-                            }`}
-                          >
-                            {isSel && <Check size={12} />}
-                          </span>
-                          <span className="v2-service-pick-chip__name">{p.name}</span>
-                        </div>
-                        <span className="v2-service-pick-chip__price">
-                          ${Number(p.price).toFixed(2)}
-                        </span>
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown panel when searching services */}
+                  {serviceSearch.trim().length > 0 && (
+                    <div className="v2-search-dropdown-panel">
+                      <div className="v2-search-dropdown-header">
+                        <span>Matching Services ({serviceResults.length})</span>
+                        {serviceResults.length > 0 && (
+                          <span className="v2-search-dropdown-badge">Tap to toggle</span>
+                        )}
                       </div>
-                    );
-                  })}
+
+                      {isSearchingServices ? (
+                        <div className="v2-search-item-empty">
+                          <RefreshCw size={14} className="v2-spin inline mr-2 text-purple-600" />
+                          <span>Searching services for "{serviceSearch.trim()}"...</span>
+                        </div>
+                      ) : serviceResults.length === 0 ? (
+                        <div className="v2-search-item-empty">
+                          <span>No matching services or products found for "{serviceSearch.trim()}"</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="v2-search-dropdown-list">
+                            {serviceResults.map((p) => {
+                              const isSel = selectedServices.some((s) => s.id === p.id);
+                              return (
+                                <div
+                                  key={p.id}
+                                  className={`v2-search-item ${isSel ? 'v2-search-item--selected' : ''
+                                    }`}
+                                  onClick={() => handleToggleService(p)}
+                                >
+                                  <div className="v2-search-item__left">
+                                    <span
+                                      className={`v2-service-pick-chip__check ${isSel ? 'v2-service-pick-chip__check--checked' : ''
+                                        }`}
+                                    >
+                                      {isSel && <Check size={12} />}
+                                    </span>
+                                    <div className="v2-search-item__info">
+                                      <span className="v2-search-item__title">{p.name}</span>
+                                      <span className="v2-search-item__sub">
+                                        {p.product_type || 'Service'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <span className="v2-search-item__price">
+                                    ${Number(p.price).toFixed(2)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {serviceResults.length > 5 && (
+                            <div className="v2-search-dropdown-footer">
+                              ↕ Scroll for more ({serviceResults.length} services found)
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
+
+                {/* Selected Services Display */}
+                {selectedServices.length > 0 ? (
+                  <div className="v2-selected-services-wrap">
+                    <span className="v2-selected-services-title">
+                      Selected Services ({selectedServices.length}):
+                    </span>
+                    <div className="v2-selected-services-chips">
+                      {selectedServices.map((p) => (
+                        <div key={p.id} className="v2-selected-service-chip">
+                          <span>{p.name}</span>
+                          <span className="v2-selected-service-chip__price">
+                            ${Number(p.price).toFixed(2)}
+                          </span>
+                          <button
+                            type="button"
+                            className="v2-selected-service-chip__remove"
+                            title="Remove service"
+                            onClick={() => handleRemoveService(p.id)}
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : !serviceSearch.trim() ? (
+                  <div className="v2-hint-tip">
+                    <Briefcase size={13} className="text-slate-400" />
+                    <span>Type service or product name above to search and add services.</span>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -1817,9 +1617,8 @@ function TimeSlotFilterModal({
             </button>
             <button
               type="button"
-              className={`v2-filter-tab-btn ${
-                filterStatus === 'available' ? 'v2-filter-tab-btn--active' : ''
-              }`}
+              className={`v2-filter-tab-btn ${filterStatus === 'available' ? 'v2-filter-tab-btn--active' : ''
+                }`}
               onClick={() => onFilterChange('available')}
             >
               Available Only
@@ -1886,6 +1685,7 @@ interface AppointmentDetailsV2ModalProps {
   timeFormat: '12' | '24';
   onClose: () => void;
   onStartService: () => void;
+  onContinueService: () => void;
   onStatusChange: (newStatus: AppointmentStatus) => void;
   onDelete: () => void;
 }
@@ -1895,6 +1695,7 @@ function AppointmentDetailsV2Modal({
   timeFormat,
   onClose,
   onStartService,
+  onContinueService,
   onStatusChange,
   onDelete,
 }: AppointmentDetailsV2ModalProps) {
@@ -1902,135 +1703,255 @@ function AppointmentDetailsV2Modal({
 
   return (
     <div className="v2-modal-overlay" onClick={onClose}>
-      <div className="v2-modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
-        <div className="v2-modal__header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h3 className="v2-modal__title">Appointment #{appt.id}</h3>
-            <span className={`v2-status-pill v2-status-pill--${statusMeta.key}`}>
-              {statusMeta.label}
-            </span>
+      <div
+        className="v2-modal v2-appt-details-modal"
+        style={{ maxWidth: 580 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ── Modal Header: Unique Modern Redesign (Requirement 1) ── */}
+        <div className="v2-modal__header v2-appt-modal-header">
+          <div className="v2-appt-modal-header__main">
+            {/* Header Icon Badge */}
+            <div className="v2-appt-modal-header__badge">
+              <CalendarCheck2 size={22} className="v2-appt-modal-header__badge-icon" />
+            </div>
+
+            {/* Title & Metadata */}
+            <div className="v2-appt-modal-header__titles">
+              <div className="v2-appt-modal-header__row">
+                <h3 className="v2-appt-modal-heading">Appointment</h3>
+                <span className="v2-appt-id-pill" title={`Appointment ID: #${appt.id}`}>
+                  <Tag size={12} className="v2-appt-id-icon" />
+                  <span>#{appt.id}</span>
+                </span>
+                <span className={`v2-status-pill v2-status-pill--${statusMeta.key}`}>
+                  {statusMeta.label}
+                </span>
+              </div>
+              <p className="v2-appt-modal-sub">
+                <span className="v2-appt-modal-sub-item">
+                  <CalendarIcon size={12} />
+                  <span>{formatDatePretty(appt.appointment_date)}</span>
+                </span>
+                <span className="v2-appt-modal-sub-sep">•</span>
+                <span className="v2-appt-modal-sub-item">
+                  <Clock size={12} />
+                  <span>{formatTimeSlotLabel(appt.start_time, appt.end_time, timeFormat)}</span>
+                </span>
+              </p>
+            </div>
           </div>
-          <button type="button" className="v2-modal__close-btn" onClick={onClose}>
+
+          <button
+            type="button"
+            className="v2-modal__close-btn"
+            onClick={onClose}
+            aria-label="Close dialog"
+          >
             <X size={18} />
           </button>
         </div>
 
-        <div className="v2-modal__body">
-          <div className="v2-slot-details-grid">
-            <div className="v2-detail-item">
-              <span className="v2-detail-label">Customer</span>
-              <span className="v2-detail-value">{appt.customer_name || 'Walk-in Guest'}</span>
+        {/* ── Modal Body: Organized Cards with Icons (Requirement 2) ── */}
+        <div className="v2-modal__body v2-appt-modal-body">
+          {/* Section 1: Core Details Grid with Dedicated Icons */}
+          <div className="v2-details-card-grid">
+            {/* Customer Name */}
+            <div className="v2-detail-card">
+              <div className="v2-detail-card__icon-wrap v2-detail-card__icon-wrap--customer">
+                <User size={16} />
+              </div>
+              <div className="v2-detail-card__content">
+                <span className="v2-detail-card__label">Customer Name</span>
+                <span className="v2-detail-card__value" title={appt.customer_name || 'Walk-in Guest'}>
+                  {appt.customer_name || 'Walk-in Guest'}
+                </span>
+              </div>
             </div>
-            <div className="v2-detail-item">
-              <span className="v2-detail-label">Phone</span>
-              <span className="v2-detail-value">{appt.customer_phone || 'None'}</span>
+
+            {/* Phone Number */}
+            <div className="v2-detail-card">
+              <div className="v2-detail-card__icon-wrap v2-detail-card__icon-wrap--phone">
+                <Phone size={16} />
+              </div>
+              <div className="v2-detail-card__content">
+                <span className="v2-detail-card__label">Phone Number</span>
+                <span className="v2-detail-card__value">
+                  {appt.customer_phone ? (
+                    <a
+                      href={`tel:${appt.customer_phone}`}
+                      className="v2-detail-link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {appt.customer_phone}
+                    </a>
+                  ) : (
+                    <span style={{ color: '#94a3b8' }}>None</span>
+                  )}
+                </span>
+              </div>
             </div>
-            <div className="v2-detail-item">
-              <span className="v2-detail-label">Staff</span>
-              <span className="v2-detail-value">{appt.staff_name}</span>
+
+            {/* Assigned Staff */}
+            <div className="v2-detail-card">
+              <div className="v2-detail-card__icon-wrap v2-detail-card__icon-wrap--staff">
+                <Briefcase size={16} />
+              </div>
+              <div className="v2-detail-card__content">
+                <span className="v2-detail-card__label">Assigned Staff</span>
+                <span className="v2-detail-card__value" title={appt.staff_name}>
+                  {appt.staff_name}
+                </span>
+              </div>
             </div>
-            <div className="v2-detail-item">
-              <span className="v2-detail-label">Date</span>
-              <span className="v2-detail-value">{formatDatePretty(appt.appointment_date)}</span>
+
+            {/* Appointment Date */}
+            <div className="v2-detail-card">
+              <div className="v2-detail-card__icon-wrap v2-detail-card__icon-wrap--date">
+                <CalendarIcon size={16} />
+              </div>
+              <div className="v2-detail-card__content">
+                <span className="v2-detail-card__label">Appointment Date</span>
+                <span className="v2-detail-card__value">
+                  {formatDatePretty(appt.appointment_date)}
+                </span>
+              </div>
             </div>
-            <div className="v2-detail-item">
-              <span className="v2-detail-label">Time</span>
-              <span className="v2-detail-value">
-                {formatTimeSlotLabel(appt.start_time, appt.end_time, timeFormat)}
-              </span>
+
+            {/* Scheduled Time */}
+            <div className="v2-detail-card">
+              <div className="v2-detail-card__icon-wrap v2-detail-card__icon-wrap--time">
+                <Clock size={16} />
+              </div>
+              <div className="v2-detail-card__content">
+                <span className="v2-detail-card__label">Scheduled Time</span>
+                <span className="v2-detail-card__value">
+                  {formatTimeSlotLabel(appt.start_time, appt.end_time, timeFormat)}
+                </span>
+              </div>
             </div>
-            <div className="v2-detail-item">
-              <span className="v2-detail-label">Total Amount</span>
-              <span className="v2-detail-value">
-                ${Number(appt.total_amount || 0).toFixed(2)}
-              </span>
+
+            {/* Total Payment */}
+            <div className="v2-detail-card">
+              <div className="v2-detail-card__icon-wrap v2-detail-card__icon-wrap--payment">
+                <CreditCard size={16} />
+              </div>
+              <div className="v2-detail-card__content">
+                <span className="v2-detail-card__label">Total Payment</span>
+                <span className="v2-detail-card__value v2-detail-card__value--price">
+                  ${Number(appt.total_amount || 0).toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Services list */}
+          {/* Section 2: Services Included with Icons */}
           <div className="v2-field-group">
-            <label className="v2-field-label">Services Included</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="v2-field-label-row">
+              <div className="v2-field-label-with-icon">
+                <Scissors size={15} className="v2-field-label-icon" />
+                <span className="v2-field-label" style={{ marginBottom: 0 }}>Services Included</span>
+              </div>
+              {(appt.services || []).length > 0 && (
+                <span className="v2-field-count-pill">
+                  {appt.services.length} {appt.services.length === 1 ? 'item' : 'items'}
+                </span>
+              )}
+            </div>
+
+            <div className="v2-services-card-list">
               {(appt.services || []).length > 0 ? (
                 appt.services.map((s, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      padding: '8px 12px',
-                      background: '#f8fafc',
-                      borderRadius: 6,
-                      fontSize: 13,
-                    }}
-                  >
-                    <span>{s.name || s.product_name}</span>
-                    <span style={{ fontWeight: 600 }}>${Number(s.price || 0).toFixed(2)}</span>
+                  <div key={idx} className="v2-service-item-row">
+                    <div className="v2-service-item-info">
+                      <span className="v2-service-item-dot" />
+                      <span className="v2-service-item-name">{s.name || s.product_name}</span>
+                    </div>
+                    <span className="v2-service-item-price">
+                      ${Number(s.price || 0).toFixed(2)}
+                    </span>
                   </div>
                 ))
               ) : (
-                <span style={{ fontSize: 13, color: '#64748b' }}>General Service</span>
+                <div className="v2-service-item-row v2-service-item-row--empty">
+                  <div className="v2-service-item-info">
+                    <Tag size={14} style={{ color: '#94a3b8' }} />
+                    <span className="v2-service-item-name">General Service</span>
+                  </div>
+                  <span className="v2-service-item-price">
+                    ${Number(appt.total_amount || 0).toFixed(2)}
+                  </span>
+                </div>
               )}
             </div>
           </div>
 
+          {/* Section 3: Appointment Notes */}
           {appt.notes && (
             <div className="v2-field-group">
-              <label className="v2-field-label">Appointment Notes</label>
-              <p style={{ margin: 0, fontSize: 13, color: '#334155', background: '#f8fafc', padding: 10, borderRadius: 6 }}>
-                {appt.notes}
-              </p>
+              <div className="v2-field-label-with-icon">
+                <FileText size={15} className="v2-field-label-icon" />
+                <span className="v2-field-label" style={{ marginBottom: 0 }}>Appointment Notes</span>
+              </div>
+              <div className="v2-notes-box">
+                <FileText size={15} className="v2-notes-icon" />
+                <p className="v2-notes-text">{appt.notes}</p>
+              </div>
             </div>
           )}
 
-          {/* Status Change Controls */}
+          {/* Section 4: Status Change Controls with Status Icons */}
           <div className="v2-field-group">
-            <label className="v2-field-label">Change Status</label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className="v2-field-label-with-icon">
+              <RefreshCw size={14} className="v2-field-label-icon" />
+              <span className="v2-field-label" style={{ marginBottom: 0 }}>Change Status</span>
+            </div>
+            <div className="v2-status-actions-grid">
               <button
                 type="button"
-                className="v2-btn v2-btn--secondary"
-                style={{ fontSize: 12, padding: '5px 10px' }}
+                className={`v2-status-action-btn v2-status-action-btn--booked ${appt.status === 'booked' ? 'is-active' : ''}`}
                 onClick={() => onStatusChange('booked')}
               >
-                Mark Booked
+                <Clock size={13} />
+                <span>Booked</span>
               </button>
               <button
                 type="button"
-                className="v2-btn v2-btn--secondary"
-                style={{ fontSize: 12, padding: '5px 10px', color: '#b45309' }}
+                className={`v2-status-action-btn v2-status-action-btn--in_service ${appt.status === 'in_service' ? 'is-active' : ''}`}
                 onClick={() => onStatusChange('in_service')}
               >
-                In Service
+                <Play size={13} />
+                <span>In Service</span>
               </button>
               <button
                 type="button"
-                className="v2-btn v2-btn--secondary"
-                style={{ fontSize: 12, padding: '5px 10px', color: '#047857' }}
+                className={`v2-status-action-btn v2-status-action-btn--completed ${appt.status === 'completed' ? 'is-active' : ''}`}
                 onClick={() => onStatusChange('completed')}
               >
-                Completed
+                <CheckCircle2 size={13} />
+                <span>Completed</span>
               </button>
               <button
                 type="button"
-                className="v2-btn v2-btn--secondary"
-                style={{ fontSize: 12, padding: '5px 10px', color: '#b91c1c' }}
+                className={`v2-status-action-btn v2-status-action-btn--no_show ${appt.status === 'no_show' ? 'is-active' : ''}`}
                 onClick={() => onStatusChange('no_show')}
               >
-                No Show
+                <UserX size={13} />
+                <span>No Show</span>
               </button>
               <button
                 type="button"
-                className="v2-btn v2-btn--secondary"
-                style={{ fontSize: 12, padding: '5px 10px', color: '#64748b' }}
+                className={`v2-status-action-btn v2-status-action-btn--cancelled ${appt.status === 'cancelled' ? 'is-active' : ''}`}
                 onClick={() => onStatusChange('cancelled')}
               >
-                Cancelled
+                <XCircle size={13} />
+                <span>Cancelled</span>
               </button>
             </div>
           </div>
         </div>
 
+        {/* ── Modal Footer ── */}
         <div className="v2-modal__footer" style={{ justifyContent: 'space-between' }}>
           <button
             type="button"
@@ -2044,13 +1965,32 @@ function AppointmentDetailsV2Modal({
 
           <div style={{ display: 'flex', gap: 10 }}>
             {appt.status === 'booked' && (
-              <button type="button" className="v2-btn v2-btn--primary" onClick={onStartService}>
+              <button
+                type="button"
+                className="v2-btn v2-btn--primary"
+                onClick={onStartService}
+              >
                 <Play size={15} />
                 <span>Start Service</span>
               </button>
             )}
-            <button type="button" className="v2-btn v2-btn--secondary" onClick={onClose}>
-              Done
+            {appt.status === 'in_service' && (
+              <button
+                type="button"
+                className="v2-btn v2-btn--primary"
+                onClick={onContinueService}
+              >
+                <ArrowRight size={15} />
+                <span>Continue Service</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="v2-btn v2-btn--secondary"
+              onClick={onClose}
+            >
+              <Check size={15} />
+              <span>Done</span>
             </button>
           </div>
         </div>

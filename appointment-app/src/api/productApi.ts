@@ -44,6 +44,11 @@ export const productApi = {
   getAll: (params?: ProductQueryParams) =>
     axiosClient.get<{ data: Product[] }>('/products', { params }),
 
+  search: (keyword: string) =>
+    axiosClient.get<{ success: boolean; count: number; data: Product[] }>('/products/search', {
+      params: { q: keyword },
+    }),
+
   create: (data: ProductPayload) =>
     axiosClient.post('/products', data),
 

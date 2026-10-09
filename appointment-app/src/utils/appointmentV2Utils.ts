@@ -66,17 +66,17 @@ export const V2_STATUS_MAP: Record<V2StatusKey, StatusMeta> = {
     bg: '#fef2f2',
     border: '#ef4444',
     badgeBg: '#fee2e2',
-    badgeText: '#991b1b',
+    badgeText: '#dc2626',
   },
   cancelled: {
     key: 'cancelled',
     label: 'Cancelled',
     colorName: 'Grey',
-    color: '#64748b',
-    bg: '#f8fafc',
-    border: '#94a3b8',
-    badgeBg: '#f1f5f9',
-    badgeText: '#475569',
+    color: '#6b7280',
+    bg: '#f9fafb',
+    border: '#d1d5db',
+    badgeBg: '#f3f4f6',
+    badgeText: '#4b5563',
   },
 };
 

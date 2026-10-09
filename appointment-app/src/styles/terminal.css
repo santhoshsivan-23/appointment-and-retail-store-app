@@ -221,6 +221,7 @@
   flex: 1;
   display: flex;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* ========================================================
@@ -417,8 +418,14 @@
   flex-direction: column;
 }
 
-.terminal-viewport:has(.appointment-view) {
-  overflow: hidden;
+.terminal-viewport:has(.appointment-view),
+.terminal-viewport:has(.appointment-v2-container),
+.terminal-viewport:has([data-purpose="appointment-v2-screen"]),
+.terminal-viewport--no-scroll {
+  overflow: hidden !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
 }
 
 /* ========================================================

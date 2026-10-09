@@ -61,7 +61,11 @@ export default function MainTerminalShell() {
           onSelectTab={(idx) => setCurrentTab(idx)}
         />
 
-        <main className="terminal-viewport">
+        <main
+          className={`terminal-viewport ${
+            currentTab === 1 || currentTab === 10 ? 'terminal-viewport--no-scroll' : ''
+          }`}
+        >
           {currentTab === 0 ? (
             <DashboardView onNavigate={(idx) => setCurrentTab(idx)} />
           ) : currentTab === 1 ? (

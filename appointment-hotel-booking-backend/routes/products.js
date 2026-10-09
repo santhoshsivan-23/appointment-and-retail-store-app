@@ -19,6 +19,23 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Dedicated Product / Service Search API
+// Accepts keyword via ?q=..., ?search=..., or ?keyword=...
+router.get('/search', async (req, res) => {
+  try {
+    const q = (req.query.q || req.query.keyword || req.query.search || '').trim();
+    if (!q) {
+      return res.json({ success: true, count: 0, data: [] });
+    }
+    const businessId = req.business ? req.business.id : 1;
+    const { category_id, product_type } = req.query;
+    const products = await getProducts(businessId, category_id, product_type, q);
+    res.json({ success: true, count: products.length, data: products });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Create product (normal, modifier, combo)
 router.post('/', async (req, res) => {
   try {
