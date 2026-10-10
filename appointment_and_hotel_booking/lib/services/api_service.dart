@@ -238,6 +238,8 @@ class ApiService {
     return [];
   }
 
+  static Future<List<CustomerModel>> searchCustomers(String query) => getCustomers(search: query);
+
   static Future<CustomerModel?> createCustomer(Map<String, dynamic> data) async {
     try {
       final baseUrl = await getBaseUrl();
@@ -360,9 +362,29 @@ class ApiService {
     }
   }
 
+  /// Dedicated search products / services endpoint with fallback to getProducts
+  static Future<List<ProductModel>> searchProducts(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+    try {
+      final baseUrl = await getBaseUrl();
+      final uri = Uri.parse('$baseUrl/products/search').replace(queryParameters: {'q': q});
+      final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List? ?? []);
+        return list.map((x) => ProductModel.fromJson(Map<String, dynamic>.from(x))).toList();
+      }
+    } catch (e) {
+      debugPrint('Error in searchProducts, falling back: $e');
+    }
+    return getProducts(search: q);
+  }
+
   // Appointment APIs
   static Future<List<AppointmentModel>> getAppointments({
     String? date,
+    int? staffId,
     String? search,
     String? status,
   }) async {
@@ -370,6 +392,7 @@ class ApiService {
       final baseUrl = await getBaseUrl();
       final params = <String, String>{};
       if (date != null && date.isNotEmpty) params['date'] = date;
+      if (staffId != null) params['staff_id'] = staffId.toString();
       if (search != null && search.trim().isNotEmpty) params['search'] = search.trim();
       if (status != null && status.isNotEmpty) params['status'] = status;
 
@@ -477,11 +500,72 @@ class ApiService {
       final res = await http.delete(
         Uri.parse('$baseUrl/appointments/$id'),
         headers: await _getHeaders(),
-      );
+      ).timeout(const Duration(seconds: 8));
       return res.statusCode == 200;
     } catch (e) {
       debugPrint('Error deleting appointment: $e');
       return false;
+    }
+  }
+
+  /// Get appointment by ID
+  static Future<AppointmentModel?> getAppointmentById(int id) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.get(
+        Uri.parse('$baseUrl/appointments/$id'),
+        headers: await _getHeaders(),
+      ).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['data'] != null) {
+          return AppointmentModel.fromJson(Map<String, dynamic>.from(body['data']));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting appointment by id: $e');
+    }
+    return null;
+  }
+
+  /// Check appointment conflict against server database
+  static Future<CheckConflictResult> checkConflict({
+    required int staffId,
+    required String appointmentDate,
+    required String startTime,
+    required String endTime,
+    int? excludeId,
+  }) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final payload = <String, dynamic>{
+        'staff_id': staffId,
+        'appointment_date': appointmentDate,
+        'start_time': startTime,
+        'end_time': endTime,
+      };
+      if (excludeId != null) {
+        payload['exclude_id'] = excludeId;
+      }
+      final res = await http.post(
+        Uri.parse('$baseUrl/appointments/check-conflict'),
+        headers: await _getHeaders(),
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 8));
+
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        return CheckConflictResult.fromJson(Map<String, dynamic>.from(body));
+      } else {
+        final body = jsonDecode(res.body);
+        return CheckConflictResult(
+          hasConflict: false,
+          message: body['message'] ?? 'Conflict check returned status ${res.statusCode}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error checking appointment conflict: $e');
+      return CheckConflictResult(hasConflict: false, message: e.toString());
     }
   }
 

@@ -10,6 +10,7 @@ import '../services/auth_storage.dart';
 import '../theme/app_theme.dart';
 import '../views/appointment_config_view.dart';
 import '../views/appointment_history_view.dart';
+import '../views/appointment_v2/appointment_v2_view.dart';
 import '../views/appointment_view.dart';
 import '../views/cart_view.dart';
 import '../views/categories_view.dart';
@@ -45,6 +46,7 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
   String? _preloadStaffName;
   int _cartKey = 0; // Force CartView rebuild when preloading
   int _appointmentKey = 1; // Force AppointmentView reload on navigation
+  int _appointmentV2Key = 1; // Force AppointmentV2View reload on navigation
   int _staffKey = 1; // Force StaffView reload on navigation
   int _appointmentHistoryKey = 1; // Force AppointmentHistoryView reload on navigation
   int _salesHistoryKey = 1; // Force SalesHistoryView reload on navigation
@@ -153,6 +155,7 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
         _cartKey++;
       }
       if (idx == 1) _appointmentKey++;
+      if (idx == 10) _appointmentV2Key++;
       if (idx == 2) _staffKey++;
       if (idx == 3) _appointmentHistoryKey++;
       if (idx == 5) _salesHistoryKey++;
@@ -162,16 +165,17 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
   }
 
   final List<Map<String, dynamic>> _navItems = [
-    {'title': 'Dashboard', 'icon': Icons.dashboard_outlined, 'activeIcon': Icons.dashboard},
-    {'title': 'Appointment', 'icon': Icons.calendar_month_outlined, 'activeIcon': Icons.calendar_month},
-    {'title': 'Staff', 'icon': Icons.people_alt_outlined, 'activeIcon': Icons.people_alt},
-    {'title': 'Appointment History', 'icon': Icons.history_edu_outlined, 'activeIcon': Icons.history_edu},
-    {'title': 'Cart & POS', 'icon': Icons.shopping_cart_outlined, 'activeIcon': Icons.shopping_cart},
-    {'title': 'Sales History', 'icon': Icons.receipt_long_outlined, 'activeIcon': Icons.receipt_long},
-    {'title': 'Categories', 'icon': Icons.category_outlined, 'activeIcon': Icons.category},
-    {'title': 'Products', 'icon': Icons.inventory_2_outlined, 'activeIcon': Icons.inventory_2},
-    {'title': 'Appointment Config', 'icon': Icons.tune_outlined, 'activeIcon': Icons.tune},
-    {'title': 'Settings', 'icon': Icons.settings_outlined, 'activeIcon': Icons.settings},
+    {'id': 0, 'title': 'Dashboard', 'icon': Icons.dashboard_outlined, 'activeIcon': Icons.dashboard},
+    {'id': 1, 'title': 'Appointment', 'icon': Icons.calendar_month_outlined, 'activeIcon': Icons.calendar_month},
+    {'id': 10, 'title': 'Appointment V2', 'icon': Icons.calendar_view_week_outlined, 'activeIcon': Icons.calendar_view_week},
+    {'id': 2, 'title': 'Staff', 'icon': Icons.people_alt_outlined, 'activeIcon': Icons.people_alt},
+    {'id': 3, 'title': 'Appointment History', 'icon': Icons.history_edu_outlined, 'activeIcon': Icons.history_edu},
+    {'id': 4, 'title': 'Cart & POS', 'icon': Icons.shopping_cart_outlined, 'activeIcon': Icons.shopping_cart},
+    {'id': 5, 'title': 'Sales History', 'icon': Icons.receipt_long_outlined, 'activeIcon': Icons.receipt_long},
+    {'id': 6, 'title': 'Categories', 'icon': Icons.category_outlined, 'activeIcon': Icons.category},
+    {'id': 7, 'title': 'Products', 'icon': Icons.inventory_2_outlined, 'activeIcon': Icons.inventory_2},
+    {'id': 8, 'title': 'Appointment Config', 'icon': Icons.tune_outlined, 'activeIcon': Icons.tune},
+    {'id': 9, 'title': 'Settings', 'icon': Icons.settings_outlined, 'activeIcon': Icons.settings},
   ];
 
   void _handleLogout() {
@@ -271,6 +275,19 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                           onToggleHeader: _toggleHeader,
                           onToggleFooter: _toggleFooter,
                           onToggleFullscreen: _toggleFullscreen,
+                        ),
+                        AppointmentV2View(
+                          key: ValueKey('appointment_v2_$_appointmentV2Key'),
+                          onStartService: (customer, products, {AppointmentModel? appointment}) {
+                            setState(() {
+                              _preloadCustomer = customer;
+                              _preloadProducts = products;
+                              _preloadAppointmentId = appointment?.id;
+                              _preloadStaffName = appointment?.staffName;
+                              _cartKey++;
+                              _currentIndex = 4; // Switch to Cart tab
+                            });
+                          },
                         ),
                       ],
                     ),
@@ -508,7 +525,8 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
               separatorBuilder: (context, index) => const SizedBox(height: 6),
               itemBuilder: (context, idx) {
                 final item = _navItems[idx];
-                final isSelected = _currentIndex == idx;
+                final id = (item['id'] as int?) ?? idx;
+                final isSelected = _currentIndex == id;
 
                 if (!_isSidebarExpanded) {
                   // Collapsed Rail Item with Tooltip: White card container / Active light theme card
@@ -517,7 +535,7 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                     preferBelow: false,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),
-                      onTap: () => _navigateToTab(idx),
+                      onTap: () => _navigateToTab(id),
                       child: Container(
                         height: 46,
                         decoration: BoxDecoration(
@@ -553,7 +571,7 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                 // Active option: light background using theme colour, theme border, black text for clear readability
                 return InkWell(
                   borderRadius: BorderRadius.circular(10),
-                  onTap: () => _navigateToTab(idx),
+                  onTap: () => _navigateToTab(id),
                   child: Container(
                     height: 46,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
