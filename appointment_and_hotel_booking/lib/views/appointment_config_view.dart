@@ -455,19 +455,25 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
                     // 5. Terminal Policies
                     Text('5. Terminal Policies', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    SwitchListTile(
-                      title: Text('Allow Instant Walk-in Queue Insertion', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: Text('Allows front desk to slot walk-in patients immediately between scheduled appointments.', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant)),
-                      value: _allowWalkInQueue,
-                      activeThumbColor: AppTheme.primary,
-                      onChanged: (v) => setState(() => _allowWalkInQueue = v),
+                    Material(
+                      type: MaterialType.transparency,
+                      child: SwitchListTile(
+                        title: Text('Allow Instant Walk-in Queue Insertion', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+                        subtitle: Text('Allows front desk to slot walk-in patients immediately between scheduled appointments.', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant)),
+                        value: _allowWalkInQueue,
+                        activeThumbColor: AppTheme.primary,
+                        onChanged: (v) => setState(() => _allowWalkInQueue = v),
+                      ),
                     ),
-                    SwitchListTile(
-                      title: Text('Enforce Post-Consultation Notes', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: Text('Requires clinician to record observation notes before marking appointment completed.', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant)),
-                      value: _requireDoctorNotes,
-                      activeThumbColor: AppTheme.primary,
-                      onChanged: (v) => setState(() => _requireDoctorNotes = v),
+                    Material(
+                      type: MaterialType.transparency,
+                      child: SwitchListTile(
+                        title: Text('Enforce Post-Consultation Notes', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+                        subtitle: Text('Requires clinician to record observation notes before marking appointment completed.', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant)),
+                        value: _requireDoctorNotes,
+                        activeThumbColor: AppTheme.primary,
+                        onChanged: (v) => setState(() => _requireDoctorNotes = v),
+                      ),
                     ),
                     const Divider(height: 32),
 
@@ -476,12 +482,15 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
                     const SizedBox(height: 8),
                     Text('Controls whether appointments that are currently In Service can be deleted directly:', style: GoogleFonts.inter(fontSize: 12.5, color: AppTheme.onSurfaceVariant)),
                     const SizedBox(height: 12),
-                    SwitchListTile(
-                      title: Text('Enable Delete Service for In-Service Appointments', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: Text('When enabled, a Delete option is displayed with a confirmation dialog for appointments currently In Service.', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant)),
-                      value: _allowDeleteService,
-                      activeThumbColor: AppTheme.error,
-                      onChanged: (v) => setState(() => _allowDeleteService = v),
+                    Material(
+                      type: MaterialType.transparency,
+                      child: SwitchListTile(
+                        title: Text('Enable Delete Service for In-Service Appointments', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+                        subtitle: Text('When enabled, a Delete option is displayed with a confirmation dialog for appointments currently In Service.', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant)),
+                        value: _allowDeleteService,
+                        activeThumbColor: AppTheme.error,
+                        onChanged: (v) => setState(() => _allowDeleteService = v),
+                      ),
                     ),
                     const Divider(height: 32),
 
@@ -490,17 +499,20 @@ class _AppointmentConfigViewState extends State<AppointmentConfigView> {
                     const SizedBox(height: 8),
                     Text('Controls the time selection mode inside the Add Appointment (V2) popup:', style: GoogleFonts.inter(fontSize: 12.5, color: AppTheme.onSurfaceVariant)),
                     const SizedBox(height: 12),
-                    SwitchListTile(
-                      title: Text('Time Selection Mode', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: Text(
-                        _appointmentV2Clock
-                            ? 'Toggle ON: Use the currently implemented scrolling time selector in the Add Appointment (V2) popup.'
-                            : 'Toggle OFF: Use the clock-based time selector in the Add Appointment (V2) popup.',
-                        style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant),
+                    Material(
+                      type: MaterialType.transparency,
+                      child: SwitchListTile(
+                        title: Text('Time Selection Mode', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+                        subtitle: Text(
+                          _appointmentV2Clock
+                              ? 'Toggle ON: Use the currently implemented scrolling time selector in the Add Appointment (V2) popup.'
+                              : 'Toggle OFF: Use the clock-based time selector in the Add Appointment (V2) popup.',
+                          style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant),
+                        ),
+                        value: _appointmentV2Clock,
+                        activeThumbColor: AppTheme.primary,
+                        onChanged: (v) => setState(() => _appointmentV2Clock = v),
                       ),
-                      value: _appointmentV2Clock,
-                      activeThumbColor: AppTheme.primary,
-                      onChanged: (v) => setState(() => _appointmentV2Clock = v),
                     ),
                     const SizedBox(height: 24),
 

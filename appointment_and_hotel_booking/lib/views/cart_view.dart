@@ -58,6 +58,21 @@ class _CartViewState extends State<CartView> {
     super.initState();
     _currentAppointmentId = widget.preloadAppointmentId;
     _currentStaffName = widget.preloadStaffName;
+    if (widget.preloadCustomer != null || _currentAppointmentId != null) {
+      _selectedCustomer = (widget.preloadCustomer != null && widget.preloadCustomer!.name.isNotEmpty && widget.preloadCustomer!.name != 'Walk-in')
+          ? widget.preloadCustomer
+          : null;
+      if (widget.preloadProducts != null && widget.preloadProducts!.isNotEmpty) {
+        for (final p in widget.preloadProducts!) {
+          final idx = _cart.indexWhere((it) => it.product.id == p.id);
+          if (idx != -1) {
+            _cart[idx].quantity++;
+          } else {
+            _cart.add(CartItem(product: p, quantity: 1));
+          }
+        }
+      }
+    }
     _loadInitialData();
   }
 
@@ -77,28 +92,6 @@ class _CartViewState extends State<CartView> {
       _availableProducts = prods;
       _customers = custs;
       _categories = cats;
-
-      _cart.clear();
-      if (widget.preloadCustomer != null || _currentAppointmentId != null) {
-        _selectedCustomer = (widget.preloadCustomer != null && widget.preloadCustomer!.name.isNotEmpty && widget.preloadCustomer!.name != 'Walk-in')
-            ? widget.preloadCustomer
-            : null;
-        _tempNewCustomer = null;
-        if (widget.preloadProducts != null && widget.preloadProducts!.isNotEmpty) {
-          for (final p in widget.preloadProducts!) {
-            final idx = _cart.indexWhere((it) => it.product.id == p.id);
-            if (idx != -1) {
-              _cart[idx].quantity++;
-            } else {
-              _cart.add(CartItem(product: p, quantity: 1));
-            }
-          }
-        }
-      } else {
-        // Default: No customer selected -> Walk-in Customer flow
-        _selectedCustomer = null;
-        _tempNewCustomer = null;
-      }
       _isLoading = false;
     });
   }
@@ -859,7 +852,7 @@ class _CartViewState extends State<CartView> {
 
     if (_selectedCustomer != null) {
       // 1. Existing Customer (retrieved from API/database)
-      custId = _selectedCustomer!.id;
+      custId = (_selectedCustomer!.id != 0) ? _selectedCustomer!.id : null;
       custName = _selectedCustomer!.name;
       custPhone = _selectedCustomer!.phone;
     } else if (_tempNewCustomer != null) {
@@ -1127,10 +1120,6 @@ class _CartViewState extends State<CartView> {
   // =====================================================================
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
-    }
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Padding(
@@ -1150,16 +1139,18 @@ class _CartViewState extends State<CartView> {
                     BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 2)),
                   ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Category Tabs fully contained inside this card
-                    _buildCategoryTabs(),
-                    Divider(height: 1, color: Colors.grey.shade200),
-                    // Product Catalog Grid inside this card
-                    Expanded(child: _buildProductGrid()),
-                  ],
-                ),
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Category Tabs fully contained inside this card
+                          _buildCategoryTabs(),
+                          Divider(height: 1, color: Colors.grey.shade200),
+                          // Product Catalog Grid inside this card
+                          Expanded(child: _buildProductGrid()),
+                        ],
+                      ),
               ),
             ),
             const SizedBox(width: 16),
@@ -1502,7 +1493,14 @@ class _CartViewState extends State<CartView> {
                 children: [
                   const Icon(Icons.payments_outlined, size: 20),
                   const SizedBox(width: 8),
-                  Text('Proceed to Payment (\$${_grandTotal.toStringAsFixed(2)})', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold)),
+                  Flexible(
+                    child: Text(
+                      'Proceed to Payment (\$${_grandTotal.toStringAsFixed(2)})',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
                 ],
               ),
             ),

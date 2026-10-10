@@ -89,7 +89,13 @@ class AppointmentModel {
       })(),
       startTime: json['start_time'] ?? '',
       endTime: json['end_time'] ?? '',
-      status: json['status'] ?? 'booked',
+      status: (() {
+        final raw = (json['status'] ?? 'booked').toString().toLowerCase().trim().replaceAll('-', '_');
+        if (raw == 'inservice') return 'in_service';
+        if (raw == 'noshow') return 'no_show';
+        if (raw == 'canceled') return 'cancelled';
+        return raw;
+      })(),
       totalAmount: json['total_amount'] != null
           ? (double.tryParse(json['total_amount'].toString()) ?? 0.0)
           : 0.0,
@@ -149,11 +155,22 @@ class AppointmentModel {
   /// Formatted time range string
   String get timeRange => '$startTime - $endTime';
 
+  /// Typed list of service items
+  List<AppointmentServiceItem> get serviceItems =>
+      services.map((s) => AppointmentServiceItem.fromMap(s)).toList();
+
   /// Comma-separated summary of service names
   String get servicesSummary {
     if (services.isEmpty) return 'General Consultation / Service';
     return services.map((s) => (s['name'] ?? s['product_name'] ?? 'Service').toString()).join(', ');
   }
+
+  /// Status flags
+  bool get isBooked => status == 'booked';
+  bool get isInService => status == 'in_service';
+  bool get isCompleted => status == 'completed';
+  bool get isNoShow => status == 'no_show';
+  bool get isCancelled => status == 'cancelled';
 
   /// User-friendly status label
   String get statusLabel {
@@ -206,6 +223,111 @@ class AppointmentModel {
       services: services ?? this.services,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
+    );
+  }
+}
+
+/// Service item inside an appointment
+class AppointmentServiceItem {
+  final int? productId;
+  final int? id;
+  final String name;
+  final double price;
+  final int quantity;
+
+  AppointmentServiceItem({
+    this.productId,
+    this.id,
+    required this.name,
+    this.price = 0.0,
+    this.quantity = 1,
+  });
+
+  factory AppointmentServiceItem.fromMap(Map<String, dynamic> map) {
+    return AppointmentServiceItem(
+      productId: map['product_id'] is int
+          ? map['product_id']
+          : int.tryParse(map['product_id']?.toString() ?? ''),
+      id: map['id'] is int
+          ? map['id']
+          : int.tryParse(map['id']?.toString() ?? ''),
+      name: (map['name'] ?? map['product_name'] ?? 'Service').toString(),
+      price: map['price'] != null
+          ? (double.tryParse(map['price'].toString()) ?? 0.0)
+          : 0.0,
+      quantity: map['quantity'] is int
+          ? map['quantity']
+          : (int.tryParse(map['quantity']?.toString() ?? '1') ?? 1),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      if (productId != null) 'product_id': productId,
+      if (id != null) 'id': id,
+      'name': name,
+      'price': price,
+      'quantity': quantity,
+    };
+  }
+}
+
+/// Conflicting appointment representation returned by server conflict check
+class ConflictingAppointmentModel {
+  final int id;
+  final String customerName;
+  final String startTime;
+  final String endTime;
+  final String status;
+
+  ConflictingAppointmentModel({
+    required this.id,
+    required this.customerName,
+    required this.startTime,
+    required this.endTime,
+    required this.status,
+  });
+
+  factory ConflictingAppointmentModel.fromJson(Map<String, dynamic> json) {
+    return ConflictingAppointmentModel(
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
+      customerName: json['customer_name'] ?? 'Guest',
+      startTime: json['start_time'] ?? '',
+      endTime: json['end_time'] ?? '',
+      status: json['status'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'customer_name': customerName,
+    'start_time': startTime,
+    'end_time': endTime,
+    'status': status,
+  };
+}
+
+/// Result returned from conflict detection check
+class CheckConflictResult {
+  final bool hasConflict;
+  final ConflictingAppointmentModel? conflictingAppointment;
+  final String? message;
+
+  CheckConflictResult({
+    required this.hasConflict,
+    this.conflictingAppointment,
+    this.message,
+  });
+
+  factory CheckConflictResult.fromJson(Map<String, dynamic> json) {
+    return CheckConflictResult(
+      hasConflict: json['has_conflict'] == true || json['hasConflict'] == true,
+      conflictingAppointment: json['conflicting_appointment'] != null
+          ? ConflictingAppointmentModel.fromJson(
+              Map<String, dynamic>.from(json['conflicting_appointment']),
+            )
+          : null,
+      message: json['message']?.toString(),
     );
   }
 }
