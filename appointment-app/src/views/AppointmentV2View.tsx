@@ -576,6 +576,11 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
             setPrefilledAddSlot(null);
             setShowAddModal(true);
           }}
+          onSelectDate={(dateStr) => {
+            setSelectedDate(dateStr);
+            setCalendarViewDate(new Date(dateStr + 'T00:00:00'));
+            setExpandedApptId(null);
+          }}
         />
 
         {/* BEGIN: DashboardBody with 2 Independently Scrollable Columns */}
@@ -1722,7 +1727,6 @@ function AppointmentDetailsV2Modal({
     <div className="v2-modal-overlay" onClick={onClose}>
       <div
         className="v2-modal v2-appt-details-modal"
-        style={{ maxWidth: 580 }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Modal Header: Unique Modern Redesign (Requirement 1) ── */}

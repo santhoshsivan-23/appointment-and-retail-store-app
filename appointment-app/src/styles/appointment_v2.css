@@ -4040,16 +4040,22 @@ main.grid {
 
 @media (max-width: 1023px) {
   .appointment-v2-columns-row {
-    flex-direction: column !important;
-    overflow-y: auto !important;
+    flex-direction: row !important;
+    overflow: hidden !important;
+    gap: 0 !important;
   }
-  .appointment-v2-left-pane,
-  .appointment-v2-right-pane {
+  .appointment-v2-left-pane {
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
+    flex: 1 1 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    padding-right: 0 !important;
+  }
+  /* Requirement 2: Completely hide or remove the right-side calendar section in the mobile view */
+  .appointment-v2-right-pane {
+    display: none !important;
   }
 }
 
@@ -4548,3 +4554,1028 @@ main.grid {
   background-color: #e2e8f0 !important;
   color: #475569 !important;
 }
+
+/* ==========================================================================
+   APPOINTMENT V2: MOBILE VIEW UI IMPROVEMENTS
+   Comprehensive responsive styles for mobile devices (< 768px / < 640px)
+   Ensuring existing desktop layout and functionality remain 100% unchanged.
+   ========================================================================== */
+
+/* ── 1. Desktop vs Mobile Header Visibility ── */
+.v2-desktop-header {
+  display: flex !important;
+  width: 100% !important;
+}
+
+.v2-mobile-header {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .v2-desktop-header {
+    display: none !important;
+  }
+
+  .v2-mobile-header {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  /* Header Row 1: Staff Pill & Top Action Buttons */
+  .v2-mobile-header__row-top {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .v2-mobile-staff-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background-color: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 4px 10px 4px 4px !important;
+    border-radius: 12px !important;
+    min-width: 0 !important;
+    max-width: 65% !important;
+  }
+
+  .v2-mobile-staff-avatar {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    color: #ffffff !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+  }
+
+  .v2-mobile-staff-avatar-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+  }
+
+  .v2-mobile-staff-initials {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    user-select: none !important;
+  }
+
+  .v2-mobile-staff-info {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+  }
+
+  .v2-mobile-staff-name {
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    color: #0f172a !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .v2-mobile-switch-btn {
+    font-size: 10.5px !important;
+    font-weight: 600 !important;
+    color: #2563eb !important;
+    background-color: #eff6ff !important;
+    border: 1px solid #dbeafe !important;
+    padding: 2px 6px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    transition: background-color 0.15s ease !important;
+  }
+
+  .v2-mobile-switch-btn:hover {
+    background-color: #dbeafe !important;
+  }
+
+  .v2-mobile-action-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .v2-mobile-icon-btn {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 10px !important;
+    border: 1px solid #e2e8f0 !important;
+    background-color: #ffffff !important;
+    color: #475569 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+  }
+
+  .v2-mobile-icon-btn:hover {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+  }
+
+  .v2-mobile-icon-btn--active {
+    background-color: #eff6ff !important;
+    border-color: #93c5fd !important;
+    color: #1d4ed8 !important;
+  }
+
+  .v2-mobile-add-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    height: 32px !important;
+    padding: 0 10px !important;
+    border-radius: 10px !important;
+    border: none !important;
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 5px rgba(37, 99, 235, 0.2) !important;
+    white-space: nowrap !important;
+    transition: all 0.15s ease !important;
+  }
+
+  .v2-mobile-add-btn:active {
+    transform: scale(0.96) !important;
+  }
+
+  /* Header Row 2: Clickable Date Selector + View Switcher + Filter */
+  .v2-mobile-header__row-bottom {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  /* Requirement 3: Clickable Date Selector in Mobile Header */
+  .v2-mobile-date-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    background-color: #f8fafc !important;
+    border: 1.5px solid #dbeafe !important;
+    padding: 6px 10px !important;
+    border-radius: 10px !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+    transition: all 0.15s ease !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    max-width: fit-content !important;
+  }
+
+  .v2-mobile-date-pill:hover,
+  .v2-mobile-date-pill:active {
+    background-color: #eff6ff !important;
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12) !important;
+  }
+
+  .v2-mobile-date-text {
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .v2-mobile-today-chip {
+    background-color: #ecfdf5 !important;
+    color: #065f46 !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    padding: 1px 6px !important;
+    border-radius: 9999px !important;
+    border: 1px solid #a7f3d0 !important;
+    flex-shrink: 0 !important;
+  }
+
+  .v2-mobile-controls-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .v2-mobile-view-toggle {
+    display: flex !important;
+    align-items: center !important;
+    background-color: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 2px !important;
+    border-radius: 10px !important;
+    gap: 2px !important;
+  }
+
+  .v2-mobile-view-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 5px 8px !important;
+    border-radius: 8px !important;
+    border: 1px solid transparent !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: #64748b !important;
+    background: transparent !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+  }
+
+  .v2-mobile-view-btn--active-list {
+    background-color: #ffffff !important;
+    color: #e11d48 !important;
+    font-weight: 700 !important;
+    border-color: #fecdd3 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .v2-mobile-view-btn--active-grid {
+    background-color: #ffffff !important;
+    color: #059669 !important;
+    font-weight: 700 !important;
+    border-color: #a7f3d0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .v2-mobile-view-btn--active-time {
+    background-color: #ffffff !important;
+    color: #2563eb !important;
+    font-weight: 700 !important;
+    border-color: #bfdbfe !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .v2-mobile-filter-btn {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 10px !important;
+    border: 1px solid #e2e8f0 !important;
+    background-color: #ffffff !important;
+    color: #475569 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+  }
+
+  .v2-mobile-filter-btn:hover {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+  }
+
+  /* Customer Search on Mobile */
+  .v2-mobile-search-row {
+    width: 100% !important;
+    margin-top: 2px !important;
+  }
+  .v2-mobile-search-row .v2-top-search-wrap,
+  .v2-mobile-search-row .v2-top-search-box {
+    width: 100% !important;
+  }
+  .v2-mobile-search-row .v2-top-search-dropdown {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+  }
+}
+
+/* ── 2. Staff Selection – Mobile Card Layout (Requirement 1) ── */
+@media (max-width: 640px) {
+  .v2-staff-screen {
+    padding: 12px 12px 24px 12px !important;
+    box-sizing: border-box !important;
+  }
+
+  .v2-staff-header-card {
+    padding: 14px 16px !important;
+    margin-bottom: 14px !important;
+    border-radius: 16px !important;
+    gap: 12px !important;
+  }
+
+  .v2-staff-title {
+    font-size: 20px !important;
+  }
+
+  .v2-staff-subtitle {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    margin-top: 4px !important;
+  }
+
+  .v2-staff-header-right {
+    width: 100% !important;
+  }
+
+  .v2-staff-search-box {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 8px 12px !important;
+    border-radius: 12px !important;
+  }
+
+  /* Full screen width single-column responsive card grid without horizontal scroll */
+  .v2-staff-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  /* Clean responsive card layout */
+  .v2-staff-card {
+    min-height: auto !important;
+    padding: 14px 16px !important;
+    border-radius: 16px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  .v2-staff-card__top {
+    margin-bottom: 10px !important;
+  }
+
+  .v2-staff-avatar {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 12px !important;
+    font-size: 16px !important;
+  }
+
+  .v2-staff-card__name {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+  }
+
+  .v2-staff-card__role {
+    font-size: 12px !important;
+  }
+
+  .v2-staff-card__contact {
+    font-size: 11.5px !important;
+  }
+
+  .v2-staff-card__footer {
+    padding-top: 10px !important;
+    margin-top: 10px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* ── 3. List, Grid, and Time Layouts – Mobile Optimization (Requirement 4) ── */
+@media (max-width: 640px) {
+  /* Main Container Padding on Mobile */
+  .appointment-v2-inner-wrap {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    padding-top: 8px !important;
+    padding-bottom: 6px !important;
+  }
+
+  /* List View Optimization */
+  .v2-list-slot-card {
+    padding: 12px 14px !important;
+    border-radius: 14px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  .v2-list-slot-main-row {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    row-gap: 8px !important;
+    column-gap: 8px !important;
+    align-items: center !important;
+  }
+
+  .v2-list-slot-left {
+    grid-column: 1 / 2 !important;
+    grid-row: 1 / 2 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+  }
+
+  .v2-list-time-pill {
+    font-size: 11.5px !important;
+    padding: 4px 8px !important;
+    border-radius: 8px !important;
+  }
+
+  .v2-list-slot-right {
+    grid-column: 2 / 3 !important;
+    grid-row: 1 / 2 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    justify-self: end !important;
+  }
+
+  .v2-list-amount {
+    width: auto !important;
+    min-width: 0 !important;
+    font-size: 14px !important;
+  }
+
+  .v2-list-slot-center {
+    grid-column: 1 / 3 !important;
+    grid-row: 2 / 3 !important;
+    width: 100% !important;
+    padding-top: 6px !important;
+    border-top: 1px dashed #f1f5f9 !important;
+  }
+
+  .v2-list-customer-info {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Expanded Details Panel on Mobile */
+  .v2-details-panel {
+    padding: 12px !important;
+    margin-top: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .v2-details-meta-bar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .v2-details-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .v2-details-actions-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .v2-details-actions-bar .v2-action-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Grid View Optimization */
+  .v2-grid-view {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .v2-grid-card {
+    min-height: auto !important;
+    border-radius: 14px !important;
+  }
+
+  .v2-grid-card__header {
+    padding: 10px 12px !important;
+  }
+
+  .v2-grid-card__body {
+    padding: 12px !important;
+    gap: 8px !important;
+  }
+
+  .v2-grid-card__footer {
+    padding: 10px 12px !important;
+  }
+
+  /* Time View Timeline Board Optimization */
+  .v2-timeline-board {
+    border-radius: 14px !important;
+  }
+
+  .v2-timeline-time-col {
+    width: 72px !important;
+    min-width: 72px !important;
+    padding: 0 6px !important;
+    font-size: 11px !important;
+  }
+
+  .v2-timeline-content-col {
+    padding: 6px 8px !important;
+  }
+
+  .v2-timeline-card {
+    padding: 8px 10px 8px 14px !important;
+    border-radius: 10px !important;
+  }
+
+  .v2-timeline-card-header {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .v2-timeline-time-info {
+    font-size: 11.5px !important;
+  }
+
+  .v2-timeline-badge {
+    font-size: 10px !important;
+    padding: 2px 7px !important;
+  }
+
+  .v2-timeline-cust-name {
+    font-size: 13.5px !important;
+    margin-top: 4px !important;
+  }
+
+  .v2-timeline-empty-slot {
+    height: 38px !important;
+    min-height: 38px !important;
+    background-color: #fafbfc !important;
+    border: 1px dashed #e2e8f0 !important;
+    border-radius: 8px !important;
+    justify-content: flex-end !important;
+    padding: 0 10px !important;
+    margin: 2px 0 !important;
+  }
+
+  .v2-timeline-empty-btn {
+    opacity: 1 !important;
+    color: #64748b !important;
+    font-size: 11px !important;
+  }
+
+  .v2-timeline-now-line {
+    left: 72px !important;
+  }
+
+  .v2-timeline-now-dot {
+    left: 68px !important;
+  }
+
+  /* Empty Schedule Card on Mobile */
+  .v2-empty-schedule-card {
+    padding: 24px 16px !important;
+    margin: 12px 0 !important;
+    border-radius: 16px !important;
+  }
+}
+
+/* ==========================================================================
+   4. APPOINTMENT DETAIL & ADD APPOINTMENT POPUPS: MOBILE VIEW UI (95% WIDTH)
+   Preserving desktop modal layouts (580px / 720px) completely untouched.
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Overlay padding on mobile */
+  .v2-modal-overlay {
+    padding: 6px !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* BOTH POPUPS TAKE 97% WIDTH ON MOBILE VIEW */
+  .v2-modal--add-appt,
+  .v2-appt-details-modal {
+    width: 97% !important;
+    max-width: 97% !important;
+    margin: 0 auto !important;
+    border-radius: 18px !important;
+    max-height: 92vh !important;
+    box-shadow: 0 20px 50px -10px rgba(15, 23, 42, 0.35) !important;
+    overflow: hidden !important;
+  }
+
+  /* ───────────────────────────────────────────────────────────
+     A. APPOINTMENT DETAIL POPUP MOBILE UI IMPROVEMENTS
+     ─────────────────────────────────────────────────────────── */
+  .v2-appt-details-modal .v2-appt-modal-header {
+    padding: 14px 16px !important;
+    background: #ffffff !important;
+  }
+
+  .v2-appt-details-modal .v2-appt-modal-header__main {
+    gap: 10px !important;
+  }
+
+  .v2-appt-details-modal .v2-appt-modal-header__badge {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    border-radius: 11px !important;
+  }
+
+  .v2-appt-details-modal .v2-appt-modal-heading {
+    font-size: 16px !important;
+    line-height: 1.2 !important;
+  }
+
+  .v2-appt-details-modal .v2-appt-id-pill {
+    font-size: 11px !important;
+    padding: 1px 6px !important;
+  }
+
+  .v2-appt-details-modal .v2-status-pill {
+    font-size: 10.5px !important;
+    padding: 2px 7px !important;
+  }
+
+  .v2-appt-details-modal .v2-appt-modal-sub {
+    font-size: 11.5px !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    margin-top: 2px !important;
+  }
+
+  .v2-appt-details-modal .v2-appt-modal-body {
+    padding: 12px 14px !important;
+    gap: 12px !important;
+    background-color: #f8fafc !important;
+    overflow-y: auto !important;
+    max-height: calc(92vh - 125px) !important;
+  }
+
+  /* 2-Column Balanced Cards Grid on Mobile */
+  .v2-appt-details-modal .v2-details-card-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .v2-appt-details-modal .v2-detail-card {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03) !important;
+  }
+
+  .v2-appt-details-modal .v2-detail-card__icon-wrap {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    min-height: 30px !important;
+    border-radius: 8px !important;
+  }
+
+  .v2-appt-details-modal .v2-detail-card__label {
+    font-size: 9.5px !important;
+    letter-spacing: 0.3px !important;
+  }
+
+  .v2-appt-details-modal .v2-detail-card__value {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+  }
+
+  /* Services Included List on Mobile */
+  .v2-appt-details-modal .v2-field-label-row {
+    margin-bottom: 6px !important;
+  }
+
+  .v2-appt-details-modal .v2-field-label {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+  }
+
+  .v2-appt-details-modal .v2-field-count-pill {
+    font-size: 10.5px !important;
+    padding: 1px 6px !important;
+  }
+
+  .v2-appt-details-modal .v2-services-card-list {
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    gap: 6px !important;
+  }
+
+  .v2-appt-details-modal .v2-service-item-row {
+    padding: 4px 0 !important;
+    font-size: 12px !important;
+  }
+
+  .v2-appt-details-modal .v2-service-item-name {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+  }
+
+  .v2-appt-details-modal .v2-service-item-price {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+  }
+
+  /* Notes Box on Mobile */
+  .v2-appt-details-modal .v2-notes-box {
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    gap: 8px !important;
+  }
+
+  .v2-appt-details-modal .v2-notes-text {
+    font-size: 11.5px !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Change Status Grid on Mobile */
+  .v2-appt-details-modal .v2-status-actions-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  .v2-appt-details-modal .v2-status-action-btn {
+    padding: 6px 4px !important;
+    font-size: 10.5px !important;
+    border-radius: 8px !important;
+    gap: 4px !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+
+  /* Footer on Mobile */
+  .v2-appt-details-modal .v2-modal__footer {
+    padding: 10px 14px !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
+    gap: 8px !important;
+  }
+
+  .v2-appt-details-modal .v2-modal__footer .v2-btn {
+    padding: 7px 12px !important;
+    font-size: 12px !important;
+    border-radius: 10px !important;
+  }
+
+  /* ───────────────────────────────────────────────────────────
+     B. ADD APPOINTMENT POPUP MOBILE UI IMPROVEMENTS
+     ─────────────────────────────────────────────────────────── */
+  .v2-modal--add-appt .v2-modal__header {
+    padding: 14px 16px !important;
+    background: #ffffff !important;
+  }
+
+  .v2-modal--add-appt .v2-modal__header-left {
+    gap: 10px !important;
+  }
+
+  .v2-modal--add-appt .v2-modal__header-icon-badge {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    border-radius: 10px !important;
+  }
+
+  .v2-modal--add-appt .v2-modal__title {
+    font-size: 16px !important;
+    line-height: 1.2 !important;
+  }
+
+  .v2-modal--add-appt .v2-modal__subtitle {
+    font-size: 11.5px !important;
+    margin-top: 2px !important;
+  }
+
+  .v2-modal--add-appt .v2-modal__body {
+    padding: 12px 14px !important;
+    gap: 10px !important;
+    background-color: #f8fafc !important;
+    overflow-y: auto !important;
+    max-height: calc(92vh - 125px) !important;
+  }
+
+  /* Card Sections on Mobile */
+  .v2-modal--add-appt .v2-card-section {
+    padding: 12px 14px !important;
+    border-radius: 14px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
+    margin-bottom: 0 !important;
+  }
+
+  .v2-modal--add-appt .v2-section-header {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .v2-modal--add-appt .v2-section-header-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+  }
+
+  .v2-modal--add-appt .v2-section-icon-badge {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    min-height: 30px !important;
+    border-radius: 8px !important;
+  }
+
+  .v2-modal--add-appt .v2-section-title {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+  }
+
+  .v2-modal--add-appt .v2-section-subtitle {
+    font-size: 10.5px !important;
+    color: #64748b !important;
+    line-height: 1.2 !important;
+  }
+
+  .v2-modal--add-appt .v2-section-header-badge,
+  .v2-modal--add-appt .v2-section-price-badge {
+    font-size: 11px !important;
+    padding: 2px 7px !important;
+    border-radius: 8px !important;
+    white-space: nowrap !important;
+    align-self: center !important;
+  }
+
+  /* Form Inputs on Mobile */
+  .v2-modal--add-appt .v2-input {
+    height: 36px !important;
+    padding: 7px 10px !important;
+    font-size: 12.5px !important;
+    border-radius: 9px !important;
+  }
+
+  .v2-modal--add-appt .v2-input-with-icon .v2-input-icon {
+    left: 10px !important;
+  }
+
+  .v2-modal--add-appt .v2-input--has-icon {
+    padding-left: 32px !important;
+  }
+
+  .v2-modal--add-appt .v2-customer-inputs-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Time Pickers (Drum Wheel & Clock Trigger) on Mobile: Start Time 1st, End Time below that (not in same row) */
+  .v2-modal--add-appt .v2-time-pickers-container {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  .v2-modal--add-appt .drum-wheel-body {
+    height: 140px !important;
+    border-radius: 12px !important;
+  }
+
+  .v2-modal--add-appt .drum-wheel-label {
+    font-size: 11px !important;
+  }
+
+  .v2-modal--add-appt .drum-wheel-value-badge {
+    font-size: 11px !important;
+    padding: 1px 7px !important;
+  }
+
+  .v2-modal--add-appt .v2-clock-trigger-card {
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    gap: 6px !important;
+  }
+
+  .v2-modal--add-appt .v2-clock-trigger-icon-badge {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    border-radius: 8px !important;
+  }
+
+  .v2-modal--add-appt .v2-clock-trigger-label {
+    font-size: 10px !important;
+  }
+
+  .v2-modal--add-appt .v2-clock-trigger-time {
+    font-size: 12.5px !important;
+  }
+
+  .v2-modal--add-appt .v2-clock-trigger-badge {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+  }
+
+  /* Time Duration Bar & Presets on Mobile */
+  .v2-modal--add-appt .v2-time-duration-bar {
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    gap: 6px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .v2-modal--add-appt .v2-time-duration-bar__left {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+
+  .v2-modal--add-appt .v2-time-duration-label {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+  }
+
+  .v2-modal--add-appt .v2-time-duration-badge {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+  }
+
+  .v2-modal--add-appt .v2-quick-duration-presets {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    flex-wrap: wrap !important;
+  }
+
+  .v2-modal--add-appt .v2-quick-duration-hint {
+    font-size: 10.5px !important;
+  }
+
+  .v2-modal--add-appt .v2-quick-duration-btn {
+    padding: 3px 7px !important;
+    font-size: 10.5px !important;
+    border-radius: 6px !important;
+  }
+
+  /* Customer Selected Card on Mobile */
+  .v2-modal--add-appt .v2-customer-selected-card {
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+  }
+
+  /* Services Selected Chips on Mobile */
+  .v2-modal--add-appt .v2-selected-service-chip {
+    padding: 5px 8px !important;
+    font-size: 11.5px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Textarea on Mobile */
+  .v2-modal--add-appt .v2-textarea {
+    min-height: 54px !important;
+    padding: 7px 10px !important;
+    font-size: 12px !important;
+    border-radius: 9px !important;
+  }
+
+  /* Modal Footer on Mobile */
+  .v2-modal--add-appt .v2-modal__footer {
+    padding: 10px 14px !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
+    gap: 8px !important;
+  }
+
+  .v2-modal--add-appt .v2-btn {
+    padding: 8px 14px !important;
+    font-size: 12px !important;
+    border-radius: 10px !important;
+  }
+
+  .v2-modal--add-appt .v2-btn--save-appt {
+    padding: 8px 16px !important;
+  }
+}
+
+
