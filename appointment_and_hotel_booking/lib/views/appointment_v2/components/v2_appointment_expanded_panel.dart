@@ -43,7 +43,7 @@ class V2AppointmentExpandedPanel extends StatelessWidget {
         : 'Walk-in Guest';
 
     return Container(
-      margin: const EdgeInsets.only(top: 10),
+      margin: const EdgeInsets.only(top: 10, bottom: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -56,7 +56,7 @@ class V2AppointmentExpandedPanel extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -179,59 +179,49 @@ class V2AppointmentExpandedPanel extends StatelessWidget {
           ),
 
           // 2. Details Grid (Service, Date, Time Slot, Staff, Phone)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 500;
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _buildCell(
-                    icon: Icons.work_outline_rounded,
-                    iconColor: const Color(0xFF059669),
-                    label: 'SERVICE',
-                    value: svcNames,
-                    width: isNarrow ? constraints.maxWidth : (constraints.maxWidth - 8) / 2,
-                  ),
-                  _buildCell(
-                    icon: Icons.calendar_today_outlined,
-                    iconColor: const Color(0xFF2563EB),
-                    label: 'DATE',
-                    value: formatDatePretty(
-                      appointment.appointmentDate.isNotEmpty
-                          ? appointment.appointmentDate
-                          : selectedDate,
-                    ),
-                    width: isNarrow ? constraints.maxWidth : (constraints.maxWidth - 8) / 2,
-                  ),
-                  _buildCell(
-                    icon: Icons.access_time_rounded,
-                    iconColor: const Color(0xFFD97706),
-                    label: 'TIME SLOT',
-                    value: formatTimeSlotLabel(appointment.startTime, appointment.endTime),
-                    width: isNarrow ? constraints.maxWidth : (constraints.maxWidth - 16) / 3,
-                  ),
-                  _buildCell(
-                    icon: Icons.person_outline_rounded,
-                    iconColor: const Color(0xFF9333EA),
-                    label: 'STAFF',
-                    value: appointment.staffName.isNotEmpty
-                        ? appointment.staffName
-                        : selectedStaff.name,
-                    width: isNarrow ? constraints.maxWidth : (constraints.maxWidth - 16) / 3,
-                  ),
-                  _buildCell(
-                    icon: Icons.phone_outlined,
-                    iconColor: const Color(0xFF0D9488),
-                    label: 'PHONE',
-                    value: appointment.customerPhone.isNotEmpty
-                        ? appointment.customerPhone
-                        : 'None',
-                    width: isNarrow ? constraints.maxWidth : (constraints.maxWidth - 16) / 3,
-                  ),
-                ],
-              );
-            },
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildCell(
+                icon: Icons.work_outline_rounded,
+                iconColor: const Color(0xFF059669),
+                label: 'SERVICE',
+                value: svcNames,
+              ),
+              _buildCell(
+                icon: Icons.calendar_today_outlined,
+                iconColor: const Color(0xFF2563EB),
+                label: 'DATE',
+                value: formatDatePretty(
+                  appointment.appointmentDate.isNotEmpty
+                      ? appointment.appointmentDate
+                      : selectedDate,
+                ),
+              ),
+              _buildCell(
+                icon: Icons.access_time_rounded,
+                iconColor: const Color(0xFFD97706),
+                label: 'TIME SLOT',
+                value: formatTimeSlotLabel(appointment.startTime, appointment.endTime),
+              ),
+              _buildCell(
+                icon: Icons.person_outline_rounded,
+                iconColor: const Color(0xFF9333EA),
+                label: 'STAFF',
+                value: appointment.staffName.isNotEmpty
+                    ? appointment.staffName
+                    : selectedStaff.name,
+              ),
+              _buildCell(
+                icon: Icons.phone_outlined,
+                iconColor: const Color(0xFF0D9488),
+                label: 'PHONE',
+                value: appointment.customerPhone.isNotEmpty
+                    ? appointment.customerPhone
+                    : 'None',
+              ),
+            ],
           ),
 
           // 3. Notes Box (if available)
@@ -311,7 +301,7 @@ class V2AppointmentExpandedPanel extends StatelessWidget {
                     onPressed: () => onOpenDetails(appointment),
                     icon: const Icon(Icons.arrow_outward_rounded, size: 13, color: Color(0xFF475569)),
                     label: Text(
-                      'Full Details',
+                      'Details',
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -362,10 +352,11 @@ class V2AppointmentExpandedPanel extends StatelessWidget {
     required Color iconColor,
     required String label,
     required String value,
-    required double width,
+    double? width,
   }) {
     return Container(
       width: width,
+      constraints: const BoxConstraints(minWidth: 125),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(8),
@@ -374,8 +365,10 @@ class V2AppointmentExpandedPanel extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 11, color: iconColor),
               const SizedBox(width: 4),

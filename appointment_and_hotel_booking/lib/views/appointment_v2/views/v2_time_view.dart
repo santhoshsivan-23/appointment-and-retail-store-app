@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../services/auth_storage.dart';
 import '../../../models/appointment_model.dart';
 import '../../../models/staff_model.dart';
 import '../../../utils/appointment_v2_utils.dart';
@@ -17,6 +18,9 @@ class V2TimeView extends StatefulWidget {
   final ValueChanged<AppointmentModel> onContinueService;
   final ValueChanged<AppointmentModel> onOpenDetails;
   final ValueChanged<BusinessSlot?> onOpenAddModal;
+  final String? openTime;
+  final String? closeTime;
+  final int? intervalMinutes;
 
   const V2TimeView({
     super.key,
@@ -29,6 +33,9 @@ class V2TimeView extends StatefulWidget {
     required this.onContinueService,
     required this.onOpenDetails,
     required this.onOpenAddModal,
+    this.openTime,
+    this.closeTime,
+    this.intervalMinutes,
   });
 
   @override
@@ -39,16 +46,23 @@ class _V2TimeViewState extends State<V2TimeView> {
   Timer? _ticker;
   late int _nowMinutes;
   late List<BusinessSlot> _businessSlots;
+  String _effectiveOpen = '08:00';
+  String _effectiveClose = '20:00';
+  int _effectiveInterval = 30;
 
   @override
   void initState() {
     super.initState();
     _updateNowMinutes();
+    _effectiveOpen = widget.openTime ?? '08:00';
+    _effectiveClose = widget.closeTime ?? '20:00';
+    _effectiveInterval = widget.intervalMinutes ?? 30;
     _businessSlots = generateBusinessSlots(
-      openTime: '08:00',
-      closeTime: '22:00',
-      intervalMinutes: 30,
+      openTime: _effectiveOpen,
+      closeTime: _effectiveClose,
+      intervalMinutes: _effectiveInterval,
     );
+    _loadConfigAndInitSlots();
     _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
         setState(() {
@@ -56,6 +70,47 @@ class _V2TimeViewState extends State<V2TimeView> {
         });
       }
     });
+  }
+
+  Future<void> _loadConfigAndInitSlots() async {
+    final storedOpen = widget.openTime ?? await AuthStorage.getOpenTime();
+    final storedClose = widget.closeTime ?? await AuthStorage.getCloseTime();
+    final storedInterval = widget.intervalMinutes ?? await AuthStorage.getSlotDuration();
+
+    if (!mounted) return;
+    if (storedOpen != _effectiveOpen ||
+        storedClose != _effectiveClose ||
+        storedInterval != _effectiveInterval) {
+      setState(() {
+        _effectiveOpen = storedOpen;
+        _effectiveClose = storedClose;
+        _effectiveInterval = storedInterval > 0 ? storedInterval : 30;
+        _businessSlots = generateBusinessSlots(
+          openTime: _effectiveOpen,
+          closeTime: _effectiveClose,
+          intervalMinutes: _effectiveInterval,
+        );
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(V2TimeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.openTime != oldWidget.openTime ||
+        widget.closeTime != oldWidget.closeTime ||
+        widget.intervalMinutes != oldWidget.intervalMinutes) {
+      _effectiveOpen = widget.openTime ?? _effectiveOpen;
+      _effectiveClose = widget.closeTime ?? _effectiveClose;
+      _effectiveInterval = widget.intervalMinutes ?? _effectiveInterval;
+      setState(() {
+        _businessSlots = generateBusinessSlots(
+          openTime: _effectiveOpen,
+          closeTime: _effectiveClose,
+          intervalMinutes: _effectiveInterval,
+        );
+      });
+    }
   }
 
   void _updateNowMinutes() {
@@ -69,23 +124,53 @@ class _V2TimeViewState extends State<V2TimeView> {
     super.dispose();
   }
 
-  Map<String, List<AppointmentModel>> _buildSlotAppointmentMap() {
-    final map = <String, List<AppointmentModel>>{};
+  List<_TimelineRowItem> _buildTimelineRows() {
+    final rows = <_TimelineRowItem>[];
+    final renderedApptIds = <int>{};
+    int coveredUntilM = 0;
+
     for (final slot in _businessSlots) {
-      final matches = widget.appointments.where((a) {
+      // Find matching unrendered appointment for this slot
+      final matchingAppts = widget.appointments.where((a) {
+        if (renderedApptIds.contains(a.id)) return false;
         final aStart = timeToMinutes(a.startTime);
         final aEnd = timeToMinutes(a.endTime);
-        // Slot overlaps appointment if slot starts before appt ends and slot ends after appt starts
         return slot.startM < aEnd && slot.endM > aStart;
       }).toList();
-      map[slot.start24] = matches;
+
+      if (matchingAppts.isNotEmpty) {
+        final appt = matchingAppts.first;
+        renderedApptIds.add(appt.id);
+        final aStartM = timeToMinutes(appt.startTime.isNotEmpty ? appt.startTime : slot.start24);
+        final aEndM = timeToMinutes(appt.endTime.isNotEmpty ? appt.endTime : slot.end24);
+        coveredUntilM = coveredUntilM > aEndM ? coveredUntilM : aEndM;
+
+        rows.add(_TimelineRowItem(
+          slot: slot,
+          primaryAppt: appt,
+          startM: aStartM,
+          endM: aEndM,
+        ));
+      } else if (slot.startM < coveredUntilM) {
+        // Intermediate slot covered by already-rendered multi-slot appointment (e.g. 8:30 or 9:00 for 8:00-9:30)
+        continue;
+      } else {
+        // Free available slot
+        rows.add(_TimelineRowItem(
+          slot: slot,
+          primaryAppt: null,
+          startM: slot.startM,
+          endM: slot.endM,
+        ));
+      }
     }
-    return map;
+
+    return rows;
   }
 
   @override
   Widget build(BuildContext context) {
-    final slotMap = _buildSlotAppointmentMap();
+    final rows = _buildTimelineRows();
     final isToday = widget.selectedDate == getTodayDateStr();
 
     return SingleChildScrollView(
@@ -105,16 +190,19 @@ class _V2TimeViewState extends State<V2TimeView> {
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
-          children: _businessSlots.map((slot) {
-            final appts = slotMap[slot.start24] ?? [];
-            final isBooked = appts.isNotEmpty;
-            final primaryAppt = isBooked ? appts.first : null;
+          children: rows.map((rowItem) {
+            final slot = rowItem.slot;
+            final primaryAppt = rowItem.primaryAppt;
             final isExpanded = primaryAppt != null && widget.expandedApptId == primaryAppt.id;
 
-            final isCurrentSlot = isToday && _nowMinutes >= slot.startM && _nowMinutes < slot.endM;
-            final slotFraction = isCurrentSlot
-                ? (_nowMinutes - slot.startM) / (slot.endM - slot.startM)
+            final isCurrentSlot = isToday && _nowMinutes >= rowItem.startM && _nowMinutes < rowItem.endM;
+            final slotFraction = isCurrentSlot && (rowItem.endM - rowItem.startM) > 0
+                ? (_nowMinutes - rowItem.startM) / (rowItem.endM - rowItem.startM)
                 : 0.0;
+
+            final displayTime = primaryAppt != null && primaryAppt.startTime.isNotEmpty
+                ? primaryAppt.startTime
+                : slot.start24;
 
             return Stack(
               clipBehavior: Clip.none,
@@ -139,7 +227,7 @@ class _V2TimeViewState extends State<V2TimeView> {
                           alignment: Alignment.center,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Text(
-                            formatTime12Leading(slot.start24),
+                            formatTime12Leading(displayTime),
                             style: GoogleFonts.inter(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
@@ -153,7 +241,7 @@ class _V2TimeViewState extends State<V2TimeView> {
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            child: isBooked && primaryAppt != null
+                            child: primaryAppt != null
                                 ? _buildBookedCard(primaryAppt, slot, isExpanded)
                                 : _buildEmptySlot(slot),
                           ),
@@ -279,94 +367,93 @@ class _V2TimeViewState extends State<V2TimeView> {
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Left Color Bar (5px)
-              Container(width: 5, color: barColor),
-
-              // Main Card Content
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Header Row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.access_time_rounded, size: 13, color: Color(0xFF334155)),
-                              const SizedBox(width: 5),
-                              Text(
-                                formatSlotRangeLeading(
-                                  appt.startTime.isNotEmpty ? appt.startTime : slot.start24,
-                                  appt.endTime.isNotEmpty ? appt.endTime : slot.end24,
-                                ),
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF1E293B),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                            decoration: BoxDecoration(
-                              color: badgeBg,
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: Text(
-                              badgeText,
-                              style: GoogleFonts.inter(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: 0.4,
-                              ),
-                            ),
-                          ),
-                        ],
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 5,
+              child: ColoredBox(color: barColor),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 14, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+            // Header Row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.access_time_rounded, size: 13, color: Color(0xFF334155)),
+                    const SizedBox(width: 5),
+                    Text(
+                      formatSlotRangeLeading(
+                        appt.startTime.isNotEmpty ? appt.startTime : slot.start24,
+                        appt.endTime.isNotEmpty ? appt.endTime : slot.end24,
                       ),
-
-                      const SizedBox(height: 3),
-
-                      // Customer Name
-                      Text(
-                        appt.customerName.isNotEmpty ? appt.customerName : 'Walk-in Guest',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF0F172A),
-                        ),
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1E293B),
                       ),
-
-                      // Accordion expansion panel
-                      if (isExpanded)
-                        V2AppointmentExpandedPanel(
-                          appointment: appt,
-                          selectedStaff: widget.selectedStaff,
-                          selectedDate: widget.selectedDate,
-                          onCollapse: () => widget.onToggleExpand(appt.id),
-                          onStartService: widget.onStartService,
-                          onContinueService: widget.onContinueService,
-                          onOpenDetails: widget.onOpenDetails,
-                        ),
-                    ],
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: badgeBg,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    badgeText,
+                    style: GoogleFonts.inter(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.4,
+                    ),
                   ),
                 ),
+              ],
+            ),
+
+            const SizedBox(height: 4),
+
+            // Customer Name
+            Text(
+              appt.customerName.isNotEmpty ? appt.customerName : 'Walk-in Guest',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
               ),
-            ],
-          ),
+            ),
+
+            // Accordion expansion panel
+            if (isExpanded)
+              V2AppointmentExpandedPanel(
+                appointment: appt,
+                selectedStaff: widget.selectedStaff,
+                selectedDate: widget.selectedDate,
+                onCollapse: () => widget.onToggleExpand(appt.id),
+                onStartService: widget.onStartService,
+                onContinueService: widget.onContinueService,
+                onOpenDetails: widget.onOpenDetails,
+              ),
+          ],
         ),
       ),
-    );
-  }
+    ],
+  ),
+),
+);
+}
 
   Widget _buildEmptySlot(BusinessSlot slot) {
     return InkWell(
@@ -394,4 +481,18 @@ class _V2TimeViewState extends State<V2TimeView> {
       ),
     );
   }
+}
+
+class _TimelineRowItem {
+  final BusinessSlot slot;
+  final AppointmentModel? primaryAppt;
+  final int startM;
+  final int endM;
+
+  _TimelineRowItem({
+    required this.slot,
+    this.primaryAppt,
+    required this.startM,
+    required this.endM,
+  });
 }

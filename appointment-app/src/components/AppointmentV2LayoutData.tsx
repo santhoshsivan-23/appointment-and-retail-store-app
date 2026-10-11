@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   Clock,
   User,
@@ -75,6 +76,55 @@ export default function AppointmentV2LayoutData({
   const formatSlotRangeLeading = (start24: string, end24: string): string => {
     return `${formatTime12Leading(start24)} - ${formatTime12Leading(end24)}`;
   };
+
+  // Generate non-duplicated timeline rows where multi-slot appointments (e.g. 8:00 - 9:30)
+  // are rendered as a single appointment entry spanning the full duration.
+  const timelineRows = useMemo(() => {
+    const rows: {
+      slot: BusinessSlot;
+      primaryAppt: Appointment | null;
+      startM: number;
+      endM: number;
+    }[] = [];
+
+    const renderedApptIds = new Set<number>();
+    let coveredUntilM = 0;
+
+    for (const slot of businessSlots) {
+      // Find matching unrendered appointment for this slot
+      const matchingAppts = (slotAppointmentMap.get(slot.start24) || []).filter(
+        (a) => !renderedApptIds.has(a.id)
+      );
+
+      if (matchingAppts.length > 0) {
+        const appt = matchingAppts[0];
+        renderedApptIds.add(appt.id);
+        const aStartM = timeToMinutes(appt.start_time || slot.start24);
+        const aEndM = timeToMinutes(appt.end_time || slot.end24);
+        coveredUntilM = Math.max(coveredUntilM, aEndM);
+
+        rows.push({
+          slot,
+          primaryAppt: appt,
+          startM: aStartM,
+          endM: aEndM,
+        });
+      } else if (slot.startM < coveredUntilM) {
+        // Intermediate slot covered by multi-slot appointment (e.g. 8:30 or 9:00 for 8:00-9:30)
+        continue;
+      } else {
+        // Empty slot
+        rows.push({
+          slot,
+          primaryAppt: null,
+          startM: slot.startM,
+          endM: slot.endM,
+        });
+      }
+    }
+
+    return rows;
+  }, [businessSlots, slotAppointmentMap]);
 
   const renderExpandedDetails = (appt: Appointment, onCollapse?: () => void, hideService = false) => {
     const statusMeta = getStatusMeta(appt.status);
@@ -494,20 +544,18 @@ export default function AppointmentV2LayoutData({
       ) : (
         /* ── VIEW 3: TIME VIEW (EXACT REFERENCE IMAGE SCHEDULE DESIGN) ── */
         <div className="v2-timeline-board" data-purpose="timeline-schedule-view">
-          {businessSlots.map((slot) => {
-            const apptsInSlot = slotAppointmentMap.get(slot.start24) || [];
-            const isBooked = apptsInSlot.length > 0;
-            const primaryAppt = apptsInSlot[0];
+          {timelineRows.map(({ slot, primaryAppt, startM, endM }) => {
+            const isBooked = Boolean(primaryAppt);
             const isExpanded = primaryAppt ? expandedApptId === primaryAppt.id : false;
 
             const isService = primaryAppt && primaryAppt.status === 'in_service';
             const isCompleted = primaryAppt && primaryAppt.status === 'completed';
 
-            // Live Current Time Indicator calculations
+            // Live Current Time Indicator calculations across this row's duration
             const isToday = selectedDate === getTodayDateStr();
-            const isCurrentSlotRow = isToday && nowMinutes >= slot.startM && nowMinutes < slot.endM;
-            const slotFraction = isCurrentSlotRow
-              ? (nowMinutes - slot.startM) / (slot.endM - slot.startM)
+            const isCurrentSlotRow = isToday && nowMinutes >= startM && nowMinutes < endM;
+            const slotFraction = isCurrentSlotRow && (endM - startM) > 0
+              ? (nowMinutes - startM) / (endM - startM)
               : 0;
 
             return (
@@ -518,13 +566,13 @@ export default function AppointmentV2LayoutData({
               >
                 {/* Left: Time Column matching reference image (08:00 AM, 08:30 AM, etc.) */}
                 <div className="v2-timeline-time-col">
-                  <span>{formatTime12Leading(slot.start24)}</span>
+                  <span>{formatTime12Leading(primaryAppt ? (primaryAppt.start_time || slot.start24) : slot.start24)}</span>
                 </div>
 
                 {/* Right: Schedule Content Area */}
                 <div className="v2-timeline-content-col">
                   {isBooked && primaryAppt ? (
-                    /* Booked Appointment Card - Exact Reference Image Design */
+                    /* Booked Appointment Card - Full Duration (e.g. 8:00 - 9:30) */
                     <article
                       className={`v2-timeline-card ${
                         isService

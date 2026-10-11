@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:appointment_and_hotel_booking/models/appointment_model.dart';
 import 'package:appointment_and_hotel_booking/models/staff_model.dart';
+import 'package:appointment_and_hotel_booking/services/auth_storage.dart';
 import 'package:appointment_and_hotel_booking/utils/appointment_v2_utils.dart';
 import 'package:appointment_and_hotel_booking/views/appointment_v2/modals/add_appointment_v2_modal.dart';
 import 'package:appointment_and_hotel_booking/views/appointment_v2/modals/appointment_details_v2_modal.dart';
 import 'package:appointment_and_hotel_booking/views/appointment_v2/modals/time_slot_filter_modal.dart';
+import 'package:appointment_and_hotel_booking/widgets/clock_time_picker_modal.dart';
+import 'package:appointment_and_hotel_booking/widgets/wheel_time_picker.dart';
 
 void main() {
   final testStaff = StaffModel(
@@ -141,6 +145,62 @@ void main() {
 
       // Error message should appear
       expect(find.text('Please enter walk-in customer name.'), findsOneWidget);
+    });
+
+    testWidgets('AddAppointmentV2Modal uses clock-based time selector when useWheelPickers is false', (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        wrapWithScaffold(
+          AddAppointmentV2Modal(
+            staff: testStaff,
+            defaultDate: '2026-10-15',
+            useWheelPickers: false,
+            existingAppointments: const [],
+            onClose: () {},
+            onSuccess: (_) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Drum wheel time picker should NOT be rendered
+      expect(find.byType(WheelTimePicker), findsNothing);
+
+      // Clock trigger cards should be visible
+      expect(find.text('Start Time'), findsOneWidget);
+      expect(find.text('End Time'), findsOneWidget);
+
+      // Tapping Start Time trigger card opens ClockTimePickerModal dialog
+      await tester.tap(find.text('Start Time'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ClockTimePickerModal), findsOneWidget);
+      expect(find.text('Select Start Time'), findsOneWidget);
+
+      // Tap Confirm Time to select and close
+      await tester.tap(find.text('Confirm Time'));
+      await tester.pumpAndSettle();
+
+      // Clock modal dialog should now be dismissed
+      expect(find.byType(ClockTimePickerModal), findsNothing);
+    });
+
+    test('SharedPreferences stores and retrieves appointment_v2_clock setting', () async {
+      SharedPreferences.setMockInitialValues({});
+
+      // Default should be true
+      expect(await AuthStorage.getAppointmentV2Clock(), isTrue);
+
+      // Save false (Time Selection Mode OFF)
+      await AuthStorage.setAppointmentV2Clock(false);
+      expect(await AuthStorage.getAppointmentV2Clock(), isFalse);
+
+      // Save true (Time Selection Mode ON)
+      await AuthStorage.setAppointmentV2Clock(true);
+      expect(await AuthStorage.getAppointmentV2Clock(), isTrue);
     });
   });
 

@@ -183,6 +183,9 @@ void main() {
       await tester.tap(find.text('Change'));
       await tester.pumpAndSettle();
       expect(switchStaffCalled, isTrue);
+
+      // Verify sidebar width is reduced by 10% (342 width)
+      expect(tester.getSize(find.byType(AppointmentV2CalendarSidebar)).width, 342);
     });
   });
 }

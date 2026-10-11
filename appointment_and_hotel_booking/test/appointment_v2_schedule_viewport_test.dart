@@ -101,7 +101,7 @@ void main() {
       expect(find.text('Haircut & Styling'), findsOneWidget);
       expect(find.text('Prefers quiet session'), findsOneWidget);
       expect(find.text('Start Service'), findsOneWidget);
-      expect(find.text('Full Details'), findsOneWidget);
+      expect(find.text('Details'), findsOneWidget);
       expect(find.text('Collapse'), findsOneWidget);
 
       // Tap Start Service
@@ -109,8 +109,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(startedAppt?.id, 101);
 
-      // Tap Full Details
-      await tester.tap(find.text('Full Details'));
+      // Tap Details
+      await tester.tap(find.text('Details'));
       await tester.pumpAndSettle();
       expect(detailsAppt?.id, 101);
 
@@ -208,15 +208,138 @@ void main() {
       expect(find.text('09:00 AM'), findsOneWidget);
       expect(find.text('10:00 AM'), findsOneWidget);
 
-      // Booked cards
+      // Booked cards - each rendered only once
       expect(find.text('Emma Watson'), findsOneWidget);
       expect(find.text('BOOKED'), findsOneWidget);
-      expect(find.text('IN SERVICE'), findsAtLeastNWidgets(1));
+      expect(find.text('IN SERVICE'), findsOneWidget);
 
       // Tap on empty slot "Book Slot"
       await tester.tap(find.text('Book Slot').first);
       await tester.pumpAndSettle();
       expect(bookedSlot, isNotNull);
+    });
+
+    testWidgets('Multi-slot appointment (8:00 to 9:30) is rendered as one appointment without duplicates', (tester) async {
+      final multiSlotAppt = AppointmentModel(
+        id: 201,
+        businessId: 1,
+        staffId: 1,
+        staffName: 'Sarah Connor',
+        customerId: 5,
+        customerName: 'Multi Slot Customer',
+        appointmentDate: '2026-10-15',
+        startTime: '08:00',
+        endTime: '09:30',
+        status: 'booked',
+        totalAmount: 150.0,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: V2TimeView(
+              appointments: [multiSlotAppt],
+              selectedStaff: testStaff,
+              selectedDate: '2026-10-15',
+              expandedApptId: null,
+              onToggleExpand: (_) {},
+              onStartService: (_) {},
+              onContinueService: (_) {},
+              onOpenDetails: (_) {},
+              onOpenAddModal: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      // Entire duration (8:00 - 9:30) is rendered once
+      expect(find.text('Multi Slot Customer'), findsOneWidget);
+      expect(find.text('08:00 AM - 09:30 AM'), findsOneWidget);
+      expect(find.text('BOOKED'), findsOneWidget);
+
+      // Next slot after 9:30 is rendered
+      expect(find.text('09:30 AM'), findsOneWidget);
+    });
+
+    testWidgets('Expanding appointment in V2TimeView displays Start Service and Details buttons', (tester) async {
+      int? expandedId;
+      AppointmentModel? startedAppt;
+      AppointmentModel? detailsAppt;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                return V2TimeView(
+                  appointments: sampleAppointments,
+                  selectedStaff: testStaff,
+                  selectedDate: '2026-10-15',
+                  expandedApptId: expandedId,
+                  onToggleExpand: (id) => setState(() => expandedId = (expandedId == id ? null : id)),
+                  onStartService: (a) => startedAppt = a,
+                  onContinueService: (_) {},
+                  onOpenDetails: (a) => detailsAppt = a,
+                  onOpenAddModal: (_) {},
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      // Click on booked appointment to expand
+      await tester.tap(find.text('Emma Watson'));
+      await tester.pumpAndSettle();
+
+      // Start Service and Details buttons must both be fully visible and rendered
+      expect(find.widgetWithText(ElevatedButton, 'Start Service'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Details'), findsOneWidget);
+
+      // Tap Start Service
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Start Service'));
+      await tester.pumpAndSettle();
+      expect(startedAppt?.id, 101);
+
+      // Tap Details
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Details'));
+      await tester.pumpAndSettle();
+      expect(detailsAppt?.id, 101);
+    });
+
+    testWidgets('V2TimeView renders slots based on configured business hours', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: V2TimeView(
+              appointments: const [],
+              selectedStaff: testStaff,
+              selectedDate: '2026-10-15',
+              expandedApptId: null,
+              onToggleExpand: (_) {},
+              onStartService: (_) {},
+              onContinueService: (_) {},
+              onOpenDetails: (_) {},
+              onOpenAddModal: (_) {},
+              openTime: '10:00',
+              closeTime: '12:00',
+              intervalMinutes: 30,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Configured slots from 10:00 to 12:00 should be visible
+      expect(find.text('10:00 AM'), findsOneWidget);
+      expect(find.text('10:30 AM'), findsOneWidget);
+      expect(find.text('11:00 AM'), findsOneWidget);
+      expect(find.text('11:30 AM'), findsOneWidget);
+
+      // Slots outside business hours should not be rendered
+      expect(find.text('08:00 AM'), findsNothing);
+      expect(find.text('09:00 AM'), findsNothing);
+      expect(find.text('01:00 PM'), findsNothing);
     });
   });
 

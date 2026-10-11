@@ -26,7 +26,9 @@ import {
   XCircle,
   ArrowRight,
 } from 'lucide-react';
-import { useAppSelector } from '../store/hooks';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { applySyncedSettings } from '../features/appointmentConfig/appointmentConfigSlice';
+import { settingsApi } from '../api/settingsApi';
 import {
   appointmentApi,
   type Appointment,
@@ -77,6 +79,7 @@ const STAFF_BG_COLORS = [
 ];
 
 export default function AppointmentV2View({ onStartService }: AppointmentV2ViewProps) {
+  const dispatch = useAppDispatch();
   const config = useAppSelector((state) => state.appointmentConfig);
   const openTime = config.openTime || '08:00';
   const closeTime = config.closeTime || '20:00';
@@ -85,6 +88,20 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
     config.appointmentV2Clock !== undefined
       ? config.appointmentV2Clock
       : localStorage.getItem('appointment_v2_clock') !== 'false';
+
+  // Automatically sync latest business operating hours from database settings
+  useEffect(() => {
+    settingsApi
+      .getSettings()
+      .then((res) => {
+        if (res.data?.data) {
+          dispatch(applySyncedSettings(res.data.data));
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not auto-sync settings in AppointmentV2View:', err);
+      });
+  }, [dispatch]);
 
   /* ── Core State ────────────────────────────────────────────────────────── */
   const [staffList, setStaffList] = useState<Staff[]>([]);
@@ -190,8 +207,8 @@ export default function AppointmentV2View({ onStartService }: AppointmentV2ViewP
 
   /* ── Business Slots Generation ─────────────────────────────────────────── */
   const businessSlots: BusinessSlot[] = useMemo(() => {
-    return generateBusinessSlots(openTime, closeTime, 30);
-  }, [openTime, closeTime]);
+    return generateBusinessSlots(openTime, closeTime, config.slotDuration || 30);
+  }, [openTime, closeTime, config.slotDuration]);
 
   /* ── Helper: Map Appointments to Slots ─────────────────────────────────── */
   const slotAppointmentMap = useMemo(() => {

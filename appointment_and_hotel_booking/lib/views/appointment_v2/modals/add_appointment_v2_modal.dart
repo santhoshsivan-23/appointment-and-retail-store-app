@@ -6,6 +6,7 @@ import '../../../models/customer_model.dart';
 import '../../../models/product_model.dart';
 import '../../../models/staff_model.dart';
 import '../../../services/api_service.dart';
+import '../../../services/auth_storage.dart';
 import '../../../utils/appointment_v2_utils.dart';
 import '../../../widgets/clock_time_picker_modal.dart';
 import '../../../widgets/wheel_time_picker.dart';
@@ -19,7 +20,7 @@ class AddAppointmentV2Modal extends StatefulWidget {
   final String openTime;
   final String closeTime;
   final String timeFormat; // '12' or '24'
-  final bool useWheelPickers;
+  final bool? useWheelPickers;
   final List<AppointmentModel> existingAppointments;
   final VoidCallback onClose;
   final ValueChanged<AppointmentModel> onSuccess;
@@ -33,7 +34,7 @@ class AddAppointmentV2Modal extends StatefulWidget {
     this.openTime = '08:00',
     this.closeTime = '22:00',
     this.timeFormat = '12',
-    this.useWheelPickers = true,
+    this.useWheelPickers,
     required this.existingAppointments,
     required this.onClose,
     required this.onSuccess,
@@ -48,9 +49,9 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
   late String _apptDate;
 
   // Step 2: Time Selection
+  late bool _useWheelPickers;
   late String _startTime;
   late String _endTime;
-  String? _clockPickerTarget; // 'start' or 'end'
 
   // Step 3: Customer Information
   late bool _isWalkIn;
@@ -77,6 +78,7 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
   @override
   void initState() {
     super.initState();
+    _useWheelPickers = widget.useWheelPickers ?? true;
     _apptDate = widget.defaultDate;
     _startTime = widget.prefilledSlot?.start24 ?? widget.openTime;
     _endTime = widget.prefilledSlot?.end24 ??
@@ -84,6 +86,42 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
 
     _selectedCustomer = widget.preselectedCustomer;
     _isWalkIn = widget.preselectedCustomer == null;
+
+    if (widget.useWheelPickers == null) {
+      _loadTimeSelectionPreference();
+    }
+  }
+
+  Future<void> _loadTimeSelectionPreference() async {
+    final useWheel = await AuthStorage.getAppointmentV2Clock();
+    if (mounted && _useWheelPickers != useWheel) {
+      setState(() {
+        _useWheelPickers = useWheel;
+      });
+    }
+  }
+
+  Future<void> _openClockPicker(String target) async {
+    final initial = target == 'start' ? _startTime : _endTime;
+    final label = target == 'start' ? 'Select Start Time' : 'Select End Time';
+    final picked = await ClockTimePickerModal.show(
+      context,
+      initialTime24: initial,
+      label: label,
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        if (target == 'start') {
+          _startTime = picked;
+          if (timeToMinutes(_endTime) <= timeToMinutes(picked)) {
+            _endTime = minutesToTime24(timeToMinutes(picked) + 30);
+          }
+        } else {
+          _endTime = picked;
+        }
+        _errorMsg = null;
+      });
+    }
   }
 
   @override
@@ -556,7 +594,7 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (widget.useWheelPickers)
+          if (_useWheelPickers)
             Row(
               children: [
                 Expanded(
@@ -598,7 +636,7 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
                   child: _buildClockTriggerCard(
                     label: 'Start Time',
                     time: _startTime,
-                    onTap: () => setState(() => _clockPickerTarget = 'start'),
+                    onTap: () => _openClockPicker('start'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -606,7 +644,7 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
                   child: _buildClockTriggerCard(
                     label: 'End Time',
                     time: _endTime,
-                    onTap: () => setState(() => _clockPickerTarget = 'end'),
+                    onTap: () => _openClockPicker('end'),
                   ),
                 ),
               ],
@@ -701,27 +739,6 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
             ),
           ),
 
-          // Clock modal popup if active
-          if (_clockPickerTarget != null)
-            ClockTimePickerModal(
-              label: _clockPickerTarget == 'start' ? 'Select Start Time' : 'Select End Time',
-              initialTime24: _clockPickerTarget == 'start' ? _startTime : _endTime,
-              onClose: () => setState(() => _clockPickerTarget = null),
-              onSelectTime: (newTime24) {
-                setState(() {
-                  if (_clockPickerTarget == 'start') {
-                    _startTime = newTime24;
-                    if (timeToMinutes(_endTime) <= timeToMinutes(newTime24)) {
-                      _endTime = minutesToTime24(timeToMinutes(newTime24) + 30);
-                    }
-                  } else {
-                    _endTime = newTime24;
-                  }
-                  _clockPickerTarget = null;
-                  _errorMsg = null;
-                });
-              },
-            ),
         ],
       ),
     );
@@ -732,6 +749,8 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
     required String time,
     required VoidCallback onTap,
   }) {
+    final displayTime = widget.timeFormat == '24' ? time : formatTime12(time);
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -754,7 +773,7 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  formatTime12(time),
+                  displayTime,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
