@@ -60,15 +60,6 @@ class _WheelColumnState extends State<_WheelColumn> {
     super.dispose();
   }
 
-  void _stepBy(int delta) {
-    if (!_controller.hasClients) return;
-    _controller.animateToItem(
-      _controller.selectedItem + delta,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final count = widget.items.length;
@@ -108,32 +99,6 @@ class _WheelColumnState extends State<_WheelColumn> {
                 );
               },
               childCount: widget.loop ? count * _loopMultiplier : count,
-            ),
-          ),
-        ),
-
-        // Subtle up chevron button on top
-        Positioned(
-          top: 2,
-          child: InkWell(
-            onTap: () => _stepBy(-1),
-            borderRadius: BorderRadius.circular(12),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-              child: Icon(Icons.keyboard_arrow_up, size: 16, color: Color(0xFF94A3B8)),
-            ),
-          ),
-        ),
-
-        // Subtle down chevron button on bottom
-        Positioned(
-          bottom: 2,
-          child: InkWell(
-            onTap: () => _stepBy(1),
-            borderRadius: BorderRadius.circular(12),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-              child: Icon(Icons.keyboard_arrow_down, size: 16, color: Color(0xFF94A3B8)),
             ),
           ),
         ),

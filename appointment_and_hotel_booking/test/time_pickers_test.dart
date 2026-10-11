@@ -47,6 +47,24 @@ void main() {
       expect(find.text('AM'), findsNothing);
       expect(find.text('PM'), findsNothing);
     });
+
+    testWidgets('WheelTimePicker has no up and down arrow controls', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WheelTimePicker(
+              label: 'Start Time',
+              value: '10:00',
+              onChange: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      // Verify up and down arrows are removed
+      expect(find.byIcon(Icons.keyboard_arrow_up), findsNothing);
+      expect(find.byIcon(Icons.keyboard_arrow_down), findsNothing);
+    });
   });
 
   group('ClockTimePickerModal Widget Tests', () {

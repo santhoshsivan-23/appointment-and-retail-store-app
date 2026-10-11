@@ -50,8 +50,8 @@ class AppointmentV2CalendarSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: width ?? 380,
-      constraints: const BoxConstraints(maxWidth: 420),
+      width: width ?? 342,
+      constraints: const BoxConstraints(maxWidth: 378),
       child: SingleChildScrollView(
         padding: const EdgeInsets.only(right: 6, bottom: 24),
         child: Column(
@@ -95,7 +95,7 @@ class AppointmentV2CalendarSidebar extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -103,15 +103,19 @@ class AppointmentV2CalendarSidebar extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                monthTitle,
-                style: GoogleFonts.inter(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF0F172A),
-                  letterSpacing: -0.2,
+              Expanded(
+                child: Text(
+                  monthTitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF0F172A),
+                    letterSpacing: -0.2,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 6),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -367,7 +371,7 @@ class AppointmentV2CalendarSidebar extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

@@ -19,6 +19,9 @@ class AppointmentV2ScheduleViewport extends StatefulWidget {
   final ValueChanged<AppointmentModel> onOpenDetailsModal;
   final ValueChanged<BusinessSlot?> onOpenAddModal;
   final VoidCallback onSelectToday;
+  final String? openTime;
+  final String? closeTime;
+  final int? slotDuration;
 
   const AppointmentV2ScheduleViewport({
     super.key,
@@ -32,6 +35,9 @@ class AppointmentV2ScheduleViewport extends StatefulWidget {
     required this.onOpenDetailsModal,
     required this.onOpenAddModal,
     required this.onSelectToday,
+    this.openTime,
+    this.closeTime,
+    this.slotDuration,
   });
 
   @override
@@ -110,6 +116,9 @@ class _AppointmentV2ScheduleViewportState extends State<AppointmentV2ScheduleVie
           onContinueService: widget.onContinueService,
           onOpenDetails: widget.onOpenDetailsModal,
           onOpenAddModal: widget.onOpenAddModal,
+          openTime: widget.openTime,
+          closeTime: widget.closeTime,
+          intervalMinutes: widget.slotDuration,
         );
 
       case 'list':

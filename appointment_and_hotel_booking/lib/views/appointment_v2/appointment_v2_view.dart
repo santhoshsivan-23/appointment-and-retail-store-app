@@ -4,6 +4,7 @@ import '../../models/customer_model.dart';
 import '../../models/product_model.dart';
 import '../../models/staff_model.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_storage.dart';
 import '../../utils/appointment_v2_utils.dart';
 import 'appointment_v2_calendar_sidebar.dart';
 import 'appointment_v2_header.dart';
@@ -48,11 +49,46 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
   // Appointments for selected staff and date
   List<AppointmentModel> _appointments = [];
   bool _isLoadingAppts = false;
+  String _openTime = '08:00';
+  String _closeTime = '20:00';
+  int _slotDuration = 30;
 
   @override
   void initState() {
     super.initState();
+    _loadConfig();
     _fetchStaff();
+  }
+
+  Future<void> _loadConfig() async {
+    final open = await AuthStorage.getOpenTime();
+    final close = await AuthStorage.getCloseTime();
+    final slot = await AuthStorage.getSlotDuration();
+    if (mounted) {
+      setState(() {
+        _openTime = open;
+        _closeTime = close;
+        _slotDuration = slot;
+      });
+    }
+
+    try {
+      final res = await ApiService.getSettings();
+      if (res.success && res.data != null && mounted) {
+        final dataMap = Map<String, dynamic>.from(res.data);
+        await AuthStorage.saveSettingsFromMap(dataMap);
+        final freshOpen = await AuthStorage.getOpenTime();
+        final freshClose = await AuthStorage.getCloseTime();
+        final freshSlot = await AuthStorage.getSlotDuration();
+        if (mounted) {
+          setState(() {
+            _openTime = freshOpen;
+            _closeTime = freshClose;
+            _slotDuration = freshSlot;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchStaff() async {
@@ -145,6 +181,7 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Section 1: Top Navigation Header (Permanently Fixed in Top)
             AppointmentV2Header(
@@ -182,6 +219,9 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
                             selectedStaff: _selectedStaff!,
                             selectedDate: _selectedDate,
                             appointments: _appointments,
+                            openTime: _openTime,
+                            closeTime: _closeTime,
+                            slotDuration: _slotDuration,
                             onStartService: _handleStartService,
                             onContinueService: _handleContinueService,
                             onOpenDetailsModal: _handleOpenDetailsModal,
@@ -198,8 +238,9 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
 
                         const SizedBox(width: 16),
 
-                        // Right Section: Calendar and Status Sidebar
+                        // Right Section: Calendar and Status Sidebar (10% reduced width = 342)
                         AppointmentV2CalendarSidebar(
+                          width: 342,
                           selectedStaff: _selectedStaff!,
                           selectedDate: _selectedDate,
                           calendarViewDate: _calendarViewDate,
@@ -235,6 +276,9 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
                             selectedStaff: _selectedStaff!,
                             selectedDate: _selectedDate,
                             appointments: _appointments,
+                            openTime: _openTime,
+                            closeTime: _closeTime,
+                            slotDuration: _slotDuration,
                             onStartService: _handleStartService,
                             onContinueService: _handleContinueService,
                             onOpenDetailsModal: _handleOpenDetailsModal,
@@ -396,12 +440,19 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
     );
   }
 
-  void _handleOpenAddModal({
+  Future<void> _handleOpenAddModal({
     BusinessSlot? prefilledSlot,
     CustomerModel? preselectedCustomer,
-  }) {
+  }) async {
     final staff = _selectedStaff;
     if (staff == null) return;
+
+    final useWheel = await AuthStorage.getAppointmentV2Clock();
+    final timeFormat = await AuthStorage.getTimeFormat();
+    final openTime = await AuthStorage.getOpenTime();
+    final closeTime = await AuthStorage.getCloseTime();
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -411,6 +462,10 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
         defaultDate: _selectedDate,
         prefilledSlot: prefilledSlot,
         preselectedCustomer: preselectedCustomer,
+        openTime: openTime,
+        closeTime: closeTime,
+        timeFormat: timeFormat,
+        useWheelPickers: useWheel,
         existingAppointments: _appointments,
         onClose: () => Navigator.pop(ctx),
         onSuccess: (newAppt) {

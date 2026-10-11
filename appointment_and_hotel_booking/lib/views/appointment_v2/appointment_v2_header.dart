@@ -379,6 +379,7 @@ class _AppointmentV2HeaderState extends State<AppointmentV2Header> with SingleTi
     final initials = _getInitials(widget.selectedStaff.name);
 
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
