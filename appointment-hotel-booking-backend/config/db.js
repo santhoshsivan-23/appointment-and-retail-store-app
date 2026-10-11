@@ -586,6 +586,10 @@ async function initDatabase() {
     } catch (_) {}
 
     try {
+      await pool.query('CREATE INDEX idx_products_biz_cat ON products (business_id, is_active, category_id, id)');
+    } catch (_) {}
+
+    try {
       await pool.query(`
         INSERT INTO settings (business_id, time_format, clock_display, booking_slot_interval, buffer_time_between_sessions, open_time, close_time, allow_walk_in_queue, require_doctor_notes, allow_delete_service, appointment_v2_clock)
         VALUES (1, '12', '12h', 30, 10, '08:00', '20:00', TRUE, TRUE, FALSE, TRUE)
@@ -1038,6 +1042,102 @@ async function getProducts(businessId, categoryId = null, productType = null, se
     );
   }
   return list;
+}
+
+// Dedicated Paginated Products query for React Cart Page (batch size: default 20)
+async function getPaginatedProducts(businessId, { categoryId = null, productType = null, search = '', page = 1, limit = 20 } = {}) {
+  const p = Math.max(1, parseInt(page, 10) || 1);
+  const l = Math.max(1, parseInt(limit, 10) || 20);
+  const offset = (p - 1) * l;
+  const s = (search || '').trim().toLowerCase();
+
+  if (!useFallback && pool) {
+    try {
+      let whereClause = ' WHERE (business_id = ? OR business_id = 1) AND is_active = TRUE';
+      const countParams = [businessId || 1];
+
+      if (categoryId && categoryId !== 'all') {
+        whereClause += ' AND category_id = ?';
+        countParams.push(categoryId);
+      }
+      if (productType) {
+        whereClause += ' AND product_type = ?';
+        countParams.push(productType);
+      }
+      if (s) {
+        whereClause += ' AND (LOWER(name) LIKE ? OR LOWER(sku) LIKE ? OR LOWER(description) LIKE ?)';
+        const wild = `%${s}%`;
+        countParams.push(wild, wild, wild);
+      }
+
+      // 1. Total count query
+      const countQuery = `SELECT COUNT(*) AS total FROM products${whereClause}`;
+      const [countRows] = await pool.query(countQuery, countParams);
+      const total = countRows && countRows[0] ? Number(countRows[0].total) : 0;
+
+      // 2. Paginated data query
+      const dataQuery = `SELECT * FROM products${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`;
+      const dataParams = [...countParams, l, offset];
+      const [rows] = await pool.query(dataQuery, dataParams);
+
+      const totalPages = Math.ceil(total / l) || 0;
+      const hasMore = p < totalPages;
+
+      return {
+        products: rows,
+        pagination: {
+          page: p,
+          current_page: p,
+          limit: l,
+          page_size: l,
+          total,
+          totalPages,
+          has_more: hasMore,
+          hasMore: hasMore,
+        },
+      };
+    } catch (e) {
+      console.error('getPaginatedProducts DB query error, falling back to JSON:', e);
+    }
+  }
+
+  // Fallback storage (JSON file)
+  let list = readJson('products');
+  list = list.filter((p) => p.is_active !== false);
+  if (categoryId && categoryId !== 'all') {
+    list = list.filter((p) => String(p.category_id) === String(categoryId));
+  }
+  if (productType) {
+    list = list.filter((p) => p.product_type === productType);
+  }
+  if (s) {
+    list = list.filter((p) =>
+      (p.name || '').toLowerCase().includes(s) ||
+      (p.sku || '').toLowerCase().includes(s) ||
+      (p.description || '').toLowerCase().includes(s)
+    );
+  }
+  // Sort descending by id to match DB behavior
+  list.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
+  const total = list.length;
+  const totalPages = Math.ceil(total / l) || 0;
+  const products = list.slice(offset, offset + l);
+  const hasMore = p < totalPages;
+
+  return {
+    products,
+    pagination: {
+      page: p,
+      current_page: p,
+      limit: l,
+      page_size: l,
+      total,
+      totalPages,
+      has_more: hasMore,
+      hasMore: hasMore,
+    },
+  };
 }
 
 async function createProduct(data) {
@@ -1775,6 +1875,7 @@ module.exports = {
   updateCategory,
   deleteCategory,
   getProducts,
+  getPaginatedProducts,
   createProduct,
   updateProduct,
   deleteProduct,
