@@ -26,7 +26,10 @@ import {
   UserMinus,
   ChevronRight,
   ChevronLeft,
+  RefreshCw,
 } from 'lucide-react';
+import { useAppSelector } from '../store/hooks';
+import { settingsApi } from '../api/settingsApi';
 import { productApi, type Product } from '../api/productApi';
 import { categoryApi, type Category } from '../api/categoryApi';
 import { customerApi, type Customer } from '../api/customerApi';
@@ -119,6 +122,11 @@ export default function CartView({
   const [amountTenderedInput, setAmountTenderedInput] = useState<string>('0.00');
   const [transactionNotes, setTransactionNotes] = useState<string>('');
   const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
+
+  // Shared LAN Printer Settings & Order Receipt Printing State
+  const printerSettings = useAppSelector((state) => state.printer.settings);
+  const printedSaleIdsRef = useRef<Set<number>>(new Set());
+  const [isPrintingReceipt, setIsPrintingReceipt] = useState<boolean>(false);
 
   // Customer Dialog State
   const [phoneSearchQuery, setPhoneSearchQuery] = useState<string>('');
@@ -560,6 +568,9 @@ export default function CartView({
         setShowPaymentModal(false);
         setCompletedSale(sale);
         toast.success('Sale completed and recorded!');
+
+        // Automatically dispatch ONLY Customer Order Receipt to configured LAN printer
+        printCustomerOrderReceipt(sale, false);
       } else {
         toast.error('Failed to complete sale');
       }
@@ -567,6 +578,67 @@ export default function CartView({
       toast.error('Error processing transaction');
     } finally {
       setIsProcessingPayment(false);
+    }
+  };
+
+  /* ── Dedicated Customer Order Receipt Printing ────────── */
+  const printCustomerOrderReceipt = async (saleToPrint: Sale, isManualRetry = false) => {
+    if (!saleToPrint || !saleToPrint.id) return;
+
+    // Prevent duplicate automatic print requests caused by re-renders or multiple callbacks
+    if (!isManualRetry && printedSaleIdsRef.current.has(saleToPrint.id)) {
+      return;
+    }
+
+    // Mark this sale as printed
+    printedSaleIdsRef.current.add(saleToPrint.id);
+
+    // Check if printer is enabled in shared memory
+    if (printerSettings.is_enabled === false) {
+      console.log('LAN printer is disabled in settings; automatic receipt print skipped.');
+      if (isManualRetry) {
+        toast.info('LAN printer is toggled off in Printer Settings.');
+      }
+      return;
+    }
+
+    if (printerSettings.order_receipt_enabled === false) {
+      console.log('Customer Order Receipt is disabled in settings; automatic receipt print skipped.');
+      if (isManualRetry) {
+        toast.info('Customer Order Receipt is disabled in Printer Settings.');
+      }
+      return;
+    }
+
+    if (!printerSettings.ip_address || !printerSettings.ip_address.trim()) {
+      if (isManualRetry) {
+        toast.error('No LAN printer IP address configured in Printer Settings.');
+      }
+      return;
+    }
+
+    setIsPrintingReceipt(true);
+    try {
+      const res = await settingsApi.printReceipt({
+        printer_settings: printerSettings,
+        sale: saleToPrint,
+      });
+
+      if (res.data?.success) {
+        toast.success(
+          res.data.message ||
+            `Customer Order Receipt printed on LAN printer (${printerSettings.ip_address})`
+        );
+      } else {
+        const warnMsg = res.data?.message || 'LAN printer did not respond.';
+        toast.warn(`${warnMsg} You can retry from the receipt dialog.`);
+      }
+    } catch (err: any) {
+      console.error('Failed to send Customer Order Receipt to LAN printer:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Printer connection error';
+      toast.error(`Printer error: ${errMsg}. Use Print button to retry.`);
+    } finally {
+      setIsPrintingReceipt(false);
     }
   };
 
@@ -1598,10 +1670,16 @@ export default function CartView({
               <button
                 type="button"
                 className="receipt-btn receipt-btn--print"
-                onClick={() => toast.success('Receipt sent to printer')}
+                onClick={() => printCustomerOrderReceipt(completedSale, true)}
+                disabled={isPrintingReceipt}
+                title="Print Customer Order Receipt to LAN printer"
               >
-                <Printer size={15} />
-                <span>Print</span>
+                {isPrintingReceipt ? (
+                  <RefreshCw size={15} className="spin" />
+                ) : (
+                  <Printer size={15} />
+                )}
+                <span>{isPrintingReceipt ? 'Printing...' : 'Print'}</span>
               </button>
 
               {onNavigateToSalesHistory && (

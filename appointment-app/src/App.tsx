@@ -24,6 +24,22 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/printer"
+          element={
+            <ProtectedRoute>
+              <MainTerminalShell />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/printers"
+          element={
+            <ProtectedRoute>
+              <MainTerminalShell />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Default / Fallback redirect */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

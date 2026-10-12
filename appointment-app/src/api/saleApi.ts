@@ -77,6 +77,10 @@ export interface Sale {
   refund_status?: 'none' | 'partial' | 'full';
   refunded_amount?: number;
   refunds?: RefundRecord[];
+  gst_reversed_total?: number;
+  net_tax_amount?: number;
+  subtotal_refunded_total?: number;
+  net_subtotal?: number;
 }
 
 export interface CreateSalePayload {

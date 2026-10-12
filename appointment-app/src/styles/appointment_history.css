@@ -1536,3 +1536,52 @@
     transform: scale(0.98);
   }
 }
+
+/* ── Print / Reprint Button beside Customer Name ───────── */
+.history-print-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  margin-left: 6px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.history-print-btn:hover:not(:disabled) {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+  color: #0F172A;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.history-print-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.history-print-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.history-print-btn svg {
+  color: #475569;
+  flex-shrink: 0;
+}
+
+.history-print-btn:hover:not(:disabled) svg {
+  color: #0F172A;
+}

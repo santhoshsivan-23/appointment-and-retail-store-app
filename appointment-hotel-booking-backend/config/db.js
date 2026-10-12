@@ -622,6 +622,10 @@ async function initDatabase() {
     } catch (_) {}
 
     try {
+      await pool.query('ALTER TABLE settings ADD COLUMN printer_settings JSON NULL');
+    } catch (_) {}
+
+    try {
       await pool.query("ALTER TABLE sales ADD COLUMN refund_status ENUM('none', 'partial', 'full') DEFAULT 'none'");
     } catch (_) {}
 
@@ -1392,11 +1396,19 @@ async function getAppointments(date = null, staffId = null, search = null, statu
         }
         const aRefunds = refundsByAppt[r.id] || [];
         const totalRefunded = aRefunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+        const totalGstRefunded = aRefunds.reduce((acc, rf) => acc + (Number(rf.gst_reversed_total) || 0), 0);
+        const totalSubtotalRefunded = aRefunds.reduce((acc, rf) => acc + (Number(rf.subtotal_refunded) || 0), 0);
+        const origTax = Number(r.tax_amount) || 0;
+        const origSubtotal = Number(r.subtotal) || Number(r.total_amount) || 0;
         return {
           ...r,
           refunds: aRefunds,
           refunded_amount: Number(r.refunded_amount) || totalRefunded,
           refund_status: r.refund_status || (aRefunds.length > 0 ? (totalRefunded >= Number(r.total_amount) ? 'full' : 'partial') : 'none'),
+          gst_reversed_total: totalGstRefunded,
+          net_tax_amount: Math.max(0, Math.round((origTax - totalGstRefunded) * 100) / 100),
+          subtotal_refunded_total: totalSubtotalRefunded,
+          net_subtotal: Math.max(0, Math.round((origSubtotal - totalSubtotalRefunded) * 100) / 100),
         };
       });
     } catch (e) {
@@ -1421,12 +1433,20 @@ async function getAppointments(date = null, staffId = null, search = null, statu
   list = list.map((a) => {
     const aRefunds = refundsByApptFallback[a.id] || [];
     const totalRefunded = aRefunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+    const totalGstRefunded = aRefunds.reduce((acc, rf) => acc + (Number(rf.gst_reversed_total) || 0), 0);
+    const totalSubtotalRefunded = aRefunds.reduce((acc, rf) => acc + (Number(rf.subtotal_refunded) || 0), 0);
+    const origTax = Number(a.tax_amount) || 0;
+    const origSubtotal = Number(a.subtotal) || Number(a.total_amount) || 0;
     return {
       ...a,
       staff_name: a.staff_name || staffMap[String(a.staff_id)] || '',
       refunds: aRefunds,
       refunded_amount: Number(a.refunded_amount) || totalRefunded,
       refund_status: a.refund_status || (aRefunds.length > 0 ? (totalRefunded >= Number(a.total_amount) ? 'full' : 'partial') : 'none'),
+      gst_reversed_total: totalGstRefunded,
+      net_tax_amount: Math.max(0, Math.round((origTax - totalGstRefunded) * 100) / 100),
+      subtotal_refunded_total: totalSubtotalRefunded,
+      net_subtotal: Math.max(0, Math.round((origSubtotal - totalSubtotalRefunded) * 100) / 100),
     };
   });
 
@@ -1479,8 +1499,16 @@ async function getAppointmentById(id) {
         appt.refunds = [];
       }
       const totalRefunded = appt.refunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+      const totalGstRefunded = appt.refunds.reduce((acc, rf) => acc + (Number(rf.gst_reversed_total) || 0), 0);
+      const totalSubtotalRefunded = appt.refunds.reduce((acc, rf) => acc + (Number(rf.subtotal_refunded) || 0), 0);
+      const origTax = Number(appt.tax_amount) || 0;
+      const origSubtotal = Number(appt.subtotal) || Number(appt.total_amount) || 0;
       appt.refunded_amount = Number(appt.refunded_amount) || totalRefunded;
       appt.refund_status = appt.refund_status || (appt.refunds.length > 0 ? (totalRefunded >= Number(appt.total_amount) ? 'full' : 'partial') : 'none');
+      appt.gst_reversed_total = totalGstRefunded;
+      appt.net_tax_amount = Math.max(0, Math.round((origTax - totalGstRefunded) * 100) / 100);
+      appt.subtotal_refunded_total = totalSubtotalRefunded;
+      appt.net_subtotal = Math.max(0, Math.round((origSubtotal - totalSubtotalRefunded) * 100) / 100);
       return appt;
     } catch (e) {
       console.error(e);
@@ -1492,8 +1520,16 @@ async function getAppointmentById(id) {
   const allRefundsFallback = readJson('refunds');
   appt.refunds = allRefundsFallback.filter((rf) => String(rf.appointment_id) === String(id));
   const totalRefunded = appt.refunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+  const totalGstRefunded = appt.refunds.reduce((acc, rf) => acc + (Number(rf.gst_reversed_total) || 0), 0);
+  const totalSubtotalRefunded = appt.refunds.reduce((acc, rf) => acc + (Number(rf.subtotal_refunded) || 0), 0);
+  const origTax = Number(appt.tax_amount) || 0;
+  const origSubtotal = Number(appt.subtotal) || Number(appt.total_amount) || 0;
   appt.refunded_amount = Number(appt.refunded_amount) || totalRefunded;
   appt.refund_status = appt.refund_status || (appt.refunds.length > 0 ? (totalRefunded >= Number(appt.total_amount) ? 'full' : 'partial') : 'none');
+  appt.gst_reversed_total = totalGstRefunded;
+  appt.net_tax_amount = Math.max(0, Math.round((origTax - totalGstRefunded) * 100) / 100);
+  appt.subtotal_refunded_total = totalSubtotalRefunded;
+  appt.net_subtotal = Math.max(0, Math.round((origSubtotal - totalSubtotalRefunded) * 100) / 100);
   return appt;
 }
 
@@ -1711,11 +1747,19 @@ async function getSales(filters = {}) {
         }
         const sRefunds = refundsBySale[r.id] || [];
         const totalRefunded = sRefunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+        const totalGstRefunded = sRefunds.reduce((acc, rf) => acc + (Number(rf.gst_reversed_total) || 0), 0);
+        const totalSubtotalRefunded = sRefunds.reduce((acc, rf) => acc + (Number(rf.subtotal_refunded) || 0), 0);
+        const origTax = Number(r.tax_amount) || 0;
+        const origSubtotal = Number(r.subtotal) || 0;
         return {
           ...r,
           refunds: sRefunds,
           refunded_amount: Number(r.refunded_amount) || totalRefunded,
           refund_status: r.refund_status || (sRefunds.length > 0 ? (totalRefunded >= Number(r.total_amount) ? 'full' : 'partial') : 'none'),
+          gst_reversed_total: totalGstRefunded,
+          net_tax_amount: Math.max(0, Math.round((origTax - totalGstRefunded) * 100) / 100),
+          subtotal_refunded_total: totalSubtotalRefunded,
+          net_subtotal: Math.max(0, Math.round((origSubtotal - totalSubtotalRefunded) * 100) / 100),
         };
       });
     } catch (e) {
@@ -1739,12 +1783,20 @@ async function getSales(filters = {}) {
   list = list.map((s) => {
     const sRefunds = refundsBySaleFallback[s.id] || [];
     const totalRefunded = sRefunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+    const totalGstRefunded = sRefunds.reduce((acc, rf) => acc + (Number(rf.gst_reversed_total) || 0), 0);
+    const totalSubtotalRefunded = sRefunds.reduce((acc, rf) => acc + (Number(rf.subtotal_refunded) || 0), 0);
+    const origTax = Number(s.tax_amount) || 0;
+    const origSubtotal = Number(s.subtotal) || 0;
     return {
       ...s,
       staff_name: s.staff_name || staffMap[String(s.staff_id)] || '',
       refunds: sRefunds,
       refunded_amount: Number(s.refunded_amount) || totalRefunded,
       refund_status: s.refund_status || (sRefunds.length > 0 ? (totalRefunded >= Number(s.total_amount) ? 'full' : 'partial') : 'none'),
+      gst_reversed_total: totalGstRefunded,
+      net_tax_amount: Math.max(0, Math.round((origTax - totalGstRefunded) * 100) / 100),
+      subtotal_refunded_total: totalSubtotalRefunded,
+      net_subtotal: Math.max(0, Math.round((origSubtotal - totalSubtotalRefunded) * 100) / 100),
     };
   });
 
@@ -1787,8 +1839,16 @@ async function getSaleById(id) {
         s.refunds = [];
       }
       const totalRefunded = s.refunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+      const totalGstRefunded = s.refunds.reduce((acc, rf) => acc + (Number(rf.gst_reversed_total) || 0), 0);
+      const totalSubtotalRefunded = s.refunds.reduce((acc, rf) => acc + (Number(rf.subtotal_refunded) || 0), 0);
+      const origTax = Number(s.tax_amount) || 0;
+      const origSubtotal = Number(s.subtotal) || 0;
       s.refunded_amount = Number(s.refunded_amount) || totalRefunded;
       s.refund_status = s.refund_status || (s.refunds.length > 0 ? (totalRefunded >= Number(s.total_amount) ? 'full' : 'partial') : 'none');
+      s.gst_reversed_total = totalGstRefunded;
+      s.net_tax_amount = Math.max(0, Math.round((origTax - totalGstRefunded) * 100) / 100);
+      s.subtotal_refunded_total = totalSubtotalRefunded;
+      s.net_subtotal = Math.max(0, Math.round((origSubtotal - totalSubtotalRefunded) * 100) / 100);
       return s;
     } catch (e) {
       console.error(e);
@@ -1800,8 +1860,16 @@ async function getSaleById(id) {
   const allRefundsFallback = readJson('refunds');
   s.refunds = allRefundsFallback.filter((rf) => String(rf.sale_id) === String(id));
   const totalRefunded = s.refunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+  const totalGstRefunded = s.refunds.reduce((acc, rf) => acc + (Number(rf.gst_reversed_total) || 0), 0);
+  const totalSubtotalRefunded = s.refunds.reduce((acc, rf) => acc + (Number(rf.subtotal_refunded) || 0), 0);
+  const origTax = Number(s.tax_amount) || 0;
+  const origSubtotal = Number(s.subtotal) || 0;
   s.refunded_amount = Number(s.refunded_amount) || totalRefunded;
   s.refund_status = s.refund_status || (s.refunds.length > 0 ? (totalRefunded >= Number(s.total_amount) ? 'full' : 'partial') : 'none');
+  s.gst_reversed_total = totalGstRefunded;
+  s.net_tax_amount = Math.max(0, Math.round((origTax - totalGstRefunded) * 100) / 100);
+  s.subtotal_refunded_total = totalSubtotalRefunded;
+  s.net_subtotal = Math.max(0, Math.round((origSubtotal - totalSubtotalRefunded) * 100) / 100);
   return s;
 }
 
@@ -2379,6 +2447,11 @@ function formatSettingsOutput(row) {
     require_doctor_notes: requireNotes,
     allow_delete_service: allowDelete,
     appointment_v2_clock: appointmentV2Clock,
+    printer_settings: row.printer_settings
+      ? (typeof row.printer_settings === 'string'
+          ? (() => { try { return JSON.parse(row.printer_settings); } catch { return row.printer_settings; } })()
+          : row.printer_settings)
+      : null,
     created_at: row.created_at || new Date().toISOString(),
     updated_at: row.updated_at || new Date().toISOString(),
   };
@@ -2421,6 +2494,7 @@ async function getSettings(businessId = 1) {
       require_doctor_notes: true,
       allow_delete_service: false,
       appointment_v2_clock: true,
+      printer_settings: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -2442,6 +2516,7 @@ async function updateSettings(businessId = 1, data = {}) {
   const requireNotes = data.require_doctor_notes !== undefined ? Boolean(data.require_doctor_notes) : (data.requireDoctorNotes !== undefined ? Boolean(data.requireDoctorNotes) : undefined);
   const allowDelete = data.allow_delete_service !== undefined ? Boolean(data.allow_delete_service) : (data.allowDeleteService !== undefined ? Boolean(data.allowDeleteService) : undefined);
   const appointmentV2Clock = data.appointment_v2_clock !== undefined ? Boolean(data.appointment_v2_clock) : (data.appointmentV2Clock !== undefined ? Boolean(data.appointmentV2Clock) : undefined);
+  const printerSettings = data.printer_settings !== undefined ? data.printer_settings : undefined;
 
   if (!useFallback && pool) {
     try {
@@ -2460,6 +2535,10 @@ async function updateSettings(businessId = 1, data = {}) {
       if (requireNotes !== undefined) { fields.push('require_doctor_notes = ?'); values.push(requireNotes); }
       if (allowDelete !== undefined) { fields.push('allow_delete_service = ?'); values.push(allowDelete); }
       if (appointmentV2Clock !== undefined) { fields.push('appointment_v2_clock = ?'); values.push(appointmentV2Clock); }
+      if (printerSettings !== undefined) {
+        fields.push('printer_settings = ?');
+        values.push(typeof printerSettings === 'object' && printerSettings !== null ? JSON.stringify(printerSettings) : printerSettings);
+      }
 
       if (fields.length > 0) {
         values.push(bId);
@@ -2487,6 +2566,7 @@ async function updateSettings(businessId = 1, data = {}) {
       require_doctor_notes: true,
       allow_delete_service: false,
       appointment_v2_clock: true,
+      printer_settings: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
@@ -2506,6 +2586,11 @@ async function updateSettings(businessId = 1, data = {}) {
     require_doctor_notes: requireNotes !== undefined ? requireNotes : current.require_doctor_notes,
     allow_delete_service: allowDelete !== undefined ? allowDelete : current.allow_delete_service,
     appointment_v2_clock: appointmentV2Clock !== undefined ? appointmentV2Clock : (current.appointment_v2_clock !== undefined ? current.appointment_v2_clock : true),
+    printer_settings: printerSettings !== undefined
+      ? (typeof printerSettings === 'string'
+          ? (() => { try { return JSON.parse(printerSettings); } catch { return printerSettings; } })()
+          : printerSettings)
+      : current.printer_settings,
     updated_at: new Date().toISOString(),
   };
   writeJson('settings', list);

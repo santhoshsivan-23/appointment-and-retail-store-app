@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
@@ -14,21 +14,69 @@ import AppointmentView from '../views/AppointmentView';
 import StaffView from '../views/StaffView';
 import AppointmentHistoryView from '../views/AppointmentHistoryView';
 import AppointmentV2View from '../views/AppointmentV2View';
+import PrinterSettingsView from '../views/PrinterSettingsView';
 import MoreOptionsView from '../views/MoreOptionsView';
 import TabPlaceholderView from '../views/TabPlaceholderView';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logout } from '../features/auth/authSlice';
+import { settingsApi } from '../api/settingsApi';
+import { setPrinterSettings } from '../features/printer/printerSlice';
 import '../styles/terminal.css';
 
 export default function MainTerminalShell() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const business = useAppSelector((s) => s.auth.business);
+  const isPrinterLoaded = useAppSelector((s) => s.printer.isLoaded);
 
-  const [currentTab, setCurrentTab] = useState<number>(0);
+  const isPrinterRoute = location.pathname === '/printer' || location.pathname === '/printers';
+  const [currentTab, setCurrentTab] = useState<number>(() => (isPrinterRoute ? 11 : 0));
   const [showLogoutModal, setShowLogoutModal] = useState<boolean>(false);
   const [mobileCartMode, setMobileCartMode] = useState<'pos' | 'cart'>('pos');
   const [cartItemCount, setCartItemCount] = useState<number>(0);
+
+  // Auto-sync LAN printer settings into Redux state on startup
+  useEffect(() => {
+    if (!isPrinterLoaded) {
+      settingsApi
+        .getSettings()
+        .then((res) => {
+          if (res.data?.data?.printer_settings) {
+            dispatch(setPrinterSettings(res.data.data.printer_settings));
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not auto-sync printer settings in terminal shell:', err);
+        });
+    }
+  }, [isPrinterLoaded, dispatch]);
+
+  // Sync tab if user navigates to /printer or /dashboard via direct URL or browser back/forward
+  useEffect(() => {
+    if (location.pathname === '/printer' || location.pathname === '/printers') {
+      setCurrentTab(11);
+    } else if (location.pathname === '/dashboard' && currentTab === 11) {
+      setCurrentTab(0);
+    }
+  }, [location.pathname, currentTab]);
+
+  const handleSelectTab = useCallback(
+    (idx: number) => {
+      setCurrentTab(idx);
+      if (idx === 11) {
+        if (location.pathname !== '/printer') {
+          navigate('/printer');
+        }
+      } else {
+        if (location.pathname === '/printer' || location.pathname === '/printers') {
+          navigate('/dashboard');
+        }
+      }
+    },
+    [location.pathname, navigate]
+  );
+
 
   const handleLogout = () => {
     dispatch(logout());
@@ -58,7 +106,7 @@ export default function MainTerminalShell() {
       <div className="terminal-body">
         <Sidebar
           currentIndex={currentTab}
-          onSelectTab={(idx) => setCurrentTab(idx)}
+          onSelectTab={handleSelectTab}
         />
 
         <main
@@ -67,7 +115,7 @@ export default function MainTerminalShell() {
           }`}
         >
           {currentTab === 0 ? (
-            <DashboardView onNavigate={(idx) => setCurrentTab(idx)} />
+            <DashboardView onNavigate={handleSelectTab} />
           ) : currentTab === 1 ? (
             <AppointmentView
               onStartService={(customer, products, appointment) => {
@@ -78,7 +126,7 @@ export default function MainTerminalShell() {
                   staffName: appointment?.staff_name,
                 });
                 setMobileCartMode('cart');
-                setCurrentTab(4); // Switch to Cart & POS
+                handleSelectTab(4); // Switch to Cart & POS
               }}
             />
           ) : currentTab === 2 ? (
@@ -91,7 +139,7 @@ export default function MainTerminalShell() {
               preloadProducts={cartPreload?.products}
               preloadAppointmentId={cartPreload?.appointmentId}
               preloadStaffName={cartPreload?.staffName}
-              onNavigateToSalesHistory={() => setCurrentTab(5)}
+              onNavigateToSalesHistory={() => handleSelectTab(5)}
               mobileViewMode={mobileCartMode}
               onMobileViewModeChange={(m) => setMobileCartMode(m)}
               onCartCountChange={(cnt) => setCartItemCount(cnt)}
@@ -104,9 +152,11 @@ export default function MainTerminalShell() {
             <ProductsView />
           ) : currentTab === 8 ? (
             <AppointmentConfigView />
+          ) : currentTab === 11 ? (
+            <PrinterSettingsView />
           ) : currentTab === 9 ? (
             <MoreOptionsView
-              onNavigate={(idx) => setCurrentTab(idx)}
+              onNavigate={handleSelectTab}
               onLogoutClick={() => setShowLogoutModal(true)}
               onSelectCartMode={(m) => setMobileCartMode(m)}
             />
@@ -120,13 +170,13 @@ export default function MainTerminalShell() {
                   staffName: appointment?.staff_name,
                 });
                 setMobileCartMode('cart');
-                setCurrentTab(4); // Switch to Cart & POS
+                handleSelectTab(4); // Switch to Cart & POS
               }}
             />
           ) : (
             <TabPlaceholderView
               tabIndex={currentTab}
-              onBackToDashboard={() => setCurrentTab(0)}
+              onBackToDashboard={() => handleSelectTab(0)}
             />
           )}
         </main>
@@ -135,7 +185,7 @@ export default function MainTerminalShell() {
       {/* 3. Mobile Fixed Bottom Navigation Bar */}
       <MobileBottomNav
         currentTab={currentTab}
-        onSelectTab={(idx) => setCurrentTab(idx)}
+        onSelectTab={handleSelectTab}
         mobileCartMode={mobileCartMode}
         onSelectCartMode={(mode) => setMobileCartMode(mode)}
         cartCount={cartItemCount}

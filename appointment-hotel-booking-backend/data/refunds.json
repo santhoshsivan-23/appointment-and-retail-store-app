@@ -118,5 +118,193 @@
       }
     ],
     "created_at": "2026-10-12T05:40:14.402Z"
+  },
+  {
+    "id": 3,
+    "refund_receipt_number": "#REF-20261012-4-6490",
+    "business_id": 1,
+    "sale_id": 4,
+    "appointment_id": null,
+    "refund_type": "partial",
+    "subtotal_refunded": 135,
+    "discount_reversed_total": 0,
+    "gst_reversed_total": 10.8,
+    "total_refund_amount": 145.8,
+    "refund_method": "card",
+    "reason": "Customer returned product",
+    "notes": "",
+    "items": [
+      {
+        "product_id": 6,
+        "product_name": "Unified Wellness & Grooming Bundle",
+        "unit_price": 135,
+        "quantity": 1,
+        "original_quantity": 2,
+        "previously_refunded": 1,
+        "remaining_quantity": 0,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 10.8,
+        "refund_amount": 145.8
+      }
+    ],
+    "created_at": "2026-10-12T10:15:45.629Z"
+  },
+  {
+    "id": 4,
+    "refund_receipt_number": "#REF-20261012-15-6005",
+    "business_id": 1,
+    "sale_id": 15,
+    "appointment_id": null,
+    "refund_type": "partial",
+    "subtotal_refunded": 58,
+    "discount_reversed_total": 0,
+    "gst_reversed_total": 4.64,
+    "total_refund_amount": 62.64,
+    "refund_method": "cash",
+    "reason": "Customer returned product",
+    "notes": "",
+    "items": [
+      {
+        "product_id": 50,
+        "product_name": "Wild Alaskan Salmon Oil (500ml)",
+        "unit_price": 29,
+        "quantity": 2,
+        "original_quantity": 2,
+        "previously_refunded": 0,
+        "remaining_quantity": 0,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 4.64,
+        "refund_amount": 62.64
+      }
+    ],
+    "created_at": "2026-10-12T10:16:19.901Z"
+  },
+  {
+    "id": 5,
+    "refund_receipt_number": "#REF-20261012-12-9937",
+    "business_id": 1,
+    "sale_id": 12,
+    "appointment_id": null,
+    "refund_type": "partial",
+    "subtotal_refunded": 356,
+    "discount_reversed_total": 0,
+    "gst_reversed_total": 28.48,
+    "total_refund_amount": 384.48,
+    "refund_method": "cash",
+    "reason": "Customer returned product",
+    "notes": "",
+    "items": [
+      {
+        "product_id": 52,
+        "product_name": "Ergonomic Orthopedic Memory Bed",
+        "unit_price": 89,
+        "quantity": 4,
+        "original_quantity": 4,
+        "previously_refunded": 0,
+        "remaining_quantity": 0,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 28.48,
+        "refund_amount": 384.48
+      }
+    ],
+    "created_at": "2026-10-12T10:16:37.764Z"
+  },
+  {
+    "id": 6,
+    "refund_receipt_number": "#REF-20261012-15-3984",
+    "business_id": 1,
+    "sale_id": 15,
+    "appointment_id": null,
+    "refund_type": "full",
+    "subtotal_refunded": 16,
+    "discount_reversed_total": 0,
+    "gst_reversed_total": 1.28,
+    "total_refund_amount": 17.28,
+    "refund_method": "cash",
+    "reason": "Customer returned product",
+    "notes": "",
+    "items": [
+      {
+        "product_id": 51,
+        "product_name": "Dental Chew Sticks (Pack of 14)",
+        "unit_price": 16,
+        "quantity": 1,
+        "original_quantity": 1,
+        "previously_refunded": 0,
+        "remaining_quantity": 0,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 1.28,
+        "refund_amount": 17.28
+      }
+    ],
+    "created_at": "2026-10-12T10:19:45.350Z"
+  },
+  {
+    "id": 7,
+    "refund_receipt_number": "#REF-20261012-14-6122",
+    "business_id": 1,
+    "sale_id": 14,
+    "appointment_id": null,
+    "refund_type": "partial",
+    "subtotal_refunded": 156,
+    "discount_reversed_total": 0,
+    "gst_reversed_total": 12.48,
+    "total_refund_amount": 168.48,
+    "refund_method": "qr",
+    "reason": "Customer returned product",
+    "notes": "",
+    "items": [
+      {
+        "product_id": 52,
+        "product_name": "Ergonomic Orthopedic Memory Bed",
+        "unit_price": 89,
+        "quantity": 1,
+        "original_quantity": 1,
+        "previously_refunded": 0,
+        "remaining_quantity": 0,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 7.12,
+        "refund_amount": 96.12
+      },
+      {
+        "product_id": 50,
+        "product_name": "Wild Alaskan Salmon Oil (500ml)",
+        "unit_price": 29,
+        "quantity": 1,
+        "original_quantity": 1,
+        "previously_refunded": 0,
+        "remaining_quantity": 0,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 2.32,
+        "refund_amount": 31.32
+      },
+      {
+        "product_id": 53,
+        "product_name": "Reflective Tactical Harness (L)",
+        "unit_price": 38,
+        "quantity": 1,
+        "original_quantity": 1,
+        "previously_refunded": 0,
+        "remaining_quantity": 0,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 3.04,
+        "refund_amount": 41.04
+      }
+    ],
+    "created_at": "2026-10-12T10:48:34.638Z"
   }
 ]

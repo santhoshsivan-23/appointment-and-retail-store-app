@@ -13,6 +13,27 @@
     "allow_delete_service": false,
     "appointment_v2_clock": true,
     "created_at": "2026-10-08T00:00:00.000Z",
-    "updated_at": "2026-10-09T03:56:34.034Z"
+    "updated_at": "2026-10-12T07:11:30.291Z",
+    "printer_settings": {
+      "printer_name": "Main Counter ESC/POS Printer",
+      "connection_type": "lan",
+      "ip_address": "192.168.1.51",
+      "port": 9100,
+      "paper_size": "mm80",
+      "business_name": "Santhosh",
+      "phone_number": "+1 (555) 019-2834",
+      "addr_line1": "100 Terminal Boulevard",
+      "addr_line2": "Suite 400",
+      "addr_line3": "New York, NY 10001",
+      "addr_line4": "Tax ID: US-987654321",
+      "header_note": "Thank you for dining with us!",
+      "footer_note": "Thank you for your visit! Please come again.",
+      "is_default": true,
+      "is_enabled": true,
+      "order_receipt_enabled": true,
+      "kitchen_receipt_enabled": true,
+      "auto_cut": true,
+      "open_cash_drawer": true
+    }
   }
 ]

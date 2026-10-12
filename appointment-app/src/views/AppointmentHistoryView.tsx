@@ -17,9 +17,12 @@ import {
   Clock,
   ShieldCheck,
   History,
+  Printer,
 } from 'lucide-react';
 import { appointmentApi, type Appointment } from '../api/appointmentApi';
 import { staffApi, type Staff } from '../api/staffApi';
+import { useAppSelector } from '../store/hooks';
+import { executeReceiptPrint } from '../utils/receiptPrinter';
 import RefundModal from '../components/RefundModal';
 import '../styles/appointment_history.css';
 import '../styles/refund_modal.css';
@@ -78,6 +81,24 @@ const normalizeAppointment = (a: any): Appointment => {
     }
   }
 
+  const aRefunds = parsedRefunds;
+  const totalGstRefunded =
+    a.gst_reversed_total !== undefined
+      ? Number(a.gst_reversed_total)
+      : aRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.gst_reversed_total) || 0), 0);
+  const totalSubtotalRefunded =
+    a.subtotal_refunded_total !== undefined
+      ? Number(a.subtotal_refunded_total)
+      : aRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.subtotal_refunded) || 0), 0);
+  const netTax =
+    a.net_tax_amount !== undefined
+      ? Number(a.net_tax_amount)
+      : Math.max(0, Math.round(((Number(a.tax_amount) || 0) - totalGstRefunded) * 100) / 100);
+  const netSubtotal =
+    a.net_subtotal !== undefined
+      ? Number(a.net_subtotal)
+      : Math.max(0, Math.round(((Number(a.subtotal || a.total_amount) || 0) - totalSubtotalRefunded) * 100) / 100);
+
   return {
     ...a,
     total_amount: Number(a.total_amount) || 0,
@@ -89,6 +110,10 @@ const normalizeAppointment = (a: any): Appointment => {
     customer_phone: a.customer_phone || '',
     staff_name: a.staff_name || '',
     notes: a.notes || '',
+    gst_reversed_total: totalGstRefunded,
+    net_tax_amount: netTax,
+    subtotal_refunded_total: totalSubtotalRefunded,
+    net_subtotal: netSubtotal,
   };
 };
 
@@ -106,6 +131,53 @@ export default function AppointmentHistoryView() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [detailAppointment, setDetailAppointment] = useState<Appointment | null>(null);
   const [showRefundModal, setShowRefundModal] = useState<boolean>(false);
+
+  const printerSettings = useAppSelector((state) => state.printer.settings);
+  const [printingAptId, setPrintingAptId] = useState<number | null>(null);
+
+  /* ── Print / Reprint Handler ───────────────────────────── */
+  const handlePrintAppointment = async (aptToPrint: Appointment, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setPrintingAptId(aptToPrint.id);
+    try {
+      let fullApt = { ...aptToPrint };
+      if (!fullApt.refunds || fullApt.refunds.length === 0) {
+        try {
+          const rfRes = await appointmentApi.getRefunds(aptToPrint.id);
+          if (rfRes.data?.data && Array.isArray(rfRes.data.data)) {
+            fullApt.refunds = rfRes.data.data;
+          }
+        } catch (_) {}
+      }
+      const aptRefunds = fullApt.refunds || [];
+      const totalGstRefunded =
+        fullApt.gst_reversed_total !== undefined
+          ? Number(fullApt.gst_reversed_total)
+          : aptRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.gst_reversed_total) || 0), 0);
+      const totalSubtotalRefunded =
+        fullApt.subtotal_refunded_total !== undefined
+          ? Number(fullApt.subtotal_refunded_total)
+          : aptRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.subtotal_refunded) || 0), 0);
+      fullApt.gst_reversed_total = totalGstRefunded;
+      fullApt.net_tax_amount = Math.max(0, Math.round(((Number(fullApt.tax_amount) || 0) - totalGstRefunded) * 100) / 100);
+      fullApt.subtotal_refunded_total = totalSubtotalRefunded;
+      fullApt.net_subtotal = Math.max(0, Math.round(((Number(fullApt.subtotal || fullApt.total_amount) || 0) - totalSubtotalRefunded) * 100) / 100);
+
+      await executeReceiptPrint({
+        printerSettings,
+        transaction: fullApt,
+        type: 'appointment',
+        isReprint: true,
+      });
+    } catch (err: any) {
+      console.error('Print appointment error:', err);
+      toast.error('Failed to trigger receipt printing.');
+    } finally {
+      setPrintingAptId(null);
+    }
+  };
 
   /* ── Handle Refund Success Callback ───────────────────── */
   const handleRefundSuccess = (updatedApt: Appointment, _refundRecord?: any) => {
@@ -437,8 +509,20 @@ export default function AppointmentHistoryView() {
                 {/* 2. Customer Name, Phone & Staff */}
                 <div className="apt-card-info">
                   <div className="apt-card-customer">
-                    <User size={15} style={{ color: '#94A3B8' }} />
-                    <span>{a.customer_name || 'Walk-in Customer'}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <User size={15} style={{ color: '#94A3B8' }} />
+                      <span>{a.customer_name || 'Walk-in Customer'}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="history-print-btn"
+                      title="Print / Reprint Receipt"
+                      onClick={(e) => handlePrintAppointment(a, e)}
+                      disabled={printingAptId === a.id}
+                    >
+                      <Printer size={12} />
+                      <span>{printingAptId === a.id ? 'Printing...' : 'Print'}</span>
+                    </button>
                   </div>
 
                   {a.customer_phone && (
@@ -640,8 +724,20 @@ export default function AppointmentHistoryView() {
               <div className="apt-modal-grid-2">
                 <div>
                   <div className="apt-modal-field-label">Customer</div>
-                  <div className="apt-modal-field-val">
-                    {detailAppointment.customer_name || 'Walk-in Guest'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="apt-modal-field-val">
+                      {detailAppointment.customer_name || 'Walk-in Guest'}
+                    </div>
+                    <button
+                      type="button"
+                      className="history-print-btn"
+                      title="Print / Reprint Receipt"
+                      onClick={(e) => handlePrintAppointment(detailAppointment, e)}
+                      disabled={printingAptId === detailAppointment.id}
+                    >
+                      <Printer size={12} />
+                      <span>{printingAptId === detailAppointment.id ? 'Printing...' : 'Print'}</span>
+                    </button>
                   </div>
                   {detailAppointment.customer_phone && (
                     <div className="apt-modal-field-sub">

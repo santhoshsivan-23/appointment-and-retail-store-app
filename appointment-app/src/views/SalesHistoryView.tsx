@@ -14,8 +14,11 @@ import {
   BadgeCheck,
   Clock,
   CalendarCheck,
+  Printer,
 } from 'lucide-react';
 import { saleApi, type Sale, formatReceiptNumber, getPaymentMethodLabel } from '../api/saleApi';
+import { useAppSelector } from '../store/hooks';
+import { executeReceiptPrint } from '../utils/receiptPrinter';
 import RefundModal from '../components/RefundModal';
 import '../styles/sales_history.css';
 import '../styles/refund_modal.css';
@@ -45,6 +48,53 @@ export default function SalesHistoryView() {
   const [detailSale, setDetailSale] = useState<Sale | null>(null);
   const [showRefundModal, setShowRefundModal] = useState<boolean>(false);
 
+  const printerSettings = useAppSelector((state) => state.printer.settings);
+  const [printingSaleId, setPrintingSaleId] = useState<number | null>(null);
+
+  /* ── Print / Reprint Handler ───────────────────────────── */
+  const handlePrintSale = async (saleToPrint: Sale, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setPrintingSaleId(saleToPrint.id);
+    try {
+      let fullSale = { ...saleToPrint };
+      if (!fullSale.refunds || fullSale.refunds.length === 0) {
+        try {
+          const rfRes = await saleApi.getRefunds(saleToPrint.id);
+          if (rfRes.data?.data && Array.isArray(rfRes.data.data)) {
+            fullSale.refunds = rfRes.data.data;
+          }
+        } catch (_) {}
+      }
+      const sRefunds = fullSale.refunds || [];
+      const totalGstRefunded =
+        fullSale.gst_reversed_total !== undefined
+          ? Number(fullSale.gst_reversed_total)
+          : sRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.gst_reversed_total) || 0), 0);
+      const totalSubtotalRefunded =
+        fullSale.subtotal_refunded_total !== undefined
+          ? Number(fullSale.subtotal_refunded_total)
+          : sRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.subtotal_refunded) || 0), 0);
+      fullSale.gst_reversed_total = totalGstRefunded;
+      fullSale.net_tax_amount = Math.max(0, Math.round(((Number(fullSale.tax_amount) || 0) - totalGstRefunded) * 100) / 100);
+      fullSale.subtotal_refunded_total = totalSubtotalRefunded;
+      fullSale.net_subtotal = Math.max(0, Math.round(((Number(fullSale.subtotal) || 0) - totalSubtotalRefunded) * 100) / 100);
+
+      await executeReceiptPrint({
+        printerSettings,
+        transaction: fullSale,
+        type: 'sale',
+        isReprint: true,
+      });
+    } catch (err: any) {
+      console.error('Print sale error:', err);
+      toast.error('Failed to trigger receipt printing.');
+    } finally {
+      setPrintingSaleId(null);
+    }
+  };
+
   /* ── Helper to Normalize API Sales ────────────────────── */
   const normalizeSalesList = (rawList: any[]): Sale[] => {
     // Strictly normal POS/Cart transactions only (appointment_id must be null or 0)
@@ -63,18 +113,42 @@ export default function SalesHistoryView() {
         }
       }
 
+      const origTax = Number(s.tax_amount) || 0;
+      const origSubtotal = Number(s.subtotal) || 0;
+      const sRefunds = s.refunds || [];
+      const totalGstRefunded =
+        s.gst_reversed_total !== undefined
+          ? Number(s.gst_reversed_total)
+          : sRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.gst_reversed_total) || 0), 0);
+      const totalSubtotalRefunded =
+        s.subtotal_refunded_total !== undefined
+          ? Number(s.subtotal_refunded_total)
+          : sRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.subtotal_refunded) || 0), 0);
+      const netTax =
+        s.net_tax_amount !== undefined
+          ? Number(s.net_tax_amount)
+          : Math.max(0, Math.round((origTax - totalGstRefunded) * 100) / 100);
+      const netSubtotal =
+        s.net_subtotal !== undefined
+          ? Number(s.net_subtotal)
+          : Math.max(0, Math.round((origSubtotal - totalSubtotalRefunded) * 100) / 100);
+
       return {
         ...s,
-        subtotal: Number(s.subtotal) || 0,
+        subtotal: origSubtotal,
         item_discount_total: Number(s.item_discount_total) || 0,
         overall_discount: Number(s.overall_discount) || 0,
-        tax_amount: Number(s.tax_amount) || 0,
+        tax_amount: origTax,
         total_amount: Number(s.total_amount) || 0,
         amount_tendered: Number(s.amount_tendered) || 0,
         change_amount: Number(s.change_amount) || 0,
         refund_status: s.refund_status || (Number(s.refunded_amount) > 0 ? (Number(s.refunded_amount) >= Number(s.total_amount) ? 'full' : 'partial') : 'none'),
         refunded_amount: Number(s.refunded_amount) || 0,
-        refunds: s.refunds || [],
+        refunds: sRefunds,
+        gst_reversed_total: totalGstRefunded,
+        net_tax_amount: netTax,
+        subtotal_refunded_total: totalSubtotalRefunded,
+        net_subtotal: netSubtotal,
         items: parsedItems.map((it) => ({
           product_id: it.product_id,
           product_name: it.product_name || it.name || 'Item',
@@ -502,6 +576,16 @@ export default function SalesHistoryView() {
                           ({sale.customer_phone})
                         </span>
                       )}
+                      <button
+                        type="button"
+                        className="history-print-btn"
+                        title="Print / Reprint Receipt"
+                        onClick={(e) => handlePrintSale(sale, e)}
+                        disabled={printingSaleId === sale.id}
+                      >
+                        <Printer size={12} />
+                        <span>{printingSaleId === sale.id ? 'Printing...' : 'Print'}</span>
+                      </button>
                     </div>
 
                     {sale.staff_name && (
@@ -649,8 +733,20 @@ export default function SalesHistoryView() {
               <div className="sale-detail-grid">
                 <div>
                   <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500 }}>Customer</div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>
-                    {detailSale.customer_name || 'Walk-in Guest'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                      {detailSale.customer_name || 'Walk-in Guest'}
+                    </span>
+                    <button
+                      type="button"
+                      className="history-print-btn"
+                      title="Print / Reprint Receipt"
+                      onClick={(e) => handlePrintSale(detailSale, e)}
+                      disabled={printingSaleId === detailSale.id}
+                    >
+                      <Printer size={12} />
+                      <span>{printingSaleId === detailSale.id ? 'Printing...' : 'Print'}</span>
+                    </button>
                   </div>
                   {detailSale.customer_phone && (
                     <div style={{ fontSize: '11.5px', color: '#64748B' }}>{detailSale.customer_phone}</div>
@@ -717,64 +813,105 @@ export default function SalesHistoryView() {
               </div>
 
               {/* Financial Totals */}
-              <div className="sale-detail-totals">
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#64748B' }}>
-                  <span>Subtotal</span>
-                  <span style={{ fontWeight: 600, color: '#0F172A' }}>${fmtMoney(detailSale.subtotal)}</span>
-                </div>
-                {Number(detailSale.item_discount_total) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#E11D48' }}>
-                    <span>Item Discounts</span>
-                    <span style={{ fontWeight: 600 }}>-${fmtMoney(detailSale.item_discount_total)}</span>
-                  </div>
-                )}
-                {Number(detailSale.overall_discount) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#E11D48' }}>
-                    <span>Overall Discount</span>
-                    <span style={{ fontWeight: 600 }}>-${fmtMoney(detailSale.overall_discount)}</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#64748B' }}>
-                  <span>Tax (8%)</span>
-                  <span style={{ fontWeight: 600, color: '#0F172A' }}>${fmtMoney(detailSale.tax_amount)}</span>
-                </div>
+              {(() => {
+                const sRefunds = detailSale.refunds || [];
+                const gstRefunded =
+                  detailSale.gst_reversed_total !== undefined
+                    ? Number(detailSale.gst_reversed_total)
+                    : sRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.gst_reversed_total) || 0), 0);
+                const netTax =
+                  detailSale.net_tax_amount !== undefined
+                    ? Number(detailSale.net_tax_amount)
+                    : Math.max(0, Math.round(((Number(detailSale.tax_amount) || 0) - gstRefunded) * 100) / 100);
 
-                <div className="sale-detail-total-paid">
-                  <span>Total Paid</span>
-                  <span style={{ color: '#E11D48' }}>${fmtMoney(detailSale.total_amount)}</span>
-                </div>
+                const subtotalRefunded =
+                  detailSale.subtotal_refunded_total !== undefined
+                    ? Number(detailSale.subtotal_refunded_total)
+                    : sRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.subtotal_refunded) || 0), 0);
+                const netSubtotal =
+                  detailSale.net_subtotal !== undefined
+                    ? Number(detailSale.net_subtotal)
+                    : Math.max(0, Math.round(((Number(detailSale.subtotal) || 0) - subtotalRefunded) * 100) / 100);
 
-                {Number(detailSale.refunded_amount) > 0 && (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#BE123C', marginTop: '4px' }}>
-                      <span>Total Refunded</span>
-                      <span style={{ fontWeight: 700 }}>-${fmtMoney(detailSale.refunded_amount)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#0F172A', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #CBD5E1' }}>
-                      <span style={{ fontWeight: 600 }}>Net Retained Balance</span>
-                      <span style={{ fontWeight: 800, color: '#059669' }}>
-                        ${fmtMoney(Math.max(0, Number(detailSale.total_amount) - Number(detailSale.refunded_amount)))}
+                const hasRefunds = Number(detailSale.refunded_amount) > 0 || sRefunds.length > 0;
+                const displaySubtotal = hasRefunds ? netSubtotal : Number(detailSale.subtotal);
+                const displayTax = hasRefunds ? netTax : Number(detailSale.tax_amount);
+
+                return (
+                  <div className="sale-detail-totals">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#64748B' }}>
+                      <span>Subtotal</span>
+                      <span style={{ fontWeight: 600, color: '#0F172A' }}>
+                        ${fmtMoney(displaySubtotal)}
+                        {subtotalRefunded > 0 && (
+                          <span style={{ fontSize: '11px', color: '#BE123C', fontWeight: 500, marginLeft: '6px' }}>
+                            (-${fmtMoney(subtotalRefunded)} refunded)
+                          </span>
+                        )}
                       </span>
                     </div>
-                  </>
-                )}
+                    {Number(detailSale.item_discount_total) > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#E11D48' }}>
+                        <span>Item Discounts</span>
+                        <span style={{ fontWeight: 600 }}>-${fmtMoney(detailSale.item_discount_total)}</span>
+                      </div>
+                    )}
+                    {Number(detailSale.overall_discount) > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#E11D48' }}>
+                        <span>Overall Discount</span>
+                        <span style={{ fontWeight: 600 }}>-${fmtMoney(detailSale.overall_discount)}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#64748B' }}>
+                      <span>Tax (8%)</span>
+                      <span style={{ fontWeight: 600, color: '#0F172A' }}>
+                        ${fmtMoney(displayTax)}
+                        {gstRefunded > 0 && (
+                          <span style={{ fontSize: '11px', color: '#BE123C', fontWeight: 500, marginLeft: '6px' }}>
+                            (-${fmtMoney(gstRefunded)} refunded)
+                          </span>
+                        )}
+                      </span>
+                    </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginTop: '6px' }}>
-                  <span>Payment Method</span>
-                  <span style={{ fontWeight: 600, color: '#0F172A' }}>
-                    {getPaymentMethodLabel(detailSale.payment_method)} (Tendered: ${fmtMoney(detailSale.amount_tendered || detailSale.total_amount)})
-                  </span>
-                </div>
+                    <div className="sale-detail-total-paid">
+                      <span>Total Paid</span>
+                      <span style={{ color: '#E11D48' }}>${fmtMoney(detailSale.total_amount)}</span>
+                    </div>
 
-                {Number(detailSale.change_amount) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
-                    <span>Change Returned</span>
-                    <span style={{ fontWeight: 600, color: '#059669' }}>
-                      ${fmtMoney(detailSale.change_amount)}
-                    </span>
+                    {hasRefunds && (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#BE123C', marginTop: '4px' }}>
+                          <span>Total Refunded</span>
+                          <span style={{ fontWeight: 700 }}>-${fmtMoney(detailSale.refunded_amount)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#0F172A', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #CBD5E1' }}>
+                          <span style={{ fontWeight: 600 }}>Net Retained Balance</span>
+                          <span style={{ fontWeight: 800, color: '#059669' }}>
+                            ${fmtMoney(Math.max(0, Number(detailSale.total_amount) - Number(detailSale.refunded_amount)))}
+                          </span>
+                        </div>
+                      </>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginTop: '6px' }}>
+                      <span>Payment Method</span>
+                      <span style={{ fontWeight: 600, color: '#0F172A' }}>
+                        {getPaymentMethodLabel(detailSale.payment_method)} (Tendered: ${fmtMoney(detailSale.amount_tendered || detailSale.total_amount)})
+                      </span>
+                    </div>
+
+                    {Number(detailSale.change_amount) > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                        <span>Change Returned</span>
+                        <span style={{ fontWeight: 600, color: '#059669' }}>
+                          ${fmtMoney(detailSale.change_amount)}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
 
               {/* Refund Audit History Box */}
               {detailSale.refunds && detailSale.refunds.length > 0 && (
