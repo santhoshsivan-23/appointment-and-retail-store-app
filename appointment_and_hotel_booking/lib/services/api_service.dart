@@ -10,6 +10,7 @@ import '../models/product_model.dart';
 import '../models/refund_model.dart';
 import '../models/sale_model.dart';
 import '../models/staff_model.dart';
+import '../models/printer_settings_model.dart';
 import 'auth_storage.dart';
 
 class ApiResponse {
@@ -829,5 +830,92 @@ class ApiService {
       );
     }
   }
+
+  static Future<PrinterSettingsModel> getPrinterSettings({int? businessId}) async {
+    try {
+      final res = await getSettings(businessId: businessId);
+      if (res.success && res.data != null) {
+        final rawPrinter = res.data['printer_settings'];
+        if (rawPrinter is Map) {
+          return PrinterSettingsModel.fromJson(Map<String, dynamic>.from(rawPrinter));
+        } else if (rawPrinter is String) {
+          try {
+            final parsed = jsonDecode(rawPrinter);
+            if (parsed is Map) {
+              return PrinterSettingsModel.fromJson(Map<String, dynamic>.from(parsed));
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting printer settings: $e');
+    }
+    return PrinterSettingsModel.defaultSettings();
+  }
+
+  static Future<ApiResponse> updatePrinterSettings(
+    Map<String, dynamic> printerSettings, {
+    int? businessId,
+  }) async {
+    return updateSettings({
+      'business_id': businessId ?? 1,
+      'printer_settings': printerSettings,
+    });
+  }
+
+  // POST /api/settings/test-print
+  static Future<ApiResponse> testPrint(Map<String, dynamic> payload) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final uri = Uri.parse('$baseUrl/settings/test-print');
+      final response = await http
+          .post(uri, headers: await _getHeaders(), body: jsonEncode(payload))
+          .timeout(const Duration(seconds: 10));
+
+      final body = jsonDecode(response.body);
+      return ApiResponse(
+        success: response.statusCode == 200 && (body['success'] != false),
+        message: body['message'] ??
+            (response.statusCode == 200 ? 'Test print sent successfully.' : 'Failed to send test print.'),
+        data: body['data'],
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      debugPrint('Error executing test print: $e');
+      return ApiResponse(
+        success: false,
+        message: 'Printer connection error: $e',
+        statusCode: 500,
+      );
+    }
+  }
+
+  // POST /api/settings/print-receipt
+  static Future<ApiResponse> printReceipt(Map<String, dynamic> payload) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final uri = Uri.parse('$baseUrl/settings/print-receipt');
+      final response = await http
+          .post(uri, headers: await _getHeaders(), body: jsonEncode(payload))
+          .timeout(const Duration(seconds: 10));
+
+      final body = jsonDecode(response.body);
+      return ApiResponse(
+        success: response.statusCode == 200 && (body['success'] != false),
+        message: body['message'] ??
+            (response.statusCode == 200 ? 'Receipt printed successfully.' : 'Failed to print receipt.'),
+        data: body['data'],
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      debugPrint('Error printing receipt: $e');
+      return ApiResponse(
+        success: false,
+        message: 'Printer connection error: $e',
+        statusCode: 500,
+      );
+    }
+  }
 }
+
 

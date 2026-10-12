@@ -20,6 +20,12 @@ class AppointmentModel {
   final String refundStatus; // 'none', 'partial', 'full'
   final double refundedAmount;
   final List<RefundRecordModel> refunds;
+  final double taxAmount;
+  final double subtotal;
+  final double gstReversedTotal;
+  final double netTaxAmount;
+  final double subtotalRefundedTotal;
+  final double netSubtotal;
 
   AppointmentModel({
     required this.id,
@@ -40,7 +46,16 @@ class AppointmentModel {
     this.refundStatus = 'none',
     this.refundedAmount = 0.0,
     this.refunds = const [],
-  });
+    this.taxAmount = 0.0,
+    this.subtotal = 0.0,
+    this.gstReversedTotal = 0.0,
+    double? netTaxAmount,
+    this.subtotalRefundedTotal = 0.0,
+    double? netSubtotal,
+  })  : netTaxAmount = netTaxAmount ??
+            ((taxAmount - gstReversedTotal).clamp(0.0, double.infinity)),
+        netSubtotal = netSubtotal ??
+            (((subtotal > 0 ? subtotal : totalAmount) - subtotalRefundedTotal).clamp(0.0, double.infinity));
 
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
     List<Map<String, dynamic>> svcList = [];
@@ -132,6 +147,24 @@ class AppointmentModel {
       refundStatus: (json['refund_status'] ?? 'none').toString(),
       refundedAmount: double.tryParse(json['refunded_amount']?.toString() ?? '0') ?? 0.0,
       refunds: refundList,
+      taxAmount: double.tryParse(json['tax_amount']?.toString() ?? '0') ?? 0.0,
+      subtotal: double.tryParse(json['subtotal']?.toString() ?? '') ??
+          (double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0),
+      gstReversedTotal: double.tryParse(json['gst_reversed_total']?.toString() ?? '') ??
+          refundList.fold(0.0, (sum, r) => sum + r.gstReversedTotal),
+      netTaxAmount: double.tryParse(json['net_tax_amount']?.toString() ?? '') ??
+          ((double.tryParse(json['tax_amount']?.toString() ?? '0') ?? 0.0) -
+                  (double.tryParse(json['gst_reversed_total']?.toString() ?? '') ??
+                      refundList.fold(0.0, (sum, r) => sum + r.gstReversedTotal)))
+              .clamp(0.0, double.infinity),
+      subtotalRefundedTotal: double.tryParse(json['subtotal_refunded_total']?.toString() ?? '') ??
+          refundList.fold(0.0, (sum, r) => sum + r.subtotalRefunded),
+      netSubtotal: double.tryParse(json['net_subtotal']?.toString() ?? '') ??
+          ((double.tryParse(json['subtotal']?.toString() ?? '') ??
+                      (double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0)) -
+                  (double.tryParse(json['subtotal_refunded_total']?.toString() ?? '') ??
+                      refundList.fold(0.0, (sum, r) => sum + r.subtotalRefunded)))
+              .clamp(0.0, double.infinity),
     );
   }
 
@@ -153,7 +186,67 @@ class AppointmentModel {
       'refund_status': refundStatus,
       'refunded_amount': refundedAmount,
       'refunds': refunds.map((e) => e.toJson()).toList(),
+      'tax_amount': taxAmount,
+      'subtotal': subtotal,
+      'gst_reversed_total': gstReversedTotal,
+      'net_tax_amount': netTaxAmount,
+      'subtotal_refunded_total': subtotalRefundedTotal,
+      'net_subtotal': netSubtotal,
     };
+  }
+
+  AppointmentModel copyWith({
+    int? id,
+    int? businessId,
+    int? staffId,
+    int? customerId,
+    String? customerName,
+    String? customerPhone,
+    String? staffName,
+    String? appointmentDate,
+    String? startTime,
+    String? endTime,
+    String? status,
+    double? totalAmount,
+    List<Map<String, dynamic>>? services,
+    String? notes,
+    DateTime? createdAt,
+    String? refundStatus,
+    double? refundedAmount,
+    List<RefundRecordModel>? refunds,
+    double? taxAmount,
+    double? subtotal,
+    double? gstReversedTotal,
+    double? netTaxAmount,
+    double? subtotalRefundedTotal,
+    double? netSubtotal,
+  }) {
+    return AppointmentModel(
+      id: id ?? this.id,
+      businessId: businessId ?? this.businessId,
+      staffId: staffId ?? this.staffId,
+      customerId: customerId ?? this.customerId,
+      customerName: customerName ?? this.customerName,
+      customerPhone: customerPhone ?? this.customerPhone,
+      staffName: staffName ?? this.staffName,
+      appointmentDate: appointmentDate ?? this.appointmentDate,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      status: status ?? this.status,
+      totalAmount: totalAmount ?? this.totalAmount,
+      services: services ?? this.services,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      refundStatus: refundStatus ?? this.refundStatus,
+      refundedAmount: refundedAmount ?? this.refundedAmount,
+      refunds: refunds ?? this.refunds,
+      taxAmount: taxAmount ?? this.taxAmount,
+      subtotal: subtotal ?? this.subtotal,
+      gstReversedTotal: gstReversedTotal ?? this.gstReversedTotal,
+      netTaxAmount: netTaxAmount ?? this.netTaxAmount,
+      subtotalRefundedTotal: subtotalRefundedTotal ?? this.subtotalRefundedTotal,
+      netSubtotal: netSubtotal ?? this.netSubtotal,
+    );
   }
 
   /// Parse time string "HH:MM" or "HHMM" to total minutes from midnight
@@ -221,41 +314,6 @@ class AppointmentModel {
     }
   }
 
-  AppointmentModel copyWith({
-    int? id,
-    int? businessId,
-    int? staffId,
-    int? customerId,
-    String? customerName,
-    String? customerPhone,
-    String? staffName,
-    String? appointmentDate,
-    String? startTime,
-    String? endTime,
-    String? status,
-    double? totalAmount,
-    List<Map<String, dynamic>>? services,
-    String? notes,
-    DateTime? createdAt,
-  }) {
-    return AppointmentModel(
-      id: id ?? this.id,
-      businessId: businessId ?? this.businessId,
-      staffId: staffId ?? this.staffId,
-      customerId: customerId ?? this.customerId,
-      customerName: customerName ?? this.customerName,
-      customerPhone: customerPhone ?? this.customerPhone,
-      staffName: staffName ?? this.staffName,
-      appointmentDate: appointmentDate ?? this.appointmentDate,
-      startTime: startTime ?? this.startTime,
-      endTime: endTime ?? this.endTime,
-      status: status ?? this.status,
-      totalAmount: totalAmount ?? this.totalAmount,
-      services: services ?? this.services,
-      notes: notes ?? this.notes,
-      createdAt: createdAt ?? this.createdAt,
-    );
-  }
 }
 
 /// Service item inside an appointment

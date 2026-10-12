@@ -4,6 +4,7 @@ import '../models/category_model.dart';
 import '../models/customer_model.dart';
 import '../models/product_model.dart';
 import '../models/sale_model.dart';
+import '../printing/receipt_printer_service.dart';
 import '../services/api_service.dart';
 import '../services/sqlite_service.dart';
 import '../theme/app_theme.dart';
@@ -950,6 +951,20 @@ class _CartViewState extends State<CartView> {
       }
       _currentAppointmentId = null;
       _currentStaffName = null;
+
+      // Automatically print Customer Order Receipt upon payment completion
+      ReceiptPrinterService.printReceipt(
+        transaction: sale,
+        isReprint: false,
+        type: 'sale',
+      ).then((res) {
+        if (mounted && !res.success) {
+          debugPrint('Auto-print receipt notice: ${res.message}');
+        }
+      }).catchError((err) {
+        debugPrint('Auto-print receipt error: $err');
+      });
+
       _showReceiptPopup(sale);
     }
   }
@@ -958,15 +973,22 @@ class _CartViewState extends State<CartView> {
   // RECEIPT POPUP (Phase 8)
   // =====================================================================
   void _showReceiptPopup(SaleModel sale) {
+    bool isPrinting = false;
+    String selectedPrinter = 'usb';
+    ReceiptPrinterService.getSelectedPrinterType().then((val) {
+      selectedPrinter = val;
+    });
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: 420,
-          padding: const EdgeInsets.all(28),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setPopupState) => Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: 420,
+            padding: const EdgeInsets.all(28),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1040,7 +1062,59 @@ class _CartViewState extends State<CartView> {
                   _receiptRow('Amount Paid', '\$${sale.amountTendered.toStringAsFixed(2)}'),
                   _receiptRow('Change', '\$${sale.changeAmount.toStringAsFixed(2)}', valueColor: const Color(0xFF10B981)),
                 ],
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+
+                // Printer Selection Option
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.print_outlined, size: 16, color: Color(0xFF64748B)),
+                          const SizedBox(width: 6),
+                          Text('Target Printer:', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF475569))),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          ChoiceChip(
+                            label: Text('LAN', style: GoogleFonts.inter(fontSize: 11, fontWeight: selectedPrinter == 'lan' ? FontWeight.w700 : FontWeight.w500)),
+                            avatar: const Icon(Icons.wifi, size: 13),
+                            selected: selectedPrinter == 'lan',
+                            visualDensity: VisualDensity.compact,
+                            onSelected: (val) {
+                              if (val) {
+                                setPopupState(() => selectedPrinter = 'lan');
+                                ReceiptPrinterService.setSelectedPrinterType('lan');
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 6),
+                          ChoiceChip(
+                            label: Text('USB', style: GoogleFonts.inter(fontSize: 11, fontWeight: selectedPrinter == 'usb' ? FontWeight.w700 : FontWeight.w500)),
+                            avatar: const Icon(Icons.usb, size: 13),
+                            selected: selectedPrinter == 'usb',
+                            visualDensity: VisualDensity.compact,
+                            onSelected: (val) {
+                              if (val) {
+                                setPopupState(() => selectedPrinter = 'usb');
+                                ReceiptPrinterService.setSelectedPrinterType('usb');
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 // Actions
                 Row(
@@ -1051,14 +1125,39 @@ class _CartViewState extends State<CartView> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        icon: const Icon(Icons.print, size: 18),
-                        label: Text('Print', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
-                        onPressed: () {
-                          // Print simulation
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Receipt sent to printer.'), backgroundColor: Color(0xFF10B981)),
-                          );
-                        },
+                        icon: isPrinting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.print, size: 18),
+                        label: Text(
+                          isPrinting ? 'Printing...' : 'Print',
+                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        onPressed: isPrinting
+                            ? null
+                            : () async {
+                                setPopupState(() => isPrinting = true);
+                                final res = await ReceiptPrinterService.printReceipt(
+                                  transaction: sale,
+                                  targetPrinter: selectedPrinter,
+                                  isReprint: false,
+                                  type: 'sale',
+                                );
+                                if (ctx.mounted) {
+                                  setPopupState(() => isPrinting = false);
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                      content: Text(res.message),
+                                      backgroundColor: res.success
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFFDC2626),
+                                    ),
+                                  );
+                                }
+                              },
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1121,8 +1220,9 @@ class _CartViewState extends State<CartView> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _receiptRow(String label, String value, {Color? valueColor}) {
     return Padding(
