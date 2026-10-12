@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/sale_model.dart';
+import '../printing/receipt_printer_service.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/refund_modal.dart';
@@ -22,6 +23,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   bool _isPanelExpanded = true;
   // Payment method filter: 'all', 'cash', 'card', 'qr'
   String _activeFilter = 'all';
+  int? _printingSaleId;
 
   // Pagination: 20 records per page
   int _currentPage = 1;
@@ -822,6 +824,8 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                               ),
                             ),
                           ],
+                          const SizedBox(width: 8),
+                          _buildPrintButton(sale),
                           if (sale.staffName.isNotEmpty) ...[
                             const SizedBox(width: 14),
                             Container(
@@ -1071,9 +1075,15 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   // RECEIPT DETAIL MODAL (SHOWS COMPLETE INFO INCLUDING APPOINTMENT IF APPLICABLE)
   // =========================================================================
   void _showReceiptDetails(SaleModel sale) {
+    String selectedPrinter = 'usb';
+    ReceiptPrinterService.getSelectedPrinterType().then((val) {
+      selectedPrinter = val;
+    });
+
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Dialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -1374,13 +1384,63 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                       }),
                       const Divider(height: 24),
 
-                      // Financial Summary
-                      _modalRow('Subtotal', '\$${sale.subtotal.toStringAsFixed(2)}'),
+                      // Financial Summary (with Reconciled Net Subtotal & Net Tax)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Subtotal', style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B))),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '\$${((sale.refundedAmount > 0 || sale.refunds.isNotEmpty) ? sale.netSubtotal : sale.subtotal).toStringAsFixed(2)}',
+                                  style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+                                ),
+                                if (sale.subtotalRefundedTotal > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 6),
+                                    child: Text(
+                                      '(-\$${sale.subtotalRefundedTotal.toStringAsFixed(2)} refunded)',
+                                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFBE123C), fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                       if (sale.itemDiscountTotal > 0)
                         _modalRow('Item Discounts', '-\$${sale.itemDiscountTotal.toStringAsFixed(2)}', color: const Color(0xFFE11D48)),
                       if (sale.overallDiscount > 0)
                         _modalRow('Overall Discount', '-\$${sale.overallDiscount.toStringAsFixed(2)}', color: const Color(0xFFE11D48)),
-                      _modalRow('Tax (8%)', '\$${sale.taxAmount.toStringAsFixed(2)}'),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Tax (8%)', style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B))),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '\$${((sale.refundedAmount > 0 || sale.refunds.isNotEmpty) ? sale.netTaxAmount : sale.taxAmount).toStringAsFixed(2)}',
+                                  style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+                                ),
+                                if (sale.gstReversedTotal > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 6),
+                                    child: Text(
+                                      '(-\$${sale.gstReversedTotal.toStringAsFixed(2)} refunded)',
+                                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFBE123C), fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                       const Divider(height: 12),
                       _modalRow(
                         'Total Paid',
@@ -1388,7 +1448,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                         isBold: true,
                         fontSize: 16,
                       ),
-                      if (sale.refundedAmount > 0) ...[
+                      if (sale.refundedAmount > 0 || sale.refunds.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         _modalRow(
                           'Total Refunded',
@@ -1501,61 +1561,146 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                 ),
               ),
 
-              // ── 3. FIXED BOTTOM FOOTER ─────────────────────────
+              // ── 3. FIXED BOTTOM FOOTER & PRINTER SELECTOR ──────
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
                   border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
                 ),
-                child: Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: sale.refundStatus == 'full' ? const Color(0xFFF1F5F9) : const Color(0xFFE11D48),
-                          foregroundColor: sale.refundStatus == 'full' ? const Color(0xFF94A3B8) : Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        icon: const Icon(Icons.replay, size: 15),
-                        label: Text(
-                          sale.refundStatus == 'full' ? 'Fully Refunded' : 'Refund',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13),
-                        ),
-                        onPressed: sale.refundStatus == 'full'
-                            ? null
-                            : () {
-                                Navigator.pop(ctx);
-                                RefundModal.show(
-                                  context: context,
-                                  type: 'sale',
-                                  sale: sale,
-                                  onRefundSuccess: (updatedTx, refundRecord) {
-                                    final updatedSale = updatedTx as SaleModel;
-                                    setState(() {
-                                      _allSales = _allSales.map((s) => s.id == updatedSale.id ? updatedSale : s).toList();
-                                      _baselineSales = _baselineSales.map((s) => s.id == updatedSale.id ? updatedSale : s).toList();
-                                    });
-                                    _showReceiptDetails(updatedSale);
-                                  },
-                                );
-                              },
+                    // Target Printer Row
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.print_outlined, size: 15, color: Color(0xFF64748B)),
+                              const SizedBox(width: 6),
+                              Text('Printer Destination:', style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFF475569))),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              ChoiceChip(
+                                label: Text('LAN', style: GoogleFonts.inter(fontSize: 11, fontWeight: selectedPrinter == 'lan' ? FontWeight.w700 : FontWeight.w500)),
+                                avatar: const Icon(Icons.wifi, size: 13),
+                                selected: selectedPrinter == 'lan',
+                                visualDensity: VisualDensity.compact,
+                                onSelected: (val) {
+                                  if (val) {
+                                    setModalState(() => selectedPrinter = 'lan');
+                                    ReceiptPrinterService.setSelectedPrinterType('lan');
+                                  }
+                                },
+                              ),
+                              const SizedBox(width: 6),
+                              ChoiceChip(
+                                label: Text('USB', style: GoogleFonts.inter(fontSize: 11, fontWeight: selectedPrinter == 'usb' ? FontWeight.w700 : FontWeight.w500)),
+                                avatar: const Icon(Icons.usb, size: 13),
+                                selected: selectedPrinter == 'usb',
+                                visualDensity: VisualDensity.compact,
+                                onSelected: (val) {
+                                  if (val) {
+                                    setModalState(() => selectedPrinter = 'usb');
+                                    ReceiptPrinterService.setSelectedPrinterType('usb');
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F172A),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: sale.refundStatus == 'full' ? const Color(0xFFF1F5F9) : const Color(0xFFE11D48),
+                              foregroundColor: sale.refundStatus == 'full' ? const Color(0xFF94A3B8) : Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            icon: const Icon(Icons.replay, size: 15),
+                            label: Text(
+                              sale.refundStatus == 'full' ? 'Fully Refunded' : 'Refund',
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13),
+                            ),
+                            onPressed: sale.refundStatus == 'full'
+                                ? null
+                                : () {
+                                    Navigator.pop(ctx);
+                                    RefundModal.show(
+                                      context: context,
+                                      type: 'sale',
+                                      sale: sale,
+                                      onRefundSuccess: (updatedTx, refundRecord) {
+                                        final updatedSale = updatedTx as SaleModel;
+                                        setState(() {
+                                          _allSales = _allSales.map((s) => s.id == updatedSale.id ? updatedSale : s).toList();
+                                          _baselineSales = _baselineSales.map((s) => s.id == updatedSale.id ? updatedSale : s).toList();
+                                        });
+                                        _showReceiptDetails(updatedSale);
+                                      },
+                                    );
+                                  },
+                          ),
                         ),
-                        onPressed: () => Navigator.pop(ctx),
-                        child: Text('Close', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF334155),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            icon: const Icon(Icons.print_outlined, size: 16),
+                            label: Text('Print Receipt', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
+                            onPressed: () async {
+                              final res = await ReceiptPrinterService.printReceipt(
+                                transaction: sale,
+                                targetPrinter: selectedPrinter,
+                                isReprint: true,
+                                type: 'sale',
+                              );
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(
+                                    content: Text(res.message),
+                                    backgroundColor: res.success ? const Color(0xFF10B981) : const Color(0xFFDC2626),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0F172A),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: () => Navigator.pop(ctx),
+                            child: Text('Close', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1564,8 +1709,9 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _modalRow(String label, String value, {bool isBold = false, double fontSize = 12.5, Color? color}) {
     return Padding(
@@ -1667,5 +1813,63 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
       default:
         return const Color(0xFF475569);
     }
+  }
+
+  Widget _buildPrintButton(SaleModel sale) {
+    final isPrinting = _printingSaleId == sale.id;
+
+    return InkWell(
+      onTap: isPrinting
+          ? null
+          : () async {
+              setState(() => _printingSaleId = sale.id);
+              final res = await ReceiptPrinterService.printReceipt(
+                transaction: sale,
+                isReprint: true,
+                type: 'sale',
+              );
+              if (mounted) {
+                setState(() => _printingSaleId = null);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(res.message),
+                    backgroundColor: res.success ? const Color(0xFF10B981) : const Color(0xFFDC2626),
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isPrinting)
+              const SizedBox(
+                width: 11,
+                height: 11,
+                child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF475569)),
+              )
+            else
+              const Icon(Icons.print_outlined, size: 12, color: Color(0xFF475569)),
+            const SizedBox(width: 4),
+            Text(
+              isPrinting ? 'Printing...' : 'Print',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF334155),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

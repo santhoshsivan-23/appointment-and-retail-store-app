@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/appointment_model.dart';
 import '../models/staff_model.dart';
+import '../printing/receipt_printer_service.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/refund_modal.dart';
@@ -22,6 +23,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
   final TextEditingController _searchController = TextEditingController();
   String _activeSearchQuery = '';
   bool _isPanelExpanded = true;
+  int? _printingAptId;
 
   // Pagination: 20 records per page
   int _currentPage = 1;
@@ -687,6 +689,8 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                           ),
                         ),
                       ],
+                      const SizedBox(width: 8),
+                      _buildPrintButton(a),
                       if (a.staffName.isNotEmpty) ...[
                         const SizedBox(width: 14),
                         Container(
@@ -938,9 +942,14 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
   // COMPLETE APPOINTMENT DETAILS POPUP
   // =========================================================================
   void _showAppointmentDetails(AppointmentModel a) {
+    String selectedPrinter = ReceiptPrinterService.getSelectedPrinterTypeSync();
+    ReceiptPrinterService.getSelectedPrinterType().then((val) {
+      selectedPrinter = val;
+    });
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Dialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -1089,9 +1098,16 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text('Customer', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500)),
-                              Text(
-                                a.customerName.isNotEmpty ? a.customerName : 'Walk-in Guest',
-                                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    a.customerName.isNotEmpty ? a.customerName : 'Walk-in Guest',
+                                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildPrintButton(a),
+                                ],
                               ),
                               if (a.customerPhone.isNotEmpty)
                                 Text(a.customerPhone, style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500)),
@@ -1268,7 +1284,60 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                       ],
 
                       const Divider(height: 20),
-                      // Total
+                      // Financial Summary (with Reconciled Net Subtotal & Net Tax)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Subtotal', style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B))),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '\$${((a.refundedAmount > 0 || a.refunds.isNotEmpty) ? a.netSubtotal : a.subtotal).toStringAsFixed(2)}',
+                                  style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+                                ),
+                                if (a.subtotalRefundedTotal > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 6),
+                                    child: Text(
+                                      '(-\$${a.subtotalRefundedTotal.toStringAsFixed(2)} refunded)',
+                                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFBE123C), fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Tax (8%)', style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B))),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '\$${((a.refundedAmount > 0 || a.refunds.isNotEmpty) ? a.netTaxAmount : a.taxAmount).toStringAsFixed(2)}',
+                                  style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+                                ),
+                                if (a.gstReversedTotal > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 6),
+                                    child: Text(
+                                      '(-\$${a.gstReversedTotal.toStringAsFixed(2)} refunded)',
+                                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFBE123C), fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1283,7 +1352,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                           ),
                         ],
                       ),
-                      if (a.refundedAmount > 0) ...[
+                      if (a.refundedAmount > 0 || a.refunds.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1383,7 +1452,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                 ),
               ),
 
-              // ── 3. FIXED BOTTOM FOOTER (REFUND ON LEFT, CLOSE ON RIGHT) ───
+              // ── 3. FIXED BOTTOM FOOTER (PRINTER TARGET + ACTIONS) ───
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 decoration: const BoxDecoration(
@@ -1391,57 +1460,142 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                   borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
                   border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
                 ),
-                child: Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: a.refundStatus == 'full' ? const Color(0xFFF1F5F9) : const Color(0xFFE11D48),
-                          foregroundColor: a.refundStatus == 'full' ? const Color(0xFF94A3B8) : Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        icon: const Icon(Icons.replay, size: 15),
-                        label: Text(
-                          a.refundStatus == 'full' ? 'Fully Refunded' : 'Refund',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13),
-                        ),
-                        onPressed: a.refundStatus == 'full'
-                            ? null
-                            : () {
-                                Navigator.pop(ctx);
-                                RefundModal.show(
-                                  context: context,
-                                  type: 'appointment',
-                                  appointment: a,
-                                  onRefundSuccess: (updatedTx, refundRecord) {
-                                    final updatedApt = updatedTx as AppointmentModel;
-                                    setState(() {
-                                      _allCompletedAppointments = _allCompletedAppointments
-                                          .map((x) => x.id == updatedApt.id ? updatedApt : x)
-                                          .toList();
-                                      _completedAppointments = _completedAppointments
-                                          .map((x) => x.id == updatedApt.id ? updatedApt : x)
-                                          .toList();
-                                    });
-                                    _showAppointmentDetails(updatedApt);
-                                  },
-                                );
-                              },
+                    // Printer Destination Selector
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.print_outlined, size: 16, color: Color(0xFF64748B)),
+                              const SizedBox(width: 6),
+                              Text('Printer Destination:', style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFF475569))),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              ChoiceChip(
+                                label: Text('LAN', style: GoogleFonts.inter(fontSize: 11, fontWeight: selectedPrinter == 'lan' ? FontWeight.w700 : FontWeight.w500)),
+                                avatar: const Icon(Icons.wifi, size: 13),
+                                selected: selectedPrinter == 'lan',
+                                visualDensity: VisualDensity.compact,
+                                onSelected: (val) {
+                                  if (val) {
+                                    setModalState(() => selectedPrinter = 'lan');
+                                    ReceiptPrinterService.setSelectedPrinterType('lan');
+                                  }
+                                },
+                              ),
+                              const SizedBox(width: 6),
+                              ChoiceChip(
+                                label: Text('USB', style: GoogleFonts.inter(fontSize: 11, fontWeight: selectedPrinter == 'usb' ? FontWeight.w700 : FontWeight.w500)),
+                                avatar: const Icon(Icons.usb, size: 13),
+                                selected: selectedPrinter == 'usb',
+                                visualDensity: VisualDensity.compact,
+                                onSelected: (val) {
+                                  if (val) {
+                                    setModalState(() => selectedPrinter = 'usb');
+                                    ReceiptPrinterService.setSelectedPrinterType('usb');
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F172A),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: a.refundStatus == 'full' ? const Color(0xFFF1F5F9) : const Color(0xFFE11D48),
+                              foregroundColor: a.refundStatus == 'full' ? const Color(0xFF94A3B8) : Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            icon: const Icon(Icons.replay, size: 15),
+                            label: Text(
+                              a.refundStatus == 'full' ? 'Fully Refunded' : 'Refund',
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13),
+                            ),
+                            onPressed: a.refundStatus == 'full'
+                                ? null
+                                : () {
+                                    Navigator.pop(ctx);
+                                    RefundModal.show(
+                                      context: context,
+                                      type: 'appointment',
+                                      appointment: a,
+                                      onRefundSuccess: (updatedTx, refundRecord) {
+                                        final updatedApt = updatedTx as AppointmentModel;
+                                        setState(() {
+                                          _allCompletedAppointments = _allCompletedAppointments
+                                              .map((x) => x.id == updatedApt.id ? updatedApt : x)
+                                              .toList();
+                                          _completedAppointments = _completedAppointments
+                                              .map((x) => x.id == updatedApt.id ? updatedApt : x)
+                                              .toList();
+                                        });
+                                        _showAppointmentDetails(updatedApt);
+                                      },
+                                    );
+                                  },
+                          ),
                         ),
-                        onPressed: () => Navigator.pop(ctx),
-                        child: Text('Close', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF334155),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            icon: const Icon(Icons.print_outlined, size: 16),
+                            label: Text('Print Receipt', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
+                            onPressed: () async {
+                              final res = await ReceiptPrinterService.printReceipt(
+                                transaction: a,
+                                targetPrinter: selectedPrinter,
+                                isReprint: true,
+                                type: 'appointment',
+                              );
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(
+                                    content: Text(res.message),
+                                    backgroundColor: res.success ? const Color(0xFF10B981) : const Color(0xFFDC2626),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0F172A),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: () => Navigator.pop(ctx),
+                            child: Text('Close', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1450,8 +1604,9 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // =========================================================================
   // EMPTY STATE
@@ -1499,6 +1654,64 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
             onPressed: _loadHistory,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPrintButton(AppointmentModel apt) {
+    final isPrinting = _printingAptId == apt.id;
+
+    return InkWell(
+      onTap: isPrinting
+          ? null
+          : () async {
+              setState(() => _printingAptId = apt.id);
+              final res = await ReceiptPrinterService.printReceipt(
+                transaction: apt,
+                isReprint: true,
+                type: 'appointment',
+              );
+              if (mounted) {
+                setState(() => _printingAptId = null);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(res.message),
+                    backgroundColor: res.success ? const Color(0xFF10B981) : const Color(0xFFDC2626),
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isPrinting)
+              const SizedBox(
+                width: 11,
+                height: 11,
+                child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF475569)),
+              )
+            else
+              const Icon(Icons.print_outlined, size: 12, color: Color(0xFF475569)),
+            const SizedBox(width: 4),
+            Text(
+              isPrinting ? 'Printing...' : 'Print',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF334155),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

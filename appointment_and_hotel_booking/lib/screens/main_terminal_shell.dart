@@ -16,6 +16,7 @@ import '../views/cart_view.dart';
 import '../views/categories_view.dart';
 import '../views/dashboard_view.dart';
 import '../views/products_view.dart';
+import '../views/printer_settings_view.dart';
 import '../views/sales_history_view.dart';
 import '../views/settings_view.dart';
 import '../views/staff_view.dart';
@@ -50,6 +51,7 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
   int _staffKey = 1; // Force StaffView reload on navigation
   int _appointmentHistoryKey = 1; // Force AppointmentHistoryView reload on navigation
   int _salesHistoryKey = 1; // Force SalesHistoryView reload on navigation
+  int _printerSettingsKey = 1; // Force PrinterSettingsView reload on navigation
 
   // Live system clock and time format
   Timer? _clockTimer;
@@ -159,6 +161,7 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
       if (idx == 2) _staffKey++;
       if (idx == 3) _appointmentHistoryKey++;
       if (idx == 5) _salesHistoryKey++;
+      if (idx == 11) _printerSettingsKey++;
       _currentIndex = idx;
     });
     _loadTimeFormat();
@@ -175,6 +178,7 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
     {'id': 6, 'title': 'Categories', 'icon': Icons.category_outlined, 'activeIcon': Icons.category},
     {'id': 7, 'title': 'Products', 'icon': Icons.inventory_2_outlined, 'activeIcon': Icons.inventory_2},
     {'id': 8, 'title': 'Appointment Config', 'icon': Icons.tune_outlined, 'activeIcon': Icons.tune},
+    {'id': 11, 'title': 'Printer', 'icon': Icons.print_outlined, 'activeIcon': Icons.print},
     {'id': 9, 'title': 'Settings', 'icon': Icons.settings_outlined, 'activeIcon': Icons.settings},
   ];
 
@@ -288,6 +292,10 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
                               _currentIndex = 4; // Switch to Cart tab
                             });
                           },
+                        ),
+                        PrinterSettingsView(
+                          key: ValueKey('printer_$_printerSettingsKey'),
+                          business: widget.business,
                         ),
                       ],
                     ),

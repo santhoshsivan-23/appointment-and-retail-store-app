@@ -24,6 +24,10 @@ class SaleModel {
   final String refundStatus; // 'none', 'partial', 'full'
   final double refundedAmount;
   final List<RefundRecordModel> refunds;
+  final double gstReversedTotal;
+  final double netTaxAmount;
+  final double subtotalRefundedTotal;
+  final double netSubtotal;
 
   SaleModel({
     required this.id,
@@ -48,7 +52,14 @@ class SaleModel {
     this.refundStatus = 'none',
     this.refundedAmount = 0.0,
     this.refunds = const [],
-  });
+    this.gstReversedTotal = 0.0,
+    double? netTaxAmount,
+    this.subtotalRefundedTotal = 0.0,
+    double? netSubtotal,
+  })  : netTaxAmount = netTaxAmount ??
+            ((taxAmount - gstReversedTotal).clamp(0.0, double.infinity)),
+        netSubtotal = netSubtotal ??
+            ((subtotal - subtotalRefundedTotal).clamp(0.0, double.infinity));
 
   factory SaleModel.fromJson(Map<String, dynamic> json) {
     List<Map<String, dynamic>> itemList = [];
@@ -137,6 +148,20 @@ class SaleModel {
       refundStatus: (json['refund_status'] ?? 'none').toString(),
       refundedAmount: double.tryParse(json['refunded_amount']?.toString() ?? '0') ?? 0.0,
       refunds: refundList,
+      gstReversedTotal: double.tryParse(json['gst_reversed_total']?.toString() ?? '') ??
+          refundList.fold(0.0, (sum, r) => sum + r.gstReversedTotal),
+      netTaxAmount: double.tryParse(json['net_tax_amount']?.toString() ?? '') ??
+          ((double.tryParse(json['tax_amount']?.toString() ?? '0') ?? 0.0) -
+                  (double.tryParse(json['gst_reversed_total']?.toString() ?? '') ??
+                      refundList.fold(0.0, (sum, r) => sum + r.gstReversedTotal)))
+              .clamp(0.0, double.infinity),
+      subtotalRefundedTotal: double.tryParse(json['subtotal_refunded_total']?.toString() ?? '') ??
+          refundList.fold(0.0, (sum, r) => sum + r.subtotalRefunded),
+      netSubtotal: double.tryParse(json['net_subtotal']?.toString() ?? '') ??
+          ((double.tryParse(json['subtotal']?.toString() ?? '0') ?? 0.0) -
+                  (double.tryParse(json['subtotal_refunded_total']?.toString() ?? '') ??
+                      refundList.fold(0.0, (sum, r) => sum + r.subtotalRefunded)))
+              .clamp(0.0, double.infinity),
     );
   }
 
@@ -163,7 +188,69 @@ class SaleModel {
       'refund_status': refundStatus,
       'refunded_amount': refundedAmount,
       'refunds': refunds.map((e) => e.toJson()).toList(),
+      'gst_reversed_total': gstReversedTotal,
+      'net_tax_amount': netTaxAmount,
+      'subtotal_refunded_total': subtotalRefundedTotal,
+      'net_subtotal': netSubtotal,
     };
+  }
+
+  SaleModel copyWith({
+    int? id,
+    int? businessId,
+    int? appointmentId,
+    int? customerId,
+    String? customerName,
+    String? customerPhone,
+    int? staffId,
+    String? staffName,
+    double? subtotal,
+    double? itemDiscountTotal,
+    double? overallDiscount,
+    double? taxAmount,
+    double? totalAmount,
+    String? paymentMethod,
+    double? amountTendered,
+    double? changeAmount,
+    List<Map<String, dynamic>>? items,
+    String? notes,
+    DateTime? createdAt,
+    String? refundStatus,
+    double? refundedAmount,
+    List<RefundRecordModel>? refunds,
+    double? gstReversedTotal,
+    double? netTaxAmount,
+    double? subtotalRefundedTotal,
+    double? netSubtotal,
+  }) {
+    return SaleModel(
+      id: id ?? this.id,
+      businessId: businessId ?? this.businessId,
+      appointmentId: appointmentId ?? this.appointmentId,
+      customerId: customerId ?? this.customerId,
+      customerName: customerName ?? this.customerName,
+      customerPhone: customerPhone ?? this.customerPhone,
+      staffId: staffId ?? this.staffId,
+      staffName: staffName ?? this.staffName,
+      subtotal: subtotal ?? this.subtotal,
+      itemDiscountTotal: itemDiscountTotal ?? this.itemDiscountTotal,
+      overallDiscount: overallDiscount ?? this.overallDiscount,
+      taxAmount: taxAmount ?? this.taxAmount,
+      totalAmount: totalAmount ?? this.totalAmount,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      amountTendered: amountTendered ?? this.amountTendered,
+      changeAmount: changeAmount ?? this.changeAmount,
+      items: items ?? this.items,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      refundStatus: refundStatus ?? this.refundStatus,
+      refundedAmount: refundedAmount ?? this.refundedAmount,
+      refunds: refunds ?? this.refunds,
+      gstReversedTotal: gstReversedTotal ?? this.gstReversedTotal,
+      netTaxAmount: netTaxAmount ?? this.netTaxAmount,
+      subtotalRefundedTotal: subtotalRefundedTotal ?? this.subtotalRefundedTotal,
+      netSubtotal: netSubtotal ?? this.netSubtotal,
+    );
   }
 
   /// Receipt number format: #REC-YYYYMMDD-XXXX
