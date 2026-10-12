@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/sale_model.dart';
+import '../models/history_summary_model.dart';
 import '../printing/receipt_printer_service.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/refund_modal.dart';
+import '../widgets/date_range_filter_widget.dart';
 
 class SalesHistoryView extends StatefulWidget {
   const SalesHistoryView({super.key});
@@ -14,8 +16,16 @@ class SalesHistoryView extends StatefulWidget {
 }
 
 class _SalesHistoryViewState extends State<SalesHistoryView> {
+  // Date range state (Defaults to Today)
+  late String _startDate;
+  late String _endDate;
+
+  // History data & Summary
   List<SaleModel> _allSales = [];
-  List<SaleModel> _baselineSales = [];
+  HistorySummaryModel _summary = const HistorySummaryModel();
+  int _totalCount = 0;
+  int _totalPages = 1;
+
   bool _isLoading = true;
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
@@ -32,7 +42,12 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
   @override
   void initState() {
     super.initState();
-    _loadSales();
+    final now = DateTime.now();
+    final todayStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    _startDate = todayStr;
+    _endDate = todayStr;
+    _loadInitialData();
   }
 
   @override
@@ -41,35 +56,86 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
     super.dispose();
   }
 
-  Future<void> _loadSales() async {
+  Future<void> _loadInitialData() async {
+    await Future.wait([
+      _fetchSales(page: 1),
+      _fetchSummary(),
+    ]);
+  }
+
+  // 1. History Data API (Backend Paginated by date range & payment method)
+  Future<void> _fetchSales({int page = 1}) async {
     setState(() => _isLoading = true);
     try {
-      final rawSales = await ApiService.getSales();
+      final result = await ApiService.getSalesPaginated(
+        startDate: _startDate,
+        endDate: _endDate,
+        search: _activeSearchQuery.isNotEmpty ? _activeSearchQuery : null,
+        paymentMethod: _activeFilter != 'all' ? _activeFilter : null,
+        page: page,
+        limit: _pageSize,
+      );
+
       if (!mounted) return;
-      // Strictly POS/Cart transactions only
-      final sales = rawSales.where((s) => s.appointmentId == null || s.appointmentId == 0).toList();
+
       setState(() {
-        _baselineSales = sales;
-        _allSales = sales;
-        // Sort newest first
-        _allSales.sort((a, b) {
-          final dtA = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final dtB = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          return dtB.compareTo(dtA);
-        });
-        _currentPage = 1;
+        _allSales = result.items;
+        _totalCount = result.total;
+        _totalPages = result.totalPages;
+        _currentPage = page;
         _isLoading = false;
-        _activeSearchQuery = '';
       });
-      _searchController.clear();
     } catch (e) {
-      debugPrint('Error loading sales history: $e');
+      debugPrint('Error loading paginated sales: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
 
+  // 2. Summary API (Fast aggregates for selected date range)
+  Future<void> _fetchSummary() async {
+    try {
+      final s = await ApiService.getSaleSummary(
+        startDate: _startDate,
+        endDate: _endDate,
+        search: _activeSearchQuery.isNotEmpty ? _activeSearchQuery : null,
+        paymentMethod: _activeFilter != 'all' ? _activeFilter : null,
+      );
+      if (mounted) {
+        setState(() => _summary = s);
+      }
+    } catch (e) {
+      debugPrint('Error loading sales summary: $e');
+    }
+  }
+
+  // Date Range Change Handler
+  void _onDateRangeChanged(DateRangeResult result) {
+    setState(() {
+      _startDate = result.startDate;
+      _endDate = result.endDate;
+    });
+    _fetchSales(page: 1);
+    _fetchSummary();
+  }
+
+  // Filter Chip Changed (All, Cash, Card, QR)
+  void _onFilterChanged(String filterKey) {
+    setState(() {
+      _activeFilter = filterKey;
+    });
+    _fetchSales(page: 1);
+    _fetchSummary();
+  }
+
+  // Page Change Handler (Loads only current page records, does not re-fetch summary)
+  void _changePage(int page) {
+    if (page < 1 || page > _totalPages || page == _currentPage) return;
+    _fetchSales(page: page);
+  }
+
+  // Search Handlers
   Future<void> _performSearch() async {
     final query = _searchController.text.trim();
     setState(() {
@@ -77,85 +143,34 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
       _activeSearchQuery = query;
     });
 
-    try {
-      final rawSales = await ApiService.getSales(
-        search: query.isNotEmpty ? query : null,
-      );
-      if (!mounted) return;
-      final sales = rawSales.where((s) => s.appointmentId == null || s.appointmentId == 0).toList();
-      setState(() {
-        _allSales = sales;
-        _allSales.sort((a, b) {
-          final dtA = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final dtB = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          return dtB.compareTo(dtA);
-        });
-        _currentPage = 1;
-        _isSearching = false;
-      });
-    } catch (e) {
-      debugPrint('Error searching sales: $e');
-      if (mounted) {
-        setState(() => _isSearching = false);
-      }
+    await Future.wait([
+      _fetchSales(page: 1),
+      _fetchSummary(),
+    ]);
+
+    if (mounted) {
+      setState(() => _isSearching = false);
     }
   }
 
   void _resetSearch() {
     _searchController.clear();
-    _performSearch();
+    setState(() => _activeSearchQuery = '');
+    _fetchSales(page: 1);
+    _fetchSummary();
   }
 
-  List<SaleModel> get _filteredSales {
-    var list = _allSales;
-
-    // Apply payment method filter
-    if (_activeFilter == 'cash') {
-      list = list.where((s) => s.paymentMethod.toLowerCase() == 'cash').toList();
-    } else if (_activeFilter == 'card') {
-      list = list.where((s) => s.paymentMethod.toLowerCase() == 'card').toList();
-    } else if (_activeFilter == 'qr') {
-      list = list.where((s) => s.paymentMethod.toLowerCase() == 'qr').toList();
-    }
-
-    return list;
+  // Reload / Refresh
+  void _refresh() {
+    _fetchSales(page: _currentPage);
+    _fetchSummary();
   }
-
-  // Summary counts
-  int get _todayOrdersCount {
-    final now = DateTime.now();
-    final todayStr =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    return _baselineSales.where((s) {
-      if (s.createdAt == null) return false;
-      final d = s.createdAt!;
-      final dStr =
-          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-      return dStr == todayStr;
-    }).length;
-  }
-
-  int get _cashOrdersCount =>
-      _baselineSales.where((s) => s.paymentMethod.toLowerCase() == 'cash').length;
-  int get _cardOrdersCount =>
-      _baselineSales.where((s) => s.paymentMethod.toLowerCase() == 'card').length;
-
-  double get _totalRevenue =>
-      _baselineSales.fold(0.0, (acc, s) => acc + s.totalAmount);
 
   @override
   Widget build(BuildContext context) {
-    final displaySales = _filteredSales;
-    final totalItems = displaySales.length;
-    final totalPages = totalItems == 0 ? 1 : ((totalItems - 1) ~/ _pageSize) + 1;
-    final validPage = _currentPage.clamp(1, totalPages);
-    final startIndex = (validPage - 1) * _pageSize;
-    final endIndex = (startIndex + _pageSize > totalItems)
-        ? totalItems
-        : startIndex + _pageSize;
-    final pageSales = totalItems == 0
-        ? <SaleModel>[]
-        : displaySales.sublist(startIndex, endIndex);
+    final totalItems = _totalCount;
+    final totalPages = _totalPages;
+    final pageSales = _allSales;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -176,13 +191,13 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                         color: Color(0xFFE11D48),
                       ),
                     )
-                  : displaySales.isEmpty
+                  : pageSales.isEmpty
                       ? _buildEmptyState()
                       : _buildSalesList(pageSales),
             ),
 
             // 3. Pagination Controls at Bottom
-            if (!_isLoading && displaySales.isNotEmpty) ...[
+            if (!_isLoading && pageSales.isNotEmpty) ...[
               const SizedBox(height: 14),
               _buildPaginationControls(totalItems, totalPages),
             ],
@@ -281,7 +296,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '${_baselineSales.length} Total Orders',
+                      '${_summary.completed} Orders',
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -325,7 +340,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    onPressed: _isLoading ? null : _loadSales,
+                    onPressed: _isLoading ? null : _refresh,
                   ),
                   const SizedBox(width: 8),
                   // Dropdown / Expand-Collapse toggle button
@@ -366,17 +381,17 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
       children: [
         _buildMetricCard(
           title: 'Total Completed Orders',
-          value: '${_baselineSales.length} Orders',
-          sub: 'Total completed sales transactions',
+          value: '${_summary.completed} Orders',
+          sub: '100% normal POS/Cart transactions',
           icon: Icons.receipt_long_outlined,
           color: const Color(0xFF4F46E5), // Indigo
           bgColor: const Color(0xFFEEF2FF),
         ),
         const SizedBox(width: 10),
         _buildMetricCard(
-          title: "Today's Orders",
-          value: '$_todayOrdersCount Completed',
-          sub: 'Orders created today',
+          title: 'Total Orders',
+          value: '${_summary.total} Orders',
+          sub: 'In selected date range',
           icon: Icons.calendar_today_outlined,
           color: const Color(0xFF0EA5E9), // Sky
           bgColor: const Color(0xFFF0F9FF),
@@ -384,8 +399,8 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
         const SizedBox(width: 10),
         _buildMetricCard(
           title: 'Register Revenue',
-          value: '\$${_totalRevenue.toStringAsFixed(2)}',
-          sub: 'POS checkout receipts total',
+          value: '\$${_summary.totalRevenue.toStringAsFixed(2)}',
+          sub: 'Combined POS tender received',
           icon: Icons.monetization_on_outlined,
           color: const Color(0xFF059669), // Emerald
           bgColor: const Color(0xFFECFDF5),
@@ -487,22 +502,30 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
       ),
       child: Row(
         children: [
+          // Date Range Filter Widget
+          DateRangeFilterWidget(
+            startDate: _startDate,
+            endDate: _endDate,
+            onDateRangeChanged: _onDateRangeChanged,
+          ),
+          const SizedBox(width: 8),
+
           // Category Filters
           _buildFilterChip(
             'all',
-            'All Sales (${_baselineSales.length})',
+            'All Sales',
             highlightColor: const Color(0xFF4F46E5),
           ),
           const SizedBox(width: 6),
           _buildFilterChip(
             'cash',
-            'Cash ($_cashOrdersCount)',
+            'Cash',
             highlightColor: const Color(0xFF059669),
           ),
           const SizedBox(width: 6),
           _buildFilterChip(
             'card',
-            'Card ($_cardOrdersCount)',
+            'Card',
             highlightColor: const Color(0xFF2563EB),
           ),
           const SizedBox(width: 6),
@@ -552,7 +575,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide:
-                      const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                      const BorderSide(color: Color(0xFF10B981), width: 1.5),
                 ),
               ),
               onChanged: (_) => setState(() {}),
@@ -563,7 +586,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
             height: 34,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4F46E5),
+                backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -622,10 +645,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
     final color = highlightColor ?? const Color(0xFFE11D48);
 
     return InkWell(
-      onTap: () => setState(() {
-        _activeFilter = filterKey;
-        _currentPage = 1;
-      }),
+      onTap: () => _onFilterChanged(filterKey),
       borderRadius: BorderRadius.circular(7),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
@@ -955,7 +975,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: _currentPage > 1
-                ? () => setState(() => _currentPage--)
+                ? () => _changePage(_currentPage - 1)
                 : null,
             child: const Row(
               mainAxisSize: MainAxisSize.min,
@@ -980,7 +1000,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: _currentPage < totalPages
-                ? () => setState(() => _currentPage++)
+                ? () => _changePage(_currentPage + 1)
                 : null,
             child: const Row(
               mainAxisSize: MainAxisSize.min,
@@ -1004,7 +1024,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2),
         child: InkWell(
-          onTap: () => setState(() => _currentPage = p),
+          onTap: () => _changePage(p),
           borderRadius: BorderRadius.circular(8),
           child: Container(
             width: 32,
@@ -1650,8 +1670,8 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
                                         final updatedSale = updatedTx as SaleModel;
                                         setState(() {
                                           _allSales = _allSales.map((s) => s.id == updatedSale.id ? updatedSale : s).toList();
-                                          _baselineSales = _baselineSales.map((s) => s.id == updatedSale.id ? updatedSale : s).toList();
                                         });
+                                        _fetchSummary();
                                         _showReceiptDetails(updatedSale);
                                       },
                                     );
@@ -1772,7 +1792,7 @@ class _SalesHistoryViewState extends State<SalesHistoryView> {
             ),
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('Reload Sales'),
-            onPressed: _loadSales,
+            onPressed: _refresh,
           ),
         ],
       ),

@@ -16,12 +16,14 @@ import {
   CalendarCheck,
   Printer,
 } from 'lucide-react';
-import { saleApi, type Sale, formatReceiptNumber, getPaymentMethodLabel } from '../api/saleApi';
+import { saleApi, type Sale, type SaleSummary, formatReceiptNumber, getPaymentMethodLabel } from '../api/saleApi';
 import { useAppSelector } from '../store/hooks';
 import { executeReceiptPrint } from '../utils/receiptPrinter';
 import RefundModal from '../components/RefundModal';
+import DateRangeFilter from '../components/DateRangeFilter';
 import '../styles/sales_history.css';
 import '../styles/refund_modal.css';
+import '../styles/date_range_filter.css';
 
 const PAGE_SIZE = 20;
 
@@ -33,9 +35,28 @@ const fmtMoney = (val: number | string | null | undefined): string => {
 };
 
 export default function SalesHistoryView() {
+  /* ── Default Date Range: Today ─────────────────────────── */
+  const todayStr = (() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  })();
+
+  const [startDate, setStartDate] = useState<string>(todayStr);
+  const [endDate, setEndDate] = useState<string>(todayStr);
+
   /* ── State ────────────────────────────────────────────── */
   const [allSales, setAllSales] = useState<Sale[]>([]);
-  const [baselineSales, setBaselineSales] = useState<Sale[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [summary, setSummary] = useState<SaleSummary>({
+    total: 0,
+    completed: 0,
+    total_revenue: 0,
+  });
+
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSearching, setIsSearching] = useState<boolean>(false);
 
@@ -166,42 +187,85 @@ export default function SalesHistoryView() {
     setAllSales((prev) =>
       prev.map((s) => (s.id === updatedSale.id ? updatedSale : s))
     );
-    setBaselineSales((prev) =>
-      prev.map((s) => (s.id === updatedSale.id ? updatedSale : s))
-    );
+    fetchSummary(startDate, endDate, activeSearchQuery, activeFilter);
   };
 
-  /* ── Data Fetching ────────────────────────────────────── */
-  const loadSales = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const res = await saleApi.getAll();
-      const rawList = res.data?.data ?? [];
-      const list = normalizeSalesList(rawList);
+  /* ── 1. Fetch Summary API ─────────────────────────────── */
+  const fetchSummary = useCallback(
+    async (start: string, end: string, query?: string, method?: string) => {
+      try {
+        const res = await saleApi.getSummary({
+          start_date: start,
+          end_date: end,
+          search: query || undefined,
+          payment_method: method && method !== 'all' ? method : undefined,
+        });
+        if (res.data?.data) {
+          setSummary(res.data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching sales summary:', err);
+      }
+    },
+    []
+  );
 
-      // Sort newest first
-      list.sort((a, b) => {
-        const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return tB - tA;
-      });
+  /* ── 2. Fetch History Data API (Backend Paginated) ─────── */
+  const fetchSales = useCallback(
+    async (pageToLoad: number, start: string, end: string, query?: string, method?: string) => {
+      setIsLoading(true);
+      try {
+        const res = await saleApi.getAll({
+          start_date: start,
+          end_date: end,
+          search: query || undefined,
+          payment_method: method && method !== 'all' ? method : undefined,
+          page: pageToLoad,
+          limit: PAGE_SIZE,
+        });
+        const rawList = res.data?.data ?? [];
+        const list = normalizeSalesList(rawList);
+        setAllSales(list);
+        const total = res.data?.total ?? list.length;
+        setTotalCount(total);
+        setTotalPages(res.data?.totalPages ?? Math.max(1, Math.ceil(total / PAGE_SIZE)));
+        setCurrentPage(pageToLoad);
+      } catch (err) {
+        console.error('Error loading sales:', err);
+        toast.error('Failed to load sales history');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
 
-      setBaselineSales(list);
-      setAllSales(list);
-      setCurrentPage(1);
-      setActiveSearchQuery('');
-      setSearchInput('');
-    } catch (err) {
-      console.error('Error loading sales:', err);
-      toast.error('Failed to load sales history');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
+  /* ── Initial Load: Today's Date Filter ─────────────────── */
   useEffect(() => {
-    loadSales();
-  }, [loadSales]);
+    fetchSales(1, todayStr, todayStr, undefined, 'all');
+    fetchSummary(todayStr, todayStr, undefined, 'all');
+  }, [fetchSales, fetchSummary, todayStr]);
+
+  /* ── Date Range Change Handler ────────────────────────── */
+  const handleDateRangeChange = (newStart: string, newEnd: string) => {
+    setStartDate(newStart);
+    setEndDate(newEnd);
+    fetchSales(1, newStart, newEnd, activeSearchQuery, activeFilter);
+    fetchSummary(newStart, newEnd, activeSearchQuery, activeFilter);
+  };
+
+  /* ── Page Change Handler (Loads only current page records) */
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    fetchSales(newPage, startDate, endDate, activeSearchQuery, activeFilter);
+  };
+
+  /* ── Payment Method Filter Change Handler ─────────────── */
+  const handleFilterChange = (filter: 'all' | 'cash' | 'card' | 'qr') => {
+    setActiveFilter(filter);
+    fetchSales(1, startDate, endDate, activeSearchQuery, filter);
+    fetchSummary(startDate, endDate, activeSearchQuery, filter);
+  };
 
   /* ── Search Handlers ──────────────────────────────────── */
   const handlePerformSearch = async () => {
@@ -209,21 +273,10 @@ export default function SalesHistoryView() {
     setIsSearching(true);
     setActiveSearchQuery(query);
     try {
-      const res = await saleApi.getAll({ search: query || undefined });
-      const rawList = res.data?.data ?? [];
-      const list = normalizeSalesList(rawList);
-
-      list.sort((a, b) => {
-        const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return tB - tA;
-      });
-
-      setAllSales(list);
-      setCurrentPage(1);
-    } catch (err) {
-      console.error('Error searching sales:', err);
-      toast.error('Error searching sales');
+      await Promise.all([
+        fetchSales(1, startDate, endDate, query.length > 0 ? query : undefined, activeFilter),
+        fetchSummary(startDate, endDate, query.length > 0 ? query : undefined, activeFilter),
+      ]);
     } finally {
       setIsSearching(false);
     }
@@ -232,43 +285,19 @@ export default function SalesHistoryView() {
   const handleResetSearch = () => {
     setSearchInput('');
     setActiveSearchQuery('');
-    setAllSales(baselineSales);
-    setCurrentPage(1);
+    fetchSales(1, startDate, endDate, undefined, activeFilter);
+    fetchSummary(startDate, endDate, undefined, activeFilter);
   };
 
-  /* ── Metrics Calculations ─────────────────────────────── */
-  const totalCompletedOrders = baselineSales.length;
-  const totalRevenue = baselineSales.reduce((acc, s) => acc + (Number(s.total_amount) || 0), 0);
+  /* ── Reload Handler ───────────────────────────────────── */
+  const handleRefresh = () => {
+    fetchSales(currentPage, startDate, endDate, activeSearchQuery, activeFilter);
+    fetchSummary(startDate, endDate, activeSearchQuery, activeFilter);
+  };
 
-  const todayStr = (() => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  })();
-
-  const todayOrdersCount = baselineSales.filter((s) => {
-    if (!s.created_at) return false;
-    return s.created_at.startsWith(todayStr);
-  }).length;
-
-  const cashOrdersCount = baselineSales.filter((s) => s.payment_method?.toLowerCase() === 'cash').length;
-  const cardOrdersCount = baselineSales.filter((s) => s.payment_method?.toLowerCase() === 'card').length;
-
-  /* ── Filter & Pagination ──────────────────────────────── */
-  const filteredSales = allSales.filter((s) => {
-    if (activeFilter === 'cash') return s.payment_method?.toLowerCase() === 'cash';
-    if (activeFilter === 'card') return s.payment_method?.toLowerCase() === 'card';
-    if (activeFilter === 'qr') return s.payment_method?.toLowerCase() === 'qr';
-    return true;
-  });
-
-  const totalItems = filteredSales.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  const validPage = Math.min(Math.max(1, currentPage), totalPages);
-  const startIndex = (validPage - 1) * PAGE_SIZE;
-  const pageSales = filteredSales.slice(startIndex, startIndex + PAGE_SIZE);
+  /* ── Pagination Bounds ────────────────────────────────── */
+  const startItem = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const endItem = Math.min(currentPage * PAGE_SIZE, totalCount);
 
   /* ── Date/Time Formatter ──────────────────────────────── */
   const formatDateTime = (dateStr?: string) => {
@@ -294,7 +323,7 @@ export default function SalesHistoryView() {
         >
           <div className="sales-main-card__header-left">
             <h2 className="sales-main-card__title">Sales History &amp; POS Orders</h2>
-            <span className="sales-main-card__badge">{allSales.length} Total Orders</span>
+            <span className="sales-main-card__badge">{summary.completed} Orders</span>
           </div>
 
           <div className="sales-main-card__header-right">
@@ -304,7 +333,7 @@ export default function SalesHistoryView() {
               disabled={isLoading}
               onClick={(e) => {
                 e.stopPropagation();
-                loadSales();
+                handleRefresh();
               }}
               title="Refresh sales history"
             >
@@ -335,7 +364,7 @@ export default function SalesHistoryView() {
         {/* Collapsible Content: 3 KPI Cards + Filter Bar & Search */}
         <div className={`sales-main-card__collapsible ${!isPanelExpanded ? 'sales-main-card__collapsible--collapsed' : ''}`}>
           <div className="sales-main-card__collapsible-inner">
-            {/* 2. Compact KPI Metrics Row */}
+            {/* 2. Compact KPI Metrics Row from Summary API */}
             <div className="sales-metrics-row">
               {/* Total Completed Orders */}
               <div className="sales-metric-card">
@@ -343,21 +372,21 @@ export default function SalesHistoryView() {
                   <Receipt size={18} />
                 </div>
                 <div className="sales-metric-info">
-                  <div className="sales-metric-title">Total Completed Orders</div>
-                  <div className="sales-metric-value">{totalCompletedOrders} Orders</div>
-                  <div className="sales-metric-sub">100% normal POS/Cart transactions</div>
+                  <div className="sales-metric-title">Completed Orders</div>
+                  <div className="sales-metric-value">{summary.completed} Orders</div>
+                  <div className="sales-metric-sub">100% fulfilled POS sales</div>
                 </div>
               </div>
 
-              {/* Performed Today */}
+              {/* Total Orders */}
               <div className="sales-metric-card">
                 <div className="sales-metric-icon" style={{ background: '#F0F9FF', color: '#0EA5E9' }}>
                   <CalendarCheck size={18} />
                 </div>
                 <div className="sales-metric-info">
-                  <div className="sales-metric-title">Today&apos;s Orders</div>
-                  <div className="sales-metric-value">{todayOrdersCount} Orders</div>
-                  <div className="sales-metric-sub">Transactions completed today</div>
+                  <div className="sales-metric-title">Total Orders</div>
+                  <div className="sales-metric-value">{summary.total} Orders</div>
+                  <div className="sales-metric-sub">In selected date range</div>
                 </div>
               </div>
 
@@ -368,52 +397,48 @@ export default function SalesHistoryView() {
                 </div>
                 <div className="sales-metric-info">
                   <div className="sales-metric-title">Register Revenue</div>
-                  <div className="sales-metric-value">${fmtMoney(totalRevenue)}</div>
-                  <div className="sales-metric-sub">Combined POS tender received</div>
+                  <div className="sales-metric-value">${fmtMoney(summary.total_revenue)}</div>
+                  <div className="sales-metric-sub">Total earned tender in range</div>
                 </div>
               </div>
             </div>
 
             {/* 3. Filter Bar & Search */}
             <div className="sales-filter-bar">
+              {/* Modern Date Range Filter Popup */}
+              <DateRangeFilter
+                startDate={startDate}
+                endDate={endDate}
+                onChange={handleDateRangeChange}
+                className="sales-date-range-filter"
+              />
+
               <div className="sales-filter-chips">
                 <button
                   type="button"
                   className={`sales-filter-chip ${activeFilter === 'all' ? 'sales-filter-chip--active-all' : ''}`}
-                  onClick={() => {
-                    setActiveFilter('all');
-                    setCurrentPage(1);
-                  }}
+                  onClick={() => handleFilterChange('all')}
                 >
-                  All Sales ({allSales.length})
+                  All Sales
                 </button>
                 <button
                   type="button"
                   className={`sales-filter-chip ${activeFilter === 'cash' ? 'sales-filter-chip--active-cash' : ''}`}
-                  onClick={() => {
-                    setActiveFilter('cash');
-                    setCurrentPage(1);
-                  }}
+                  onClick={() => handleFilterChange('cash')}
                 >
-                  Cash ({cashOrdersCount})
+                  Cash
                 </button>
                 <button
                   type="button"
                   className={`sales-filter-chip ${activeFilter === 'card' ? 'sales-filter-chip--active-card' : ''}`}
-                  onClick={() => {
-                    setActiveFilter('card');
-                    setCurrentPage(1);
-                  }}
+                  onClick={() => handleFilterChange('card')}
                 >
-                  Card ({cardOrdersCount})
+                  Card
                 </button>
                 <button
                   type="button"
                   className={`sales-filter-chip ${activeFilter === 'qr' ? 'sales-filter-chip--active-qr' : ''}`}
-                  onClick={() => {
-                    setActiveFilter('qr');
-                    setCurrentPage(1);
-                  }}
+                  onClick={() => handleFilterChange('qr')}
                 >
                   QR Payment
                 </button>
@@ -485,7 +510,7 @@ export default function SalesHistoryView() {
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div className="table-loader-spinner" style={{ borderColor: '#E11D48', borderTopColor: 'transparent', width: '32px', height: '32px' }} />
         </div>
-      ) : filteredSales.length === 0 ? (
+      ) : allSales.length === 0 ? (
         <div className="sales-empty-state">
           <div className="sales-empty-icon-circle">
             <Receipt size={40} />
@@ -513,7 +538,7 @@ export default function SalesHistoryView() {
               alignItems: 'center',
               gap: '6px',
             }}
-            onClick={loadSales}
+            onClick={handleRefresh}
           >
             <RotateCw size={15} />
             <span>Reload Sales</span>
@@ -521,7 +546,7 @@ export default function SalesHistoryView() {
         </div>
       ) : (
         <div className="sales-list-container">
-          {pageSales.map((sale) => {
+          {allSales.map((sale) => {
             const method = (sale.payment_method || 'cash').toLowerCase();
             const badgeClass =
               method === 'cash'
@@ -617,53 +642,80 @@ export default function SalesHistoryView() {
       )}
 
       {/* ── 5. Pagination Controls ─────────────────────────── */}
-      {!isLoading && filteredSales.length > 0 && (
+      {!isLoading && allSales.length > 0 && (
         <div className="sales-pagination-bar">
           <span className="sales-pagination-info">
-            Showing {startIndex + 1} - {Math.min(startIndex + PAGE_SIZE, totalItems)} of {totalItems} records (Page {validPage} of {totalPages})
+            Showing {startItem} - {endItem} of {totalCount} records (Page {currentPage} of {totalPages})
           </span>
 
           <div className="sales-pagination-btns">
             <button
               type="button"
               className="sales-page-nav-btn"
-              disabled={validPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              onClick={() => handlePageChange(currentPage - 1)}
             >
               <ChevronLeft size={16} />
               <span>Prev</span>
             </button>
 
             {/* Page number buttons */}
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter((p) => p === 1 || p === totalPages || Math.abs(p - validPage) <= 2)
-              .map((p, idx, arr) => {
-                const prev = arr[idx - 1];
-                return (
-                  <div
-                    key={p}
-                    className={`sales-page-num-wrap ${p === validPage ? 'sales-page-num-wrap--active' : ''}`}
-                    style={{ display: 'flex', alignItems: 'center' }}
-                  >
-                    {prev && p - prev > 1 && (
-                      <span style={{ padding: '0 4px', color: '#94A3B8', fontSize: '12px' }}>...</span>
-                    )}
+            {totalPages <= 7 ? (
+              Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={`sales-page-num-btn ${p === currentPage ? 'sales-page-num-btn--active' : ''}`}
+                  onClick={() => handlePageChange(p)}
+                >
+                  {p}
+                </button>
+              ))
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={`sales-page-num-btn ${currentPage === 1 ? 'sales-page-num-btn--active' : ''}`}
+                  onClick={() => handlePageChange(1)}
+                >
+                  1
+                </button>
+                {currentPage > 3 && (
+                  <span style={{ padding: '0 4px', color: '#94A3B8', fontSize: '12px' }}>...</span>
+                )}
+                {Array.from(
+                  { length: 3 },
+                  (_, i) => Math.max(2, Math.min(totalPages - 1, currentPage - 1 + i))
+                )
+                  .filter((v, idx, arr) => arr.indexOf(v) === idx && v > 1 && v < totalPages)
+                  .map((p) => (
                     <button
+                      key={p}
                       type="button"
-                      className={`sales-page-num-btn ${p === validPage ? 'sales-page-num-btn--active' : ''}`}
-                      onClick={() => setCurrentPage(p)}
+                      className={`sales-page-num-btn ${p === currentPage ? 'sales-page-num-btn--active' : ''}`}
+                      onClick={() => handlePageChange(p)}
                     >
                       {p}
                     </button>
-                  </div>
-                );
-              })}
+                  ))}
+                {currentPage < totalPages - 2 && (
+                  <span style={{ padding: '0 4px', color: '#94A3B8', fontSize: '12px' }}>...</span>
+                )}
+                <button
+                  type="button"
+                  className={`sales-page-num-btn ${currentPage === totalPages ? 'sales-page-num-btn--active' : ''}`}
+                  onClick={() => handlePageChange(totalPages)}
+                >
+                  {totalPages}
+                </button>
+              </>
+            )}
 
             <button
               type="button"
               className="sales-page-nav-btn"
-              disabled={validPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
             >
               <span>Next</span>
               <ChevronRight size={16} />

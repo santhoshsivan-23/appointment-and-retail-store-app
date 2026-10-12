@@ -91,7 +91,7 @@ export default function AppointmentV2MobileDatePickerModal({
     <div
       className="v2-modal-overlay v2-mobile-datepicker-overlay"
       onClick={onClose}
-      style={{ zIndex: 1100 }}
+      style={{ zIndex: 99999 }}
     >
       <div
         className="v2-modal v2-mobile-datepicker-modal"

@@ -1,0 +1,693 @@
+/* ========================================================
+   Date Range Calendar – Centered Blurred Modal & Quick Dropdown
+   ======================================================== */
+
+.date-filter-root {
+  position: relative;
+  display: inline-block;
+  user-select: none;
+}
+
+/* ── Trigger Button (Filter Bar) ───────────────────────── */
+.date-filter-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1px solid #CBD5E1;
+  border-radius: 10px;
+  color: #1E293B;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.date-filter-trigger:hover {
+  background: #F8FAFC;
+  border-color: #94A3B8;
+}
+
+.date-filter-trigger--active {
+  border-color: #E11D48;
+  background: #FFF1F2;
+  color: #E11D48;
+  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.12);
+}
+
+.date-filter-trigger__icon {
+  color: #64748B;
+  flex-shrink: 0;
+  transition: color 0.18s ease;
+}
+
+.date-filter-trigger--active .date-filter-trigger__icon {
+  color: #E11D48;
+}
+
+.date-filter-trigger__inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.date-filter-trigger__text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.date-filter-trigger__chevron {
+  color: #94A3B8;
+  margin-left: 2px;
+  transition: transform 0.2s ease;
+}
+
+.date-filter-trigger--active .date-filter-trigger__chevron {
+  transform: rotate(180deg);
+  color: #E11D48;
+}
+
+/* ── Small Quick Date Selection Dropdown ───────────────── */
+.date-quick-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 1000;
+  background: #ffffff;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  box-shadow: 0 14px 34px -4px rgba(15, 23, 42, 0.14), 0 4px 12px rgba(15, 23, 42, 0.06);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 220px;
+  animation: dateFadeIn 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.date-quick-dropdown__header {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94A3B8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 10px 4px 10px;
+}
+
+.date-quick-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  text-align: left;
+}
+
+.date-quick-item:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+.date-quick-item--active {
+  background: #FFF1F2 !important;
+  color: #E11D48 !important;
+  font-weight: 700 !important;
+}
+
+.date-quick-item--custom {
+  font-weight: 600;
+  color: #E11D48;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.date-quick-item--custom:hover {
+  background: #FFF1F2;
+  color: #BE123C;
+}
+
+.date-quick-divider {
+  height: 1px;
+  background: #F1F5F9;
+  margin: 4px 0;
+}
+
+/* ── Centered Modal Backdrop with Blur Overlay ─────────── */
+.date-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: dateBackdropFadeIn 0.18s ease-out;
+}
+
+@keyframes dateBackdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ── Centered Modal Card (Exact Match to Image) ────────── */
+.date-modal-card {
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.28), 0 0 1px rgba(15, 23, 42, 0.15);
+  width: 440px;
+  max-width: 95vw;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-sizing: border-box;
+  animation: dateModalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dateModalPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Modal Header ──────────────────────────────────────── */
+.date-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.date-modal-header__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.date-modal-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #FFF1F2;
+  color: #E11D48;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.date-modal-title {
+  margin: 0;
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.date-modal-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #F8FAFC;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.date-modal-close-btn:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+/* ── Preset Chips Row (7 Days, 14 Days, etc.) ──────────── */
+.date-modal-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.date-modal-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.date-chip-btn {
+  padding: 8px 16px;
+  background: #F1F5F9;
+  border: none;
+  border-radius: 20px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.14s ease;
+  flex-shrink: 0;
+}
+
+.date-chip-btn:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+/* ── Calendar Navigation with Month & Year Popups ──────── */
+.date-calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.date-nav-arrow {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #F8FAFC;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.date-nav-arrow:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+.date-nav-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-nav-picker-anchor {
+  position: relative;
+}
+
+.date-nav-title-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: #0F172A;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.date-nav-title-btn:hover {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
+.date-nav-title-btn--active {
+  background: #FFF1F2;
+  border-color: #E11D48;
+  color: #E11D48;
+}
+
+/* ── Scrollable Month/Year Popup (Displays 5 items at a time) */
+.date-scroll-select-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100000;
+  background: #ffffff;
+  border: 1px solid #CBD5E1;
+  border-radius: 14px;
+  box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.22);
+  width: 160px;
+  overflow: hidden;
+  animation: dateFadeIn 0.12s ease-out;
+}
+
+.date-scroll-select-popup--year {
+  width: 120px;
+}
+
+/* Exactly 5 items visible at a time: 5 * 38px = 190px */
+.date-scroll-select-list {
+  max-height: 190px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+.date-scroll-select-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.date-scroll-select-list::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+
+.date-scroll-item {
+  height: 38px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  text-align: left;
+  flex-shrink: 0;
+}
+
+.date-scroll-item:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+.date-scroll-item--selected {
+  background: #FFF1F2 !important;
+  color: #E11D48 !important;
+  font-weight: 700 !important;
+}
+
+/* ── Weekdays Grid: S M T W T F S ──────────────────────── */
+.date-weekdays-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #94A3B8;
+  padding: 4px 0;
+}
+
+/* ── Days Grid ─────────────────────────────────────────── */
+.date-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.date-cell {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 12px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+
+.date-cell--blank {
+  cursor: default;
+  pointer-events: none;
+}
+
+.date-cell:not(.date-cell--blank):hover {
+  background: #F8FAFC;
+  color: #0F172A;
+}
+
+/* Selected Range Endpoints: solid active theme color */
+.date-cell--start,
+.date-cell--end {
+  background: #E11D48 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 10px rgba(225, 29, 72, 0.35);
+}
+
+/* In-Between Days: soft tint with theme text */
+.date-cell--in-range {
+  background: #FFF1F2 !important;
+  color: #E11D48 !important;
+  font-weight: 700 !important;
+}
+
+/* ── Modal Footer (Exact Match to Image) ───────────────── */
+.date-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 16px;
+  border-top: 1px solid #F1F5F9;
+}
+
+.date-modal-footer__left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.date-modal-footer__caption {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94A3B8;
+  letter-spacing: 0.5px;
+}
+
+.date-modal-footer__value {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.date-modal-footer__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.date-modal-cancel-btn {
+  background: transparent;
+  border: none;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #64748B;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  padding: 8px 12px;
+}
+
+.date-modal-cancel-btn:hover {
+  color: #0F172A;
+}
+
+.date-modal-apply-btn {
+  background: #E11D48;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 24px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+}
+
+.date-modal-apply-btn:hover {
+  background: #BE123C;
+  box-shadow: 0 6px 16px rgba(225, 29, 72, 0.4);
+}
+
+@keyframes dateFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Mobile Calendar UI & Popup Enhancements ───────────── */
+@media (max-width: 768px) {
+  .date-quick-dropdown {
+    width: 100% !important;
+    min-width: 240px !important;
+    max-width: calc(100vw - 32px) !important;
+    box-sizing: border-box !important;
+    border-radius: 14px !important;
+    padding: 8px !important;
+  }
+
+  .date-quick-item {
+    padding: 9px 12px !important;
+    font-size: 13.5px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .date-modal-overlay {
+    padding: 12px !important;
+  }
+
+  .date-modal-card {
+    width: 100% !important;
+    max-width: 390px !important;
+    padding: 18px 16px !important;
+    border-radius: 20px !important;
+    gap: 14px !important;
+  }
+
+  .date-modal-header {
+    margin-bottom: 2px !important;
+  }
+
+  .date-modal-badge {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 10px !important;
+  }
+
+  .date-modal-title {
+    font-size: 16.5px !important;
+  }
+
+  .date-modal-close-btn {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .date-modal-chips {
+    gap: 6px !important;
+    padding-bottom: 2px !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .date-chip-btn {
+    padding: 6px 13px !important;
+    font-size: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .date-calendar-nav {
+    margin-top: 2px !important;
+  }
+
+  .date-nav-title-btn {
+    padding: 5px 10px !important;
+    font-size: 14px !important;
+    border-radius: 8px !important;
+  }
+
+  .date-nav-arrow {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .date-scroll-select-popup {
+    width: 150px !important;
+  }
+
+  .date-scroll-select-popup--year {
+    width: 110px !important;
+  }
+
+  .date-scroll-select-list {
+    max-height: 180px !important;
+  }
+
+  .date-scroll-item {
+    height: 36px !important;
+    font-size: 12.5px !important;
+  }
+
+  .date-weekdays-grid {
+    font-size: 12px !important;
+    padding: 2px 0 !important;
+  }
+
+  .date-days-grid {
+    gap: 4px !important;
+  }
+
+  .date-cell {
+    height: 39px !important;
+    font-size: 13.5px !important;
+    border-radius: 10px !important;
+  }
+
+  .date-modal-footer {
+    padding-top: 12px !important;
+  }
+
+  .date-modal-footer__caption {
+    font-size: 10.5px !important;
+  }
+
+  .date-modal-footer__value {
+    font-size: 12.5px !important;
+    max-width: 175px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .date-modal-cancel-btn {
+    padding: 6px 10px !important;
+    font-size: 13.5px !important;
+  }
+
+  .date-modal-apply-btn {
+    padding: 8px 18px !important;
+    font-size: 13.5px !important;
+    border-radius: 10px !important;
+  }
+}

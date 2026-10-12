@@ -2,21 +2,68 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 
-// GET /api/sales
+// GET /api/sales?start_date=...&end_date=...&payment_method=...&page=...&limit=...
 router.get('/', async (req, res) => {
   try {
-    const { appointment_id, customer_id, search, include_appointments } = req.query;
+    const {
+      appointment_id,
+      customer_id,
+      search,
+      include_appointments,
+      start_date,
+      end_date,
+      payment_method,
+      page,
+      limit,
+    } = req.query;
+
     const filters = {};
     if (appointment_id) filters.appointment_id = appointment_id;
     if (customer_id) filters.customer_id = customer_id;
     if (search) filters.search = search;
     if (include_appointments) filters.include_appointments = include_appointments;
+    if (start_date) filters.start_date = start_date;
+    if (end_date) filters.end_date = end_date;
+    if (payment_method) filters.payment_method = payment_method;
+    if (page) filters.page = page;
+    if (limit) filters.limit = limit;
 
     const sales = await db.getSales(filters);
+
+    if (sales && sales.total !== undefined) {
+      return res.json({
+        success: true,
+        data: sales.data,
+        total: sales.total,
+        page: sales.page,
+        limit: sales.limit,
+        totalPages: sales.totalPages,
+        count: sales.data.length,
+      });
+    }
+
     res.json({ success: true, data: sales, count: sales.length });
   } catch (err) {
     console.error('Error fetching sales:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch sales.' });
+  }
+});
+
+// GET /api/sales/summary?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&search=...&payment_method=...
+router.get('/summary', async (req, res) => {
+  try {
+    const { start_date, end_date, search, payment_method, include_appointments } = req.query;
+    const summary = await db.getSaleSummary({
+      startDate: start_date || null,
+      endDate: end_date || null,
+      search: search || null,
+      paymentMethod: payment_method || null,
+      include_appointments,
+    });
+    res.json({ success: true, data: summary });
+  } catch (err) {
+    console.error('Error fetching sale summary:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch sale summary.' });
   }
 });
 

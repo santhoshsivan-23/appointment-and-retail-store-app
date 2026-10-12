@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/appointment_model.dart';
 import '../models/staff_model.dart';
+import '../models/history_summary_model.dart';
 import '../printing/receipt_printer_service.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/refund_modal.dart';
+import '../widgets/date_range_filter_widget.dart';
 
 class AppointmentHistoryView extends StatefulWidget {
   const AppointmentHistoryView({super.key});
@@ -15,8 +17,16 @@ class AppointmentHistoryView extends StatefulWidget {
 }
 
 class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
+  // Date range state (Defaults to Today)
+  late String _startDate;
+  late String _endDate;
+
+  // History data & Summary
   List<AppointmentModel> _completedAppointments = [];
-  List<AppointmentModel> _allCompletedAppointments = [];
+  HistorySummaryModel _summary = const HistorySummaryModel();
+  int _totalCount = 0;
+  int _totalPages = 1;
+
   List<StaffModel> _staffList = [];
   bool _isLoading = true;
   bool _isSearching = false;
@@ -32,7 +42,12 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
   @override
   void initState() {
     super.initState();
-    _loadHistory();
+    final now = DateTime.now();
+    final todayStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    _startDate = todayStr;
+    _endDate = todayStr;
+    _loadInitialData();
   }
 
   @override
@@ -41,21 +56,37 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
     super.dispose();
   }
 
-  Future<void> _loadHistory() async {
+  Future<void> _loadInitialData() async {
+    // Load staff list once
+    ApiService.getStaff().then((staff) {
+      if (mounted) setState(() => _staffList = staff);
+    }).catchError((e) {
+      debugPrint('Error loading staff: $e');
+    });
+
+    await Future.wait([
+      _fetchAppointments(page: 1),
+      _fetchSummary(),
+    ]);
+  }
+
+  // 1. History Data API (Backend Paginated by date range)
+  Future<void> _fetchAppointments({int page = 1}) async {
     setState(() => _isLoading = true);
     try {
-      final results = await Future.wait([
-        ApiService.getAppointments(status: 'completed'),
-        ApiService.getStaff(),
-      ]);
+      final result = await ApiService.getAppointmentsPaginated(
+        startDate: _startDate,
+        endDate: _endDate,
+        search: _activeSearchQuery.isNotEmpty ? _activeSearchQuery : null,
+        status: 'completed',
+        page: page,
+        limit: _pageSize,
+      );
 
       if (!mounted) return;
 
-      final allAppointments = results[0] as List<AppointmentModel>;
-      final staff = results[1] as List<StaffModel>;
-
       // STRICTLY DISPLAY ONLY PERFORMED / COMPLETED APPOINTMENTS
-      final completed = allAppointments.where((a) {
+      final completed = result.items.where((a) {
         final s = a.status.toLowerCase().trim();
         return s == 'completed' || s == 'performed';
       }).toList();
@@ -68,22 +99,53 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
       });
 
       setState(() {
-        _allCompletedAppointments = completed;
         _completedAppointments = completed;
-        _staffList = staff;
-        _currentPage = 1;
+        _totalCount = result.total;
+        _totalPages = result.totalPages;
+        _currentPage = page;
         _isLoading = false;
-        _activeSearchQuery = '';
       });
-      _searchController.clear();
     } catch (e) {
-      debugPrint('Error loading appointment history: $e');
+      debugPrint('Error loading paginated appointments: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
 
+  // 2. Summary API (Fast aggregates for selected date range)
+  Future<void> _fetchSummary() async {
+    try {
+      final s = await ApiService.getAppointmentSummary(
+        startDate: _startDate,
+        endDate: _endDate,
+        search: _activeSearchQuery.isNotEmpty ? _activeSearchQuery : null,
+      );
+      if (mounted) {
+        setState(() => _summary = s);
+      }
+    } catch (e) {
+      debugPrint('Error loading appointment summary: $e');
+    }
+  }
+
+  // Date Range Change Handler
+  void _onDateRangeChanged(DateRangeResult result) {
+    setState(() {
+      _startDate = result.startDate;
+      _endDate = result.endDate;
+    });
+    _fetchAppointments(page: 1);
+    _fetchSummary();
+  }
+
+  // Page Change Handler (Loads only current page records, does not re-fetch summary)
+  void _changePage(int page) {
+    if (page < 1 || page > _totalPages || page == _currentPage) return;
+    _fetchAppointments(page: page);
+  }
+
+  // Search Handlers
   Future<void> _performSearch() async {
     final query = _searchController.text.trim();
     setState(() {
@@ -91,70 +153,34 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
       _activeSearchQuery = query;
     });
 
-    try {
-      final results = await ApiService.getAppointments(
-        search: query.isNotEmpty ? query : null,
-        status: 'completed',
-      );
+    await Future.wait([
+      _fetchAppointments(page: 1),
+      _fetchSummary(),
+    ]);
 
-      if (!mounted) return;
-
-      final completed = results.where((a) {
-        final s = a.status.toLowerCase().trim();
-        return s == 'completed' || s == 'performed';
-      }).toList();
-
-      completed.sort((a, b) {
-        final cmp = b.appointmentDate.compareTo(a.appointmentDate);
-        if (cmp != 0) return cmp;
-        return b.startTime.compareTo(a.startTime);
-      });
-
-      setState(() {
-        _completedAppointments = completed;
-        _currentPage = 1;
-        _isSearching = false;
-      });
-    } catch (e) {
-      debugPrint('Error searching appointments: $e');
-      if (mounted) {
-        setState(() => _isSearching = false);
-      }
+    if (mounted) {
+      setState(() => _isSearching = false);
     }
   }
 
   void _resetSearch() {
     _searchController.clear();
-    _performSearch();
+    setState(() => _activeSearchQuery = '');
+    _fetchAppointments(page: 1);
+    _fetchSummary();
   }
 
-  List<AppointmentModel> get _filteredHistory => _completedAppointments;
-
-  double get _totalCompletedRevenue =>
-      _allCompletedAppointments.fold(0.0, (acc, a) => acc + a.totalAmount);
-
-  int get _todayCompletedCount {
-    final now = DateTime.now();
-    final todayStr =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    return _allCompletedAppointments
-        .where((a) => a.appointmentDate == todayStr)
-        .length;
+  // Reload / Refresh
+  void _refresh() {
+    _fetchAppointments(page: _currentPage);
+    _fetchSummary();
   }
 
   @override
   Widget build(BuildContext context) {
-    final displayList = _filteredHistory;
-    final totalItems = displayList.length;
-    final totalPages = totalItems == 0 ? 1 : ((totalItems - 1) ~/ _pageSize) + 1;
-    final validPage = _currentPage.clamp(1, totalPages);
-    final startIndex = (validPage - 1) * _pageSize;
-    final endIndex = (startIndex + _pageSize > totalItems)
-        ? totalItems
-        : startIndex + _pageSize;
-    final pageAppointments = totalItems == 0
-        ? <AppointmentModel>[]
-        : displayList.sublist(startIndex, endIndex);
+    final totalItems = _totalCount;
+    final totalPages = _totalPages;
+    final pageAppointments = _completedAppointments;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -175,13 +201,13 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                         color: Color(0xFFE11D48),
                       ),
                     )
-                  : displayList.isEmpty
+                  : pageAppointments.isEmpty
                       ? _buildEmptyState()
                       : _buildCompletedList(pageAppointments),
             ),
 
             // 3. Pagination Controls at Bottom
-            if (!_isLoading && displayList.isNotEmpty) ...[
+            if (!_isLoading && pageAppointments.isNotEmpty) ...[
               const SizedBox(height: 14),
               _buildPaginationControls(totalItems, totalPages),
             ],
@@ -272,7 +298,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Container(
+                    Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(
@@ -280,7 +306,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '${_allCompletedAppointments.length} Performed',
+                      '${_summary.completed} Performed',
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -324,7 +350,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    onPressed: _isLoading ? null : _loadHistory,
+                    onPressed: _isLoading ? null : _refresh,
                   ),
                   const SizedBox(width: 8),
                   // Dropdown / Expand-Collapse toggle button
@@ -364,26 +390,26 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
     return Row(
       children: [
         _buildMetricCard(
-          title: 'Total Performed',
-          value: '${_allCompletedAppointments.length} Appointments',
-          sub: '100% completed & fulfilled',
+          title: 'Total Appointments',
+          value: '${_summary.total} Booked',
+          sub: 'In selected date range',
+          icon: Icons.calendar_today_outlined,
+          color: const Color(0xFF2563EB),
+          bgColor: const Color(0xFFEFF6FF),
+        ),
+        const SizedBox(width: 10),
+        _buildMetricCard(
+          title: 'Completed Appointments',
+          value: '${_summary.completed} Performed',
+          sub: '100% fulfilled & performed',
           icon: Icons.check_circle_outline,
           color: const Color(0xFF10B981),
           bgColor: const Color(0xFFECFDF5),
         ),
         const SizedBox(width: 10),
         _buildMetricCard(
-          title: 'Performed Today',
-          value: '$_todayCompletedCount Completed',
-          sub: 'Sessions served today',
-          icon: Icons.today_outlined,
-          color: const Color(0xFF0EA5E9),
-          bgColor: const Color(0xFFF0F9FF),
-        ),
-        const SizedBox(width: 10),
-        _buildMetricCard(
-          title: 'Service Revenue',
-          value: '\$${_totalCompletedRevenue.toStringAsFixed(2)}',
+          title: 'Total Revenue',
+          value: '\$${_summary.totalRevenue.toStringAsFixed(2)}',
           sub: 'Total earned from performed sessions',
           icon: Icons.monetization_on_outlined,
           color: const Color(0xFF8B5CF6),
@@ -487,8 +513,15 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
       ),
       child: Row(
         children: [
+          // Date Range Filter Widget
+          DateRangeFilterWidget(
+            startDate: _startDate,
+            endDate: _endDate,
+            onDateRangeChanged: _onDateRangeChanged,
+          ),
+          const SizedBox(width: 8),
           SizedBox(
-            width: 300,
+            width: 280,
             height: 34,
             child: TextField(
               controller: _searchController,
@@ -822,7 +855,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: _currentPage > 1
-                ? () => setState(() => _currentPage--)
+                ? () => _changePage(_currentPage - 1)
                 : null,
             child: const Row(
               mainAxisSize: MainAxisSize.min,
@@ -847,7 +880,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: _currentPage < totalPages
-                ? () => setState(() => _currentPage++)
+                ? () => _changePage(_currentPage + 1)
                 : null,
             child: const Row(
               mainAxisSize: MainAxisSize.min,
@@ -871,7 +904,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2),
         child: InkWell(
-          onTap: () => setState(() => _currentPage = p),
+          onTap: () => _changePage(p),
           borderRadius: BorderRadius.circular(8),
           child: Container(
             width: 32,
@@ -1540,13 +1573,11 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                                       onRefundSuccess: (updatedTx, refundRecord) {
                                         final updatedApt = updatedTx as AppointmentModel;
                                         setState(() {
-                                          _allCompletedAppointments = _allCompletedAppointments
-                                              .map((x) => x.id == updatedApt.id ? updatedApt : x)
-                                              .toList();
                                           _completedAppointments = _completedAppointments
                                               .map((x) => x.id == updatedApt.id ? updatedApt : x)
                                               .toList();
                                         });
+                                        _fetchSummary();
                                         _showAppointmentDetails(updatedApt);
                                       },
                                     );
@@ -1651,7 +1682,7 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
             ),
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('Reload History'),
-            onPressed: _loadHistory,
+            onPressed: _refresh,
           ),
         ],
       ),
