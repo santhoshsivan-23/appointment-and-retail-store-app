@@ -15,6 +15,7 @@ import {
   Store,
   SlidersHorizontal,
   CalendarDays,
+  Printer,
 } from 'lucide-react';
 import { useAppSelector } from '../store/hooks';
 import '../styles/more_options.css';
@@ -86,6 +87,17 @@ export default function MoreOptionsView({
       badge: 'Config',
       category: 'management',
       action: () => onNavigate(8),
+    },
+    {
+      id: 11,
+      title: 'Printer Settings',
+      desc: 'Configure LAN thermal receipt printer, IP address & 80mm/58mm roll',
+      icon: Printer,
+      color: '#2563EB',
+      bg: 'rgba(37, 99, 235, 0.12)',
+      badge: 'LAN',
+      category: 'management',
+      action: () => onNavigate(11),
     },
 
     // 2. Catalog & Inventory (Sidebar items moved under More)

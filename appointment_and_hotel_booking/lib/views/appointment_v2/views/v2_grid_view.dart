@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../models/appointment_model.dart';
+import '../../../models/category_model.dart';
+import '../../../models/product_model.dart';
 import '../../../models/staff_model.dart';
 import '../../../utils/appointment_v2_utils.dart';
 import '../components/v2_empty_schedule_card.dart';
@@ -10,6 +12,8 @@ class V2GridView extends StatelessWidget {
   final List<AppointmentModel> appointments;
   final StaffModel selectedStaff;
   final String selectedDate;
+  final List<CategoryModel>? categories;
+  final List<ProductModel>? products;
   final ValueChanged<AppointmentModel> onOpenDetails;
   final VoidCallback onBookAppointment;
   final VoidCallback onGoToToday;
@@ -19,6 +23,8 @@ class V2GridView extends StatelessWidget {
     required this.appointments,
     required this.selectedStaff,
     required this.selectedDate,
+    this.categories,
+    this.products,
     required this.onOpenDetails,
     required this.onBookAppointment,
     required this.onGoToToday,
@@ -52,7 +58,7 @@ class V2GridView extends StatelessWidget {
           itemBuilder: (context, index) {
             final appt = appointments[index];
             final statusMeta = getStatusMeta(appt.status);
-            final svcNames = appt.servicesSummary;
+            final svcNames = resolveServicesWithCategories(appt, products, categories);
             final customerName = appt.customerName.isNotEmpty
                 ? appt.customerName
                 : 'Walk-in Guest';

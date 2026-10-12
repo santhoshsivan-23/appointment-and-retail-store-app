@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../models/appointment_model.dart';
+import '../../../models/category_model.dart';
+import '../../../models/product_model.dart';
 import '../../../models/staff_model.dart';
 import '../../../utils/appointment_v2_utils.dart';
 import '../components/v2_appointment_expanded_panel.dart';
@@ -12,6 +14,8 @@ class V2ListView extends StatelessWidget {
   final StaffModel selectedStaff;
   final String selectedDate;
   final int? expandedApptId;
+  final List<CategoryModel>? categories;
+  final List<ProductModel>? products;
   final ValueChanged<int> onToggleExpand;
   final ValueChanged<AppointmentModel> onStartService;
   final ValueChanged<AppointmentModel> onContinueService;
@@ -25,6 +29,8 @@ class V2ListView extends StatelessWidget {
     required this.selectedStaff,
     required this.selectedDate,
     required this.expandedApptId,
+    this.categories,
+    this.products,
     required this.onToggleExpand,
     required this.onStartService,
     required this.onContinueService,
@@ -205,6 +211,8 @@ class V2ListView extends StatelessWidget {
                   appointment: appt,
                   selectedStaff: selectedStaff,
                   selectedDate: selectedDate,
+                  categories: categories,
+                  products: products,
                   onCollapse: () => onToggleExpand(appt.id),
                   onStartService: onStartService,
                   onContinueService: onContinueService,

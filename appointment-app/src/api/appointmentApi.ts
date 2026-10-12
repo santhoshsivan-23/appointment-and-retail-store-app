@@ -1,4 +1,5 @@
 import axiosClient from './axiosClient';
+import type { RefundRecord, ProcessRefundPayload } from './saleApi';
 
 /* ── Types ─────────────────────────────────────────────── */
 export type AppointmentStatus =
@@ -14,7 +15,9 @@ export interface AppointmentServiceItem {
   name?: string;
   product_name?: string;
   price?: number;
+  unit_price?: number;
   quantity?: number;
+  discount?: number;
 }
 
 export interface Appointment {
@@ -33,6 +36,15 @@ export interface Appointment {
   services: AppointmentServiceItem[];
   notes?: string;
   created_at?: string;
+  refund_status?: 'none' | 'partial' | 'full';
+  refunded_amount?: number;
+  refunds?: RefundRecord[];
+  tax_amount?: number;
+  subtotal?: number;
+  gst_reversed_total?: number;
+  net_tax_amount?: number;
+  subtotal_refunded_total?: number;
+  net_subtotal?: number;
 }
 
 export interface AppointmentStats {
@@ -140,4 +152,18 @@ export const appointmentApi = {
     axiosClient.delete<{ success: boolean; message: string }>(
       `/appointments/${id}`
     ),
+
+  getRefunds: (id: number) =>
+    axiosClient.get<{ success: boolean; data: RefundRecord[]; count: number }>(
+      `/appointments/${id}/refunds`
+    ),
+
+  processRefund: (id: number, data: ProcessRefundPayload) =>
+    axiosClient.post<{
+      success: boolean;
+      message: string;
+      data: RefundRecord;
+      appointment: Appointment;
+      sale?: any;
+    }>(`/appointments/${id}/refund`, data),
 };

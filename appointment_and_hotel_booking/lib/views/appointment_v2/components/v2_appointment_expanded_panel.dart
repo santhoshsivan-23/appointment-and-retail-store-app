@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../models/appointment_model.dart';
+import '../../../models/category_model.dart';
+import '../../../models/product_model.dart';
 import '../../../models/staff_model.dart';
 import '../../../utils/appointment_v2_utils.dart';
 
@@ -9,6 +11,8 @@ class V2AppointmentExpandedPanel extends StatelessWidget {
   final AppointmentModel appointment;
   final StaffModel selectedStaff;
   final String selectedDate;
+  final List<CategoryModel>? categories;
+  final List<ProductModel>? products;
   final VoidCallback? onCollapse;
   final ValueChanged<AppointmentModel> onStartService;
   final ValueChanged<AppointmentModel> onContinueService;
@@ -19,11 +23,17 @@ class V2AppointmentExpandedPanel extends StatelessWidget {
     required this.appointment,
     required this.selectedStaff,
     required this.selectedDate,
+    this.categories,
+    this.products,
     this.onCollapse,
     required this.onStartService,
     required this.onContinueService,
     required this.onOpenDetails,
   });
+
+  String _resolveServicesWithCategories() {
+    return resolveServicesWithCategories(appointment, products, categories);
+  }
 
   String _getInitials(String? name) {
     if (name == null || name.trim().isEmpty) return 'G';
@@ -37,7 +47,6 @@ class V2AppointmentExpandedPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusMeta = getStatusMeta(appointment.status);
-    final svcNames = appointment.servicesSummary;
     final customerName = appointment.customerName.isNotEmpty
         ? appointment.customerName
         : 'Walk-in Guest';
@@ -187,7 +196,7 @@ class V2AppointmentExpandedPanel extends StatelessWidget {
                 icon: Icons.work_outline_rounded,
                 iconColor: const Color(0xFF059669),
                 label: 'SERVICE',
-                value: svcNames,
+                value: _resolveServicesWithCategories(),
               ),
               _buildCell(
                 icon: Icons.calendar_today_outlined,

@@ -2,12 +2,71 @@ const express = require('express');
 const router = express.Router();
 const {
   getProducts,
+  getPaginatedProducts,
   createProduct,
   updateProduct,
   deleteProduct,
 } = require('../config/db');
 
-// List products
+// Dedicated Paginated Products API for React Cart Page (Server-side pagination: 20 per request)
+router.get('/cart-paginated', async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit, 10) || 20);
+    const categoryId = req.query.category_id && req.query.category_id !== 'all' && req.query.category_id !== 'null'
+      ? req.query.category_id
+      : null;
+    const { product_type, search, q } = req.query;
+    const businessId = req.business ? req.business.id : 1;
+
+    const result = await getPaginatedProducts(businessId, {
+      categoryId,
+      productType: product_type,
+      search: search || q || '',
+      page,
+      limit,
+    });
+
+    res.json({
+      success: true,
+      data: result.products,
+      pagination: result.pagination,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Alias endpoint for paginated access
+router.get('/paginated', async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit, 10) || 20);
+    const categoryId = req.query.category_id && req.query.category_id !== 'all' && req.query.category_id !== 'null'
+      ? req.query.category_id
+      : null;
+    const { product_type, search, q } = req.query;
+    const businessId = req.business ? req.business.id : 1;
+
+    const result = await getPaginatedProducts(businessId, {
+      categoryId,
+      productType: product_type,
+      search: search || q || '',
+      page,
+      limit,
+    });
+
+    res.json({
+      success: true,
+      data: result.products,
+      pagination: result.pagination,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// List products (Existing unpaginated endpoint preserved for Flutter app, POS, and subterminals)
 router.get('/', async (req, res) => {
   try {
     const { category_id, product_type, search } = req.query;
@@ -84,12 +143,23 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete product
+// Delete product (Soft delete)
 router.delete('/:id', async (req, res) => {
   try {
     const ok = await deleteProduct(req.params.id);
     if (!ok) return res.status(404).json({ success: false, message: 'Product not found' });
     res.json({ success: true, message: 'Product deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Soft delete product (patch alias)
+router.patch('/:id/soft-delete', async (req, res) => {
+  try {
+    const ok = await deleteProduct(req.params.id);
+    if (!ok) return res.status(404).json({ success: false, message: 'Product not found' });
+    res.json({ success: true, message: 'Product soft deleted successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

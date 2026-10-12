@@ -8,7 +8,8 @@
     "sort_order": 1,
     "is_active": true,
     "show_in_appointment": true,
-    "created_at": "2026-09-28T16:08:11.029Z"
+    "created_at": "2026-09-28T16:08:11.029Z",
+    "is_deleted": false
   },
   {
     "id": 2,
@@ -19,7 +20,8 @@
     "sort_order": 2,
     "is_active": true,
     "show_in_appointment": true,
-    "created_at": "2026-09-28T16:08:11.029Z"
+    "created_at": "2026-09-28T16:08:11.029Z",
+    "is_deleted": false
   },
   {
     "id": 3,
@@ -30,7 +32,8 @@
     "sort_order": 3,
     "is_active": true,
     "show_in_appointment": true,
-    "created_at": "2026-09-28T16:08:11.029Z"
+    "created_at": "2026-09-28T16:08:11.029Z",
+    "is_deleted": false
   },
   {
     "id": 4,
@@ -41,7 +44,8 @@
     "sort_order": 4,
     "is_active": true,
     "show_in_appointment": true,
-    "created_at": "2026-09-28T16:08:11.029Z"
+    "created_at": "2026-09-28T16:08:11.029Z",
+    "is_deleted": false
   },
   {
     "id": 5,
@@ -52,7 +56,8 @@
     "sort_order": 5,
     "is_active": true,
     "show_in_appointment": true,
-    "created_at": "2026-09-28T16:08:11.029Z"
+    "created_at": "2026-09-28T16:08:11.029Z",
+    "is_deleted": false
   },
   {
     "id": 6,
@@ -63,7 +68,8 @@
     "sort_order": 1,
     "show_in_appointment": true,
     "is_active": true,
-    "created_at": "2026-09-30T18:51:35.451Z"
+    "created_at": "2026-09-30T18:51:35.451Z",
+    "is_deleted": false
   },
   {
     "id": 7,
@@ -74,7 +80,8 @@
     "sort_order": 1,
     "show_in_appointment": true,
     "is_active": true,
-    "created_at": "2026-09-30T18:51:39.129Z"
+    "created_at": "2026-09-30T18:51:39.129Z",
+    "is_deleted": false
   },
   {
     "id": 8,
@@ -85,6 +92,7 @@
     "sort_order": 1,
     "show_in_appointment": true,
     "is_active": true,
-    "created_at": "2026-09-30T18:51:42.300Z"
+    "created_at": "2026-09-30T18:51:42.300Z",
+    "is_deleted": false
   }
 ]

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-toastify';
 import {
   LayoutGrid,
@@ -26,7 +26,10 @@ import {
   UserMinus,
   ChevronRight,
   ChevronLeft,
+  RefreshCw,
 } from 'lucide-react';
+import { useAppSelector } from '../store/hooks';
+import { settingsApi } from '../api/settingsApi';
 import { productApi, type Product } from '../api/productApi';
 import { categoryApi, type Category } from '../api/categoryApi';
 import { customerApi, type Customer } from '../api/customerApi';
@@ -76,6 +79,19 @@ export default function CartView({
   // Filter
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
 
+  // Pagination & Infinite Scroll State
+  const [page, setPage] = useState<number>(1);
+  const [hasMore, setHasMore] = useState<boolean>(true);
+  const [isLoadingCategory, setIsLoadingCategory] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [paginationError, setPaginationError] = useState<string | null>(null);
+
+  // Refs for infinite scroll, concurrency control & race condition handling
+  const isFetchingRef = useRef<boolean>(false);
+  const currentRequestIdRef = useRef<number>(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
   // Cart
   const [cart, setCart] = useState<LocalCartItem[]>([]);
   const [overallDiscount, setOverallDiscount] = useState<number>(0);
@@ -107,6 +123,11 @@ export default function CartView({
   const [transactionNotes, setTransactionNotes] = useState<string>('');
   const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
 
+  // Shared LAN Printer Settings & Order Receipt Printing State
+  const printerSettings = useAppSelector((state) => state.printer.settings);
+  const printedSaleIdsRef = useRef<Set<number>>(new Set());
+  const [isPrintingReceipt, setIsPrintingReceipt] = useState<boolean>(false);
+
   // Customer Dialog State
   const [phoneSearchQuery, setPhoneSearchQuery] = useState<string>('');
   const [isSearchingCustomer, setIsSearchingCustomer] = useState<boolean>(false);
@@ -119,9 +140,10 @@ export default function CartView({
   /* ── Initial Data Loading ─────────────────────────────── */
   const loadInitialData = useCallback(async () => {
     setIsLoading(true);
+    setPaginationError(null);
     try {
       const [prodRes, catRes] = await Promise.all([
-        productApi.getAll(),
+        productApi.getPaginated({ page: 1, limit: 20, category_id: null }),
         categoryApi.getAll(),
       ]);
 
@@ -134,6 +156,11 @@ export default function CartView({
 
       setProducts(normalizedProducts);
       setCategories(catRes.data?.data ?? []);
+      setPage(1);
+
+      const pagination = prodRes.data?.pagination;
+      const moreAvailable = pagination?.has_more ?? pagination?.hasMore ?? (normalizedProducts.length >= 20);
+      setHasMore(moreAvailable);
 
       // Check preloads
       if (preloadCustomer && preloadCustomer.name && preloadCustomer.name !== 'Walk-in') {
@@ -175,6 +202,124 @@ export default function CartView({
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
+
+  /* ── Paginated Fetcher for Category Switch & Infinite Scroll ── */
+  const fetchProductsPage = useCallback(
+    async (targetPage: number, categoryId: number | null, isSwitchingCategory: boolean = false) => {
+      // Prevent duplicate concurrent requests
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+
+      const requestId = ++currentRequestIdRef.current;
+      if (isSwitchingCategory) {
+        setIsLoadingCategory(true);
+      } else {
+        setIsLoadingMore(true);
+      }
+      setPaginationError(null);
+
+      try {
+        const res = await productApi.getPaginated({
+          page: targetPage,
+          limit: 20,
+          category_id: categoryId === null ? null : categoryId,
+        });
+
+        // Discard stale responses if user clicked another category quickly
+        if (requestId !== currentRequestIdRef.current) {
+          return;
+        }
+
+        const newItems: Product[] = (res.data?.data ?? []).map((p: any) => ({
+          ...p,
+          price: Number(p.price) || 0,
+          category_id: p.category_id !== null && p.category_id !== undefined ? Number(p.category_id) : null,
+        }));
+
+        const pagination = res.data?.pagination;
+        const moreAvailable = pagination?.has_more ?? pagination?.hasMore ?? (newItems.length >= 20);
+
+        setProducts((prev) => {
+          if (isSwitchingCategory) {
+            return newItems;
+          }
+          // Prevent duplicate products during scrolling
+          const existingIds = new Set(prev.map((item) => item.id));
+          const uniqueNewItems = newItems.filter((item) => !existingIds.has(item.id));
+          return [...prev, ...uniqueNewItems];
+        });
+
+        setPage(targetPage);
+        setHasMore(moreAvailable);
+      } catch (err) {
+        console.error('Error fetching paginated products:', err);
+        setPaginationError('Failed to load products. Click to retry.');
+        toast.error('Failed to load products');
+      } finally {
+        if (requestId === currentRequestIdRef.current) {
+          isFetchingRef.current = false;
+          setIsLoadingCategory(false);
+          setIsLoadingMore(false);
+        }
+      }
+    },
+    []
+  );
+
+  /* ── Category Tab Switch Handler ───────────────────────── */
+  const handleCategorySelect = (catId: number | null) => {
+    if (selectedCategoryId === catId && !paginationError) return;
+    setSelectedCategoryId(catId);
+    setPage(1);
+    setHasMore(true);
+    setProducts([]); // Clear previously selected category's products so they don't mix
+
+    // Scroll container back to top
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+
+    fetchProductsPage(1, catId, true);
+  };
+
+  /* ── Infinite Scroll Scroll Handler ───────────────────── */
+  const handleProductScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom < 180 && hasMore && !isLoadingMore && !isLoadingCategory && !isFetchingRef.current) {
+      fetchProductsPage(page + 1, selectedCategoryId, false);
+    }
+  };
+
+  /* ── IntersectionObserver Sentinel for Infinite Scroll ── */
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (
+          first.isIntersecting &&
+          hasMore &&
+          !isLoadingMore &&
+          !isLoadingCategory &&
+          !isFetchingRef.current &&
+          !isLoading
+        ) {
+          fetchProductsPage(page + 1, selectedCategoryId, false);
+        }
+      },
+      {
+        root: scrollContainerRef.current,
+        rootMargin: '120px',
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, isLoadingCategory, isLoading, page, selectedCategoryId, fetchProductsPage]);
 
   /* ── Financial Calculations ───────────────────────────── */
   const subtotal = cart.reduce((acc, item) => acc + (Number(item.product.price) || 0) * item.quantity, 0);
@@ -423,6 +568,9 @@ export default function CartView({
         setShowPaymentModal(false);
         setCompletedSale(sale);
         toast.success('Sale completed and recorded!');
+
+        // Automatically dispatch ONLY Customer Order Receipt to configured LAN printer
+        printCustomerOrderReceipt(sale, false);
       } else {
         toast.error('Failed to complete sale');
       }
@@ -430,6 +578,67 @@ export default function CartView({
       toast.error('Error processing transaction');
     } finally {
       setIsProcessingPayment(false);
+    }
+  };
+
+  /* ── Dedicated Customer Order Receipt Printing ────────── */
+  const printCustomerOrderReceipt = async (saleToPrint: Sale, isManualRetry = false) => {
+    if (!saleToPrint || !saleToPrint.id) return;
+
+    // Prevent duplicate automatic print requests caused by re-renders or multiple callbacks
+    if (!isManualRetry && printedSaleIdsRef.current.has(saleToPrint.id)) {
+      return;
+    }
+
+    // Mark this sale as printed
+    printedSaleIdsRef.current.add(saleToPrint.id);
+
+    // Check if printer is enabled in shared memory
+    if (printerSettings.is_enabled === false) {
+      console.log('LAN printer is disabled in settings; automatic receipt print skipped.');
+      if (isManualRetry) {
+        toast.info('LAN printer is toggled off in Printer Settings.');
+      }
+      return;
+    }
+
+    if (printerSettings.order_receipt_enabled === false) {
+      console.log('Customer Order Receipt is disabled in settings; automatic receipt print skipped.');
+      if (isManualRetry) {
+        toast.info('Customer Order Receipt is disabled in Printer Settings.');
+      }
+      return;
+    }
+
+    if (!printerSettings.ip_address || !printerSettings.ip_address.trim()) {
+      if (isManualRetry) {
+        toast.error('No LAN printer IP address configured in Printer Settings.');
+      }
+      return;
+    }
+
+    setIsPrintingReceipt(true);
+    try {
+      const res = await settingsApi.printReceipt({
+        printer_settings: printerSettings,
+        sale: saleToPrint,
+      });
+
+      if (res.data?.success) {
+        toast.success(
+          res.data.message ||
+            `Customer Order Receipt printed on LAN printer (${printerSettings.ip_address})`
+        );
+      } else {
+        const warnMsg = res.data?.message || 'LAN printer did not respond.';
+        toast.warn(`${warnMsg} You can retry from the receipt dialog.`);
+      }
+    } catch (err: any) {
+      console.error('Failed to send Customer Order Receipt to LAN printer:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Printer connection error';
+      toast.error(`Printer error: ${errMsg}. Use Print button to retry.`);
+    } finally {
+      setIsPrintingReceipt(false);
     }
   };
 
@@ -444,10 +653,8 @@ export default function CartView({
     setCompletedSale(null);
   };
 
-  /* ── Filtered Products ────────────────────────────────── */
-  const filteredProducts = selectedCategoryId === null
-    ? products
-    : products.filter((p) => Number(p.category_id) === Number(selectedCategoryId));
+  /* ── Filtered Products (Server-side paginated & filtered) ── */
+  const filteredProducts = products;
 
   // Active customer labels
   const hasActiveCustomer = Boolean(selectedCustomer || tempNewCustomer);
@@ -502,7 +709,7 @@ export default function CartView({
           <button
             type="button"
             className={`cart-cat-tab ${selectedCategoryId === null ? 'cart-cat-tab--active' : ''}`}
-            onClick={() => setSelectedCategoryId(null)}
+            onClick={() => handleCategorySelect(null)}
           >
             <LayoutGrid size={15} color={selectedCategoryId === null ? '#F97316' : '#64748B'} />
             <span>All Items</span>
@@ -512,7 +719,7 @@ export default function CartView({
               key={cat.id}
               type="button"
               className={`cart-cat-tab ${selectedCategoryId === cat.id ? 'cart-cat-tab--active' : ''}`}
-              onClick={() => setSelectedCategoryId(cat.id)}
+              onClick={() => handleCategorySelect(cat.id)}
             >
               <Tag size={14} color={selectedCategoryId === cat.id ? '#0F172A' : '#64748B'} />
               <span>{cat.name}</span>
@@ -520,36 +727,88 @@ export default function CartView({
           ))}
         </div>
 
-        {/* Product Catalog Grid */}
-        <div className="cart-product-grid-wrap">
-          {filteredProducts.length === 0 ? (
-            <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '13px' }}>
-              No products found in this category.
+        {/* Product Catalog Grid with Infinite Scroll */}
+        <div
+          ref={scrollContainerRef}
+          className="cart-product-grid-wrap"
+          onScroll={handleProductScroll}
+        >
+          {isLoadingCategory ? (
+            <div className="cart-category-loading">
+              <div className="table-loader-spinner" style={{ borderColor: '#E11D48', borderTopColor: 'transparent', width: '32px', height: '32px' }} />
+              <span>Loading products...</span>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '13px', gap: '8px' }}>
+              <span>No products found in this category.</span>
+              {paginationError && (
+                <button
+                  type="button"
+                  className="cart-retry-btn"
+                  onClick={() => fetchProductsPage(1, selectedCategoryId, true)}
+                >
+                  Retry
+                </button>
+              )}
             </div>
           ) : (
-            <div className="cart-product-grid">
-              {filteredProducts.map((p) => {
-                const inCart = cart.some((it) => it.product.id === p.id);
-                return (
-                  <div
-                    key={p.id}
-                    className={`cart-product-card ${inCart ? 'cart-product-card--in-cart' : ''}`}
-                    onClick={() => handleAddToCart(p)}
-                  >
-                    <span className="cart-product-card__name">{p.name}</span>
-                    {p.product_type !== 'normal' && (
-                      <span className="cart-product-card__type-badge">{p.product_type}</span>
-                    )}
-                    <div className="cart-product-card__bottom">
-                      <span className="cart-product-card__price">${fmtMoney(p.price)}</span>
-                      <span className="cart-product-card__icon-btn">
-                        {inCart ? <CheckCircle size={20} /> : <PlusCircle size={20} />}
-                      </span>
+            <>
+              <div className="cart-product-grid">
+                {filteredProducts.map((p) => {
+                  const inCart = cart.some((it) => it.product.id === p.id);
+                  return (
+                    <div
+                      key={p.id}
+                      className={`cart-product-card ${inCart ? 'cart-product-card--in-cart' : ''}`}
+                      onClick={() => handleAddToCart(p)}
+                    >
+                      <span className="cart-product-card__name">{p.name}</span>
+                      {p.product_type !== 'normal' && (
+                        <span className="cart-product-card__type-badge">{p.product_type}</span>
+                      )}
+                      <div className="cart-product-card__bottom">
+                        <span className="cart-product-card__price">${fmtMoney(p.price)}</span>
+                        <span className="cart-product-card__icon-btn">
+                          {inCart ? <CheckCircle size={20} /> : <PlusCircle size={20} />}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+
+              {/* Bottom Intersection Sentinel */}
+              <div ref={sentinelRef} className="cart-scroll-sentinel" />
+
+              {/* Infinite Scroll Loading Indicator */}
+              {isLoadingMore && (
+                <div className="cart-infinite-loading">
+                  <div className="table-loader-spinner" style={{ borderColor: '#E11D48', borderTopColor: 'transparent', width: '20px', height: '20px' }} />
+                  <span>Loading next 20 products...</span>
+                </div>
+              )}
+
+              {/* Pagination Error Box */}
+              {paginationError && !isLoadingMore && (
+                <div className="cart-pagination-error-box">
+                  <span>{paginationError}</span>
+                  <button
+                    type="button"
+                    className="cart-retry-btn"
+                    onClick={() => fetchProductsPage(page + 1, selectedCategoryId, false)}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {/* End of Product List Indicator */}
+              {!hasMore && filteredProducts.length > 0 && !isLoadingMore && (
+                <div className="cart-infinite-end-badge">
+                  <span>All {filteredProducts.length} items loaded</span>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -1411,10 +1670,16 @@ export default function CartView({
               <button
                 type="button"
                 className="receipt-btn receipt-btn--print"
-                onClick={() => toast.success('Receipt sent to printer')}
+                onClick={() => printCustomerOrderReceipt(completedSale, true)}
+                disabled={isPrintingReceipt}
+                title="Print Customer Order Receipt to LAN printer"
               >
-                <Printer size={15} />
-                <span>Print</span>
+                {isPrintingReceipt ? (
+                  <RefreshCw size={15} className="spin" />
+                ) : (
+                  <Printer size={15} />
+                )}
+                <span>{isPrintingReceipt ? 'Printing...' : 'Print'}</span>
               </button>
 
               {onNavigateToSalesHistory && (

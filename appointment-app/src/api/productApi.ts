@@ -19,6 +19,8 @@ export interface Product {
   modifiers: number[];
   combo_items: ComboItem[];
   is_active: boolean;
+  is_deleted?: boolean;
+  deleted_at?: string;
   created_at?: string;
 }
 
@@ -39,10 +41,38 @@ export interface ProductQueryParams {
   search?: string;
 }
 
+export interface PaginationMeta {
+  page: number;
+  current_page: number;
+  limit: number;
+  page_size: number;
+  total: number;
+  totalPages: number;
+  has_more: boolean;
+  hasMore: boolean;
+}
+
+export interface PaginatedProductsResponse {
+  success: boolean;
+  data: Product[];
+  pagination: PaginationMeta;
+}
+
+export interface ProductPaginationParams {
+  page?: number;
+  limit?: number;
+  category_id?: number | string | null;
+  product_type?: string;
+  search?: string;
+}
+
 /* ── API ───────────────────────────────────────────────── */
 export const productApi = {
   getAll: (params?: ProductQueryParams) =>
     axiosClient.get<{ data: Product[] }>('/products', { params }),
+
+  getPaginated: (params?: ProductPaginationParams) =>
+    axiosClient.get<PaginatedProductsResponse>('/products/cart-paginated', { params }),
 
   search: (keyword: string) =>
     axiosClient.get<{ success: boolean; count: number; data: Product[] }>('/products/search', {

@@ -92,7 +92,10 @@ async function rebuild() {
       description TEXT,
       icon VARCHAR(100) DEFAULT 'category',
       sort_order INT DEFAULT 0,
+      show_in_appointment BOOLEAN DEFAULT TRUE,
       is_active BOOLEAN DEFAULT TRUE,
+      is_deleted BOOLEAN DEFAULT FALSE,
+      deleted_at DATETIME NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
@@ -109,6 +112,7 @@ async function rebuild() {
       modifiers JSON NULL,
       combo_items JSON NULL,
       is_active BOOLEAN DEFAULT TRUE,
+      is_deleted BOOLEAN DEFAULT FALSE,
       deleted_at DATETIME NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

@@ -5,6 +5,7 @@ import '../models/customer_model.dart';
 import '../models/product_model.dart';
 import '../models/sale_model.dart';
 import '../services/api_service.dart';
+import '../services/sqlite_service.dart';
 import '../theme/app_theme.dart';
 
 class CartItem {
@@ -84,9 +85,36 @@ class _CartViewState extends State<CartView> {
 
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
-    final prods = await ApiService.getProducts();
+
+    // 1. Fetch active products from SQLite
+    var prods = await SqliteService.getActiveProducts();
+    if (prods.isEmpty && !SqliteService.isTestEnvironment) {
+      try {
+        final apiProds = await ApiService.getProducts();
+        if (apiProds.isNotEmpty) {
+          await SqliteService.syncProducts(apiProds);
+          prods = await SqliteService.getActiveProducts();
+        }
+      } catch (e) {
+        debugPrint('Fallback to API for SQLite products failed: $e');
+      }
+    }
+
+    // 2. Fetch active categories from SQLite
+    var cats = await SqliteService.getActiveCategories();
+    if (cats.isEmpty && !SqliteService.isTestEnvironment) {
+      try {
+        final apiCats = await ApiService.getCategories();
+        if (apiCats.isNotEmpty) {
+          await SqliteService.syncCategories(apiCats);
+          cats = await SqliteService.getActiveCategories();
+        }
+      } catch (e) {
+        debugPrint('Fallback to API for SQLite categories failed: $e');
+      }
+    }
+
     final custs = await ApiService.getCustomers();
-    final cats = await ApiService.getCategories();
     if (!mounted) return;
     setState(() {
       _availableProducts = prods;

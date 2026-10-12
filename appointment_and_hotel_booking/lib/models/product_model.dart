@@ -38,6 +38,7 @@ class ProductModel {
   final List<int> modifiers;
   final List<ComboItem> comboItems;
   final bool isActive;
+  final bool isDeleted;
   final DateTime? createdAt;
 
   ProductModel({
@@ -52,6 +53,7 @@ class ProductModel {
     this.modifiers = const [],
     this.comboItems = const [],
     this.isActive = true,
+    this.isDeleted = false,
     this.createdAt,
   });
 
@@ -86,6 +88,9 @@ class ProductModel {
       }
     }
 
+    final rawDeleted = json['is_deleted'];
+    final bool isDel = rawDeleted == 1 || rawDeleted == true || rawDeleted.toString() == 'true';
+
     return ProductModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
       businessId: json['business_id'] is int ? json['business_id'] : int.tryParse(json['business_id']?.toString() ?? '1') ?? 1,
@@ -98,6 +103,7 @@ class ProductModel {
       modifiers: mods,
       comboItems: combos,
       isActive: json['is_active'] == 1 || json['is_active'] == true,
+      isDeleted: isDel,
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
     );
   }
@@ -115,6 +121,26 @@ class ProductModel {
       'modifiers': modifiers,
       'combo_items': comboItems.map((e) => e.toJson()).toList(),
       'is_active': isActive,
+      'is_deleted': isDeleted,
+    };
+  }
+
+  Map<String, dynamic> toSqliteMap() {
+    return {
+      'id': id,
+      'business_id': businessId,
+      'category_id': categoryId,
+      'name': name,
+      'sku': sku,
+      'product_type': productType,
+      'price': price,
+      'description': description,
+      'modifiers': jsonEncode(modifiers),
+      'combo_items': jsonEncode(comboItems.map((e) => e.toJson()).toList()),
+      'is_active': isActive ? 1 : 0,
+      'is_deleted': isDeleted ? 1 : 0,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
     };
   }
 }

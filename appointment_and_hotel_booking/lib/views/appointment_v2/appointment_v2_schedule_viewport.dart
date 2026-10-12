@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/appointment_model.dart';
+import '../../models/category_model.dart';
+import '../../models/product_model.dart';
 import '../../models/staff_model.dart';
 import '../../utils/appointment_v2_utils.dart';
 import 'views/v2_grid_view.dart';
@@ -14,6 +16,8 @@ class AppointmentV2ScheduleViewport extends StatefulWidget {
   final StaffModel selectedStaff;
   final String selectedDate;
   final List<AppointmentModel> appointments;
+  final List<CategoryModel>? categories;
+  final List<ProductModel>? products;
   final ValueChanged<AppointmentModel> onStartService;
   final ValueChanged<AppointmentModel> onContinueService;
   final ValueChanged<AppointmentModel> onOpenDetailsModal;
@@ -30,6 +34,8 @@ class AppointmentV2ScheduleViewport extends StatefulWidget {
     required this.selectedStaff,
     required this.selectedDate,
     required this.appointments,
+    this.categories,
+    this.products,
     required this.onStartService,
     required this.onContinueService,
     required this.onOpenDetailsModal,
@@ -100,6 +106,8 @@ class _AppointmentV2ScheduleViewportState extends State<AppointmentV2ScheduleVie
           appointments: widget.appointments,
           selectedStaff: widget.selectedStaff,
           selectedDate: widget.selectedDate,
+          categories: widget.categories,
+          products: widget.products,
           onOpenDetails: widget.onOpenDetailsModal,
           onBookAppointment: () => widget.onOpenAddModal(null),
           onGoToToday: widget.onSelectToday,
@@ -111,6 +119,8 @@ class _AppointmentV2ScheduleViewportState extends State<AppointmentV2ScheduleVie
           selectedStaff: widget.selectedStaff,
           selectedDate: widget.selectedDate,
           expandedApptId: _expandedApptId,
+          categories: widget.categories,
+          products: widget.products,
           onToggleExpand: _handleToggleExpand,
           onStartService: widget.onStartService,
           onContinueService: widget.onContinueService,
@@ -128,6 +138,8 @@ class _AppointmentV2ScheduleViewportState extends State<AppointmentV2ScheduleVie
           selectedStaff: widget.selectedStaff,
           selectedDate: widget.selectedDate,
           expandedApptId: _expandedApptId,
+          categories: widget.categories,
+          products: widget.products,
           onToggleExpand: _handleToggleExpand,
           onStartService: widget.onStartService,
           onContinueService: widget.onContinueService,

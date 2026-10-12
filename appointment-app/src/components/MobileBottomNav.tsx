@@ -30,7 +30,7 @@ export default function MobileBottomNav({
   const isPosActive = currentTab === 4 && mobileCartMode === 'pos';
   // More is active if user is on More page (9) or on any sub-option under More (2, 5, 6, 7, 8)
   const isMoreActive =
-    currentTab === 9 || [2, 5, 6, 7, 8].includes(currentTab);
+    currentTab === 9 || [2, 5, 6, 7, 8, 11].includes(currentTab);
 
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile Navigation">

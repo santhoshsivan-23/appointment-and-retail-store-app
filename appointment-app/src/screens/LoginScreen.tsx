@@ -21,6 +21,7 @@ import { loginSuccess } from '../features/auth/authSlice';
 import { authApi } from '../api/authApi';
 import { settingsApi } from '../api/settingsApi';
 import { applySyncedSettings } from '../features/appointmentConfig/appointmentConfigSlice';
+import { setPrinterSettings } from '../features/printer/printerSlice';
 import '../styles/auth.css';
 
 export default function LoginScreen() {
@@ -57,6 +58,9 @@ export default function LoginScreen() {
         if (settingsRes.data?.data) {
           const sData = settingsRes.data.data;
           dispatch(applySyncedSettings(sData));
+          if (sData.printer_settings) {
+            dispatch(setPrinterSettings(sData.printer_settings));
+          }
           if (sData.appointment_v2_clock !== undefined) {
             localStorage.setItem('appointment_v2_clock', String(sData.appointment_v2_clock));
           }

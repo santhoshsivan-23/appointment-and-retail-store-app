@@ -9,6 +9,7 @@ import {
   FolderTree,
   Package,
   Sliders,
+  Printer,
   // Settings,
   Grid,
   List,
@@ -33,6 +34,7 @@ export const navItems: NavItemConfig[] = [
   { id: 6, title: 'Categories', icon: FolderTree },
   { id: 7, title: 'Products', icon: Package },
   { id: 8, title: 'Appointment Config', icon: Sliders },
+  { id: 11, title: 'Printer', icon: Printer },
   // { id: 9, title: 'Settings', icon: Settings },
 ];
 

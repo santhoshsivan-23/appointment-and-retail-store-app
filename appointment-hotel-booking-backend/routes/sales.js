@@ -93,4 +93,47 @@ router.post('/', async (req, res) => {
   }
 });
 
+// GET /api/sales/:id/refunds
+router.get('/:id/refunds', async (req, res) => {
+  try {
+    const refunds = await db.getSaleRefunds(req.params.id);
+    res.json({ success: true, data: refunds, count: refunds.length });
+  } catch (err) {
+    console.error('Error fetching sale refunds:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch refunds.' });
+  }
+});
+
+// POST /api/sales/:id/refund
+router.post('/:id/refund', async (req, res) => {
+  try {
+    const { items, reason, notes, refund_method } = req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'items array is required with at least one item to refund.',
+      });
+    }
+
+    const result = await db.createSaleRefund({
+      sale_id: req.params.id,
+      items,
+      reason: reason || '',
+      notes: notes || '',
+      refund_method: refund_method || 'cash',
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Refund processed successfully!',
+      data: result.refund,
+      sale: result.sale,
+    });
+  } catch (err) {
+    console.error('Error processing sale refund:', err);
+    res.status(400).json({ success: false, message: err.message || 'Failed to process refund.' });
+  }
+});
+
 module.exports = router;
+

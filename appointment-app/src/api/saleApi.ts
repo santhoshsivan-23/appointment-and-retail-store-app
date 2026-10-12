@@ -10,6 +10,50 @@ export interface SaleItem {
   line_total: number;
 }
 
+export interface RefundItem {
+  product_id?: number;
+  product_name: string;
+  unit_price: number;
+  quantity: number;
+  original_quantity?: number;
+  previously_refunded?: number;
+  remaining_quantity?: number;
+  line_discount_reversed?: number;
+  overall_discount_reversed?: number;
+  total_discount_reversed?: number;
+  gst_reversed?: number;
+  refund_amount: number;
+}
+
+export interface RefundRecord {
+  id: number;
+  refund_receipt_number: string;
+  business_id?: number;
+  sale_id?: number | null;
+  appointment_id?: number | null;
+  refund_type: 'partial' | 'full';
+  subtotal_refunded: number;
+  discount_reversed_total: number;
+  gst_reversed_total: number;
+  total_refund_amount: number;
+  refund_method: string;
+  reason?: string;
+  notes?: string;
+  items: RefundItem[];
+  created_at: string;
+}
+
+export interface ProcessRefundPayload {
+  items: Array<{
+    product_id?: number;
+    product_name: string;
+    quantity: number;
+  }>;
+  reason?: string;
+  notes?: string;
+  refund_method?: string;
+}
+
 export interface Sale {
   id: number;
   business_id: number;
@@ -30,6 +74,13 @@ export interface Sale {
   items: SaleItem[];
   notes: string;
   created_at?: string;
+  refund_status?: 'none' | 'partial' | 'full';
+  refunded_amount?: number;
+  refunds?: RefundRecord[];
+  gst_reversed_total?: number;
+  net_tax_amount?: number;
+  subtotal_refunded_total?: number;
+  net_subtotal?: number;
 }
 
 export interface CreateSalePayload {
@@ -56,6 +107,7 @@ export interface SaleQueryParams {
   appointment_id?: number;
   customer_id?: number;
   search?: string;
+  include_appointments?: string | boolean;
 }
 
 /* ── Helper functions matching Flutter SaleModel ───────── */
@@ -95,4 +147,17 @@ export const saleApi = {
 
   create: (data: CreateSalePayload) =>
     axiosClient.post<{ success: boolean; data: Sale; message: string }>('/sales', data),
+
+  getRefunds: (saleId: number) =>
+    axiosClient.get<{ success: boolean; data: RefundRecord[]; count: number }>(
+      `/sales/${saleId}/refunds`
+    ),
+
+  processRefund: (saleId: number, data: ProcessRefundPayload) =>
+    axiosClient.post<{
+      success: boolean;
+      message: string;
+      data: RefundRecord;
+      sale: Sale;
+    }>(`/sales/${saleId}/refund`, data),
 };

@@ -149,7 +149,9 @@
       }
     ],
     "notes": "",
-    "created_at": "2026-09-30T13:35:51.677Z"
+    "created_at": "2026-09-30T13:35:51.677Z",
+    "refund_status": "partial",
+    "refunded_amount": 340.2
   },
   {
     "id": 5,
@@ -258,5 +260,523 @@
     ],
     "notes": "",
     "created_at": "2026-10-09T10:01:21.795Z"
+  },
+  {
+    "id": 7,
+    "business_id": 1,
+    "appointment_id": 24,
+    "customer_id": 1,
+    "customer_name": "Claire Beauchamp",
+    "customer_phone": "+1 555-4421",
+    "staff_id": null,
+    "staff_name": "Salad",
+    "subtotal": 246,
+    "item_discount_total": 0,
+    "overall_discount": 0,
+    "tax_amount": 19.68,
+    "total_amount": 265.68,
+    "payment_method": "cash",
+    "amount_tendered": 265.68,
+    "change_amount": 0,
+    "items": [
+      {
+        "product_id": 53,
+        "product_name": "Reflective Tactical Harness (L)",
+        "unit_price": 38,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 38
+      },
+      {
+        "product_id": 54,
+        "product_name": "Interactive Puzzle Feeder Toy",
+        "unit_price": 22,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 22
+      },
+      {
+        "product_id": 55,
+        "product_name": "Calming Chamomile Chews (60ct)",
+        "unit_price": 25,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 25
+      },
+      {
+        "product_id": 52,
+        "product_name": "Ergonomic Orthopedic Memory Bed",
+        "unit_price": 89,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 89
+      },
+      {
+        "product_id": 51,
+        "product_name": "Dental Chew Sticks (Pack of 14)",
+        "unit_price": 16,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 16
+      },
+      {
+        "product_id": 49,
+        "product_name": "Probiotic Digestive Powder",
+        "unit_price": 27,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 27
+      },
+      {
+        "product_id": 50,
+        "product_name": "Wild Alaskan Salmon Oil (500ml)",
+        "unit_price": 29,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 29
+      }
+    ],
+    "notes": "",
+    "created_at": "2026-10-12T05:39:43.570Z",
+    "refund_status": "partial",
+    "refunded_amount": 123.12
+  },
+  {
+    "id": 8,
+    "business_id": 1,
+    "appointment_id": null,
+    "customer_id": null,
+    "customer_name": "Walk-in",
+    "customer_phone": "",
+    "staff_id": null,
+    "staff_name": "",
+    "subtotal": 25,
+    "item_discount_total": 0,
+    "overall_discount": 0,
+    "tax_amount": 2,
+    "total_amount": 27,
+    "payment_method": "cash",
+    "amount_tendered": 27,
+    "change_amount": 0,
+    "items": [
+      {
+        "product_id": 55,
+        "product_name": "Calming Chamomile Chews (60ct)",
+        "unit_price": 25,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 25
+      }
+    ],
+    "notes": "",
+    "created_at": "2026-10-12T07:11:56.164Z"
+  },
+  {
+    "id": 9,
+    "business_id": 1,
+    "appointment_id": null,
+    "customer_id": null,
+    "customer_name": "Walk-in",
+    "customer_phone": "",
+    "staff_id": null,
+    "staff_name": "",
+    "subtotal": 381,
+    "item_discount_total": 0,
+    "overall_discount": 0,
+    "tax_amount": 30.48,
+    "total_amount": 411.48,
+    "payment_method": "cash",
+    "amount_tendered": 411.48,
+    "change_amount": 0,
+    "items": [
+      {
+        "product_id": 53,
+        "product_name": "Reflective Tactical Harness (L)",
+        "unit_price": 38,
+        "quantity": 3,
+        "discount": 0,
+        "line_total": 114
+      },
+      {
+        "product_id": 52,
+        "product_name": "Ergonomic Orthopedic Memory Bed",
+        "unit_price": 89,
+        "quantity": 3,
+        "discount": 0,
+        "line_total": 267
+      }
+    ],
+    "notes": "",
+    "created_at": "2026-10-12T07:37:47.098Z"
+  },
+  {
+    "id": 10,
+    "business_id": 1,
+    "appointment_id": null,
+    "customer_id": 1,
+    "customer_name": "Claire Beauchamp",
+    "customer_phone": "+1 555-4421",
+    "staff_id": null,
+    "staff_name": "",
+    "subtotal": 199,
+    "item_discount_total": 0,
+    "overall_discount": 0,
+    "tax_amount": 15.92,
+    "total_amount": 214.92,
+    "payment_method": "card",
+    "amount_tendered": 214.92,
+    "change_amount": 0,
+    "items": [
+      {
+        "product_id": 44,
+        "product_name": "Cat Condo High-Rise Suite",
+        "unit_price": 55,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 55
+      },
+      {
+        "product_id": 48,
+        "product_name": "Glucosamine Joint Chews (90ct)",
+        "unit_price": 34,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 34
+      },
+      {
+        "product_id": 49,
+        "product_name": "Probiotic Digestive Powder",
+        "unit_price": 27,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 27
+      },
+      {
+        "product_id": 45,
+        "product_name": "Live Streaming Video Access",
+        "unit_price": 15,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 15
+      },
+      {
+        "product_id": 41,
+        "product_name": "Daycare Half-Day Pass",
+        "unit_price": 26,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 26
+      },
+      {
+        "product_id": 40,
+        "product_name": "Daycare Full-Day Pass",
+        "unit_price": 42,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 42
+      }
+    ],
+    "notes": "",
+    "created_at": "2026-10-12T07:38:39.879Z"
+  },
+  {
+    "id": 11,
+    "business_id": 1,
+    "appointment_id": 25,
+    "customer_id": null,
+    "customer_name": "Santhosh Sivan H",
+    "customer_phone": "9025427271",
+    "staff_id": null,
+    "staff_name": "Salad",
+    "subtotal": 620,
+    "item_discount_total": 0,
+    "overall_discount": 0,
+    "tax_amount": 49.6,
+    "total_amount": 669.6,
+    "payment_method": "cash",
+    "amount_tendered": 669.6,
+    "change_amount": 0,
+    "items": [
+      {
+        "product_id": 51,
+        "product_name": "Dental Chew Sticks (Pack of 14)",
+        "unit_price": 16,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 16
+      },
+      {
+        "product_id": 52,
+        "product_name": "Ergonomic Orthopedic Memory Bed",
+        "unit_price": 89,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 89
+      },
+      {
+        "product_id": 53,
+        "product_name": "Reflective Tactical Harness (L)",
+        "unit_price": 38,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 38
+      },
+      {
+        "product_id": 55,
+        "product_name": "Calming Chamomile Chews (60ct)",
+        "unit_price": 25,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 25
+      },
+      {
+        "product_id": 54,
+        "product_name": "Interactive Puzzle Feeder Toy",
+        "unit_price": 22,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 22
+      },
+      {
+        "product_id": 24,
+        "product_name": "Emergency Triage Exam",
+        "unit_price": 110,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 110
+      },
+      {
+        "product_id": 25,
+        "product_name": "Tick & Lyme Disease Screen",
+        "unit_price": 42,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 42
+      },
+      {
+        "product_id": 26,
+        "product_name": "Chipping & Health Certificate",
+        "unit_price": 85,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 85
+      },
+      {
+        "product_id": 27,
+        "product_name": "Wound Dressing & Suturing",
+        "unit_price": 125,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 125
+      },
+      {
+        "product_id": 28,
+        "product_name": "Endocrine Thyroid Profile",
+        "unit_price": 68,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 68
+      }
+    ],
+    "notes": "",
+    "created_at": "2026-10-12T07:40:31.586Z"
+  },
+  {
+    "id": 12,
+    "business_id": 1,
+    "appointment_id": null,
+    "customer_id": null,
+    "customer_name": "Walk-in",
+    "customer_phone": "",
+    "staff_id": null,
+    "staff_name": "",
+    "subtotal": 378,
+    "item_discount_total": 0,
+    "overall_discount": 0,
+    "tax_amount": 30.240000000000002,
+    "total_amount": 408.24,
+    "payment_method": "cash",
+    "amount_tendered": 408.24,
+    "change_amount": 0,
+    "items": [
+      {
+        "product_id": 54,
+        "product_name": "Interactive Puzzle Feeder Toy",
+        "unit_price": 22,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 22
+      },
+      {
+        "product_id": 52,
+        "product_name": "Ergonomic Orthopedic Memory Bed",
+        "unit_price": 89,
+        "quantity": 4,
+        "discount": 0,
+        "line_total": 356
+      }
+    ],
+    "notes": "",
+    "created_at": "2026-10-12T07:44:08.497Z",
+    "refund_status": "partial",
+    "refunded_amount": 384.48
+  },
+  {
+    "id": 13,
+    "business_id": 1,
+    "appointment_id": null,
+    "customer_id": null,
+    "customer_name": "Walk-in",
+    "customer_phone": "",
+    "staff_id": null,
+    "staff_name": "",
+    "subtotal": 212,
+    "item_discount_total": 0,
+    "overall_discount": 0,
+    "tax_amount": 16.96,
+    "total_amount": 228.96,
+    "payment_method": "cash",
+    "amount_tendered": 228.96,
+    "change_amount": 0,
+    "items": [
+      {
+        "product_id": 53,
+        "product_name": "Reflective Tactical Harness (L)",
+        "unit_price": 38,
+        "quantity": 2,
+        "discount": 0,
+        "line_total": 76
+      },
+      {
+        "product_id": 54,
+        "product_name": "Interactive Puzzle Feeder Toy",
+        "unit_price": 22,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 22
+      },
+      {
+        "product_id": 52,
+        "product_name": "Ergonomic Orthopedic Memory Bed",
+        "unit_price": 89,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 89
+      },
+      {
+        "product_id": 55,
+        "product_name": "Calming Chamomile Chews (60ct)",
+        "unit_price": 25,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 25
+      }
+    ],
+    "notes": "",
+    "created_at": "2026-10-12T07:44:33.686Z"
+  },
+  {
+    "id": 14,
+    "business_id": 1,
+    "appointment_id": null,
+    "customer_id": 4,
+    "customer_name": "New Man",
+    "customer_phone": "4623642747",
+    "staff_id": null,
+    "staff_name": "",
+    "subtotal": 206,
+    "item_discount_total": 0,
+    "overall_discount": 0,
+    "tax_amount": 16.48,
+    "total_amount": 222.48,
+    "payment_method": "qr",
+    "amount_tendered": 222.48,
+    "change_amount": 0,
+    "items": [
+      {
+        "product_id": 52,
+        "product_name": "Ergonomic Orthopedic Memory Bed",
+        "unit_price": 89,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 89
+      },
+      {
+        "product_id": 50,
+        "product_name": "Wild Alaskan Salmon Oil (500ml)",
+        "unit_price": 29,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 29
+      },
+      {
+        "product_id": 53,
+        "product_name": "Reflective Tactical Harness (L)",
+        "unit_price": 38,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 38
+      },
+      {
+        "product_id": 51,
+        "product_name": "Dental Chew Sticks (Pack of 14)",
+        "unit_price": 16,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 16
+      },
+      {
+        "product_id": 48,
+        "product_name": "Glucosamine Joint Chews (90ct)",
+        "unit_price": 34,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 34
+      }
+    ],
+    "notes": "",
+    "created_at": "2026-10-12T07:45:29.879Z",
+    "refund_status": "partial",
+    "refunded_amount": 168.48
+  },
+  {
+    "id": 15,
+    "business_id": 1,
+    "appointment_id": null,
+    "customer_id": null,
+    "customer_name": "Walk-in",
+    "customer_phone": "",
+    "staff_id": null,
+    "staff_name": "",
+    "subtotal": 74,
+    "item_discount_total": 0,
+    "overall_discount": 0,
+    "tax_amount": 5.92,
+    "total_amount": 79.92,
+    "payment_method": "cash",
+    "amount_tendered": 79.92,
+    "change_amount": 0,
+    "items": [
+      {
+        "product_id": 51,
+        "product_name": "Dental Chew Sticks (Pack of 14)",
+        "unit_price": 16,
+        "quantity": 1,
+        "discount": 0,
+        "line_total": 16
+      },
+      {
+        "product_id": 50,
+        "product_name": "Wild Alaskan Salmon Oil (500ml)",
+        "unit_price": 29,
+        "quantity": 2,
+        "discount": 0,
+        "line_total": 58
+      }
+    ],
+    "notes": "",
+    "created_at": "2026-10-12T09:10:13.164Z",
+    "refund_status": "full",
+    "refunded_amount": 79.92
   }
 ]

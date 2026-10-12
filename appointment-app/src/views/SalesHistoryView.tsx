@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import {
   Receipt,
   RotateCw,
+  RotateCcw,
   Banknote,
   Search,
   X,
@@ -13,9 +14,14 @@ import {
   BadgeCheck,
   Clock,
   CalendarCheck,
+  Printer,
 } from 'lucide-react';
 import { saleApi, type Sale, formatReceiptNumber, getPaymentMethodLabel } from '../api/saleApi';
+import { useAppSelector } from '../store/hooks';
+import { executeReceiptPrint } from '../utils/receiptPrinter';
+import RefundModal from '../components/RefundModal';
 import '../styles/sales_history.css';
+import '../styles/refund_modal.css';
 
 const PAGE_SIZE = 20;
 
@@ -40,6 +46,54 @@ export default function SalesHistoryView() {
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [detailSale, setDetailSale] = useState<Sale | null>(null);
+  const [showRefundModal, setShowRefundModal] = useState<boolean>(false);
+
+  const printerSettings = useAppSelector((state) => state.printer.settings);
+  const [printingSaleId, setPrintingSaleId] = useState<number | null>(null);
+
+  /* ── Print / Reprint Handler ───────────────────────────── */
+  const handlePrintSale = async (saleToPrint: Sale, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setPrintingSaleId(saleToPrint.id);
+    try {
+      let fullSale = { ...saleToPrint };
+      if (!fullSale.refunds || fullSale.refunds.length === 0) {
+        try {
+          const rfRes = await saleApi.getRefunds(saleToPrint.id);
+          if (rfRes.data?.data && Array.isArray(rfRes.data.data)) {
+            fullSale.refunds = rfRes.data.data;
+          }
+        } catch (_) {}
+      }
+      const sRefunds = fullSale.refunds || [];
+      const totalGstRefunded =
+        fullSale.gst_reversed_total !== undefined
+          ? Number(fullSale.gst_reversed_total)
+          : sRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.gst_reversed_total) || 0), 0);
+      const totalSubtotalRefunded =
+        fullSale.subtotal_refunded_total !== undefined
+          ? Number(fullSale.subtotal_refunded_total)
+          : sRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.subtotal_refunded) || 0), 0);
+      fullSale.gst_reversed_total = totalGstRefunded;
+      fullSale.net_tax_amount = Math.max(0, Math.round(((Number(fullSale.tax_amount) || 0) - totalGstRefunded) * 100) / 100);
+      fullSale.subtotal_refunded_total = totalSubtotalRefunded;
+      fullSale.net_subtotal = Math.max(0, Math.round(((Number(fullSale.subtotal) || 0) - totalSubtotalRefunded) * 100) / 100);
+
+      await executeReceiptPrint({
+        printerSettings,
+        transaction: fullSale,
+        type: 'sale',
+        isReprint: true,
+      });
+    } catch (err: any) {
+      console.error('Print sale error:', err);
+      toast.error('Failed to trigger receipt printing.');
+    } finally {
+      setPrintingSaleId(null);
+    }
+  };
 
   /* ── Helper to Normalize API Sales ────────────────────── */
   const normalizeSalesList = (rawList: any[]): Sale[] => {
@@ -59,15 +113,42 @@ export default function SalesHistoryView() {
         }
       }
 
+      const origTax = Number(s.tax_amount) || 0;
+      const origSubtotal = Number(s.subtotal) || 0;
+      const sRefunds = s.refunds || [];
+      const totalGstRefunded =
+        s.gst_reversed_total !== undefined
+          ? Number(s.gst_reversed_total)
+          : sRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.gst_reversed_total) || 0), 0);
+      const totalSubtotalRefunded =
+        s.subtotal_refunded_total !== undefined
+          ? Number(s.subtotal_refunded_total)
+          : sRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.subtotal_refunded) || 0), 0);
+      const netTax =
+        s.net_tax_amount !== undefined
+          ? Number(s.net_tax_amount)
+          : Math.max(0, Math.round((origTax - totalGstRefunded) * 100) / 100);
+      const netSubtotal =
+        s.net_subtotal !== undefined
+          ? Number(s.net_subtotal)
+          : Math.max(0, Math.round((origSubtotal - totalSubtotalRefunded) * 100) / 100);
+
       return {
         ...s,
-        subtotal: Number(s.subtotal) || 0,
+        subtotal: origSubtotal,
         item_discount_total: Number(s.item_discount_total) || 0,
         overall_discount: Number(s.overall_discount) || 0,
-        tax_amount: Number(s.tax_amount) || 0,
+        tax_amount: origTax,
         total_amount: Number(s.total_amount) || 0,
         amount_tendered: Number(s.amount_tendered) || 0,
         change_amount: Number(s.change_amount) || 0,
+        refund_status: s.refund_status || (Number(s.refunded_amount) > 0 ? (Number(s.refunded_amount) >= Number(s.total_amount) ? 'full' : 'partial') : 'none'),
+        refunded_amount: Number(s.refunded_amount) || 0,
+        refunds: sRefunds,
+        gst_reversed_total: totalGstRefunded,
+        net_tax_amount: netTax,
+        subtotal_refunded_total: totalSubtotalRefunded,
+        net_subtotal: netSubtotal,
         items: parsedItems.map((it) => ({
           product_id: it.product_id,
           product_name: it.product_name || it.name || 'Item',
@@ -78,6 +159,16 @@ export default function SalesHistoryView() {
         })),
       };
     });
+  };
+
+  const handleRefundSuccess = (updatedSale: Sale) => {
+    setDetailSale(updatedSale);
+    setAllSales((prev) =>
+      prev.map((s) => (s.id === updatedSale.id ? updatedSale : s))
+    );
+    setBaselineSales((prev) =>
+      prev.map((s) => (s.id === updatedSale.id ? updatedSale : s))
+    );
   };
 
   /* ── Data Fetching ────────────────────────────────────── */
@@ -456,10 +547,22 @@ export default function SalesHistoryView() {
                     <span className="sale-item-receipt-num">
                       {formatReceiptNumber(sale.id, sale.created_at)}
                     </span>
-                    <span className="sale-status-badge">
-                      <BadgeCheck size={12} />
-                      <span>Completed</span>
-                    </span>
+                    {sale.refund_status === 'full' ? (
+                      <span className="sale-status-badge" style={{ background: '#FFE4E6', color: '#BE123C', borderColor: '#FECDD3' }}>
+                        <RotateCcw size={12} />
+                        <span>Refunded</span>
+                      </span>
+                    ) : sale.refund_status === 'partial' ? (
+                      <span className="sale-status-badge" style={{ background: '#FEF3C7', color: '#D97706', borderColor: '#FDE68A' }}>
+                        <RotateCcw size={12} />
+                        <span>Partially Refunded</span>
+                      </span>
+                    ) : (
+                      <span className="sale-status-badge">
+                        <BadgeCheck size={12} />
+                        <span>Completed</span>
+                      </span>
+                    )}
                   </div>
 
                   <div className="sale-item-meta-row">
@@ -473,6 +576,16 @@ export default function SalesHistoryView() {
                           ({sale.customer_phone})
                         </span>
                       )}
+                      <button
+                        type="button"
+                        className="history-print-btn"
+                        title="Print / Reprint Receipt"
+                        onClick={(e) => handlePrintSale(sale, e)}
+                        disabled={printingSaleId === sale.id}
+                      >
+                        <Printer size={12} />
+                        <span>{printingSaleId === sale.id ? 'Printing...' : 'Print'}</span>
+                      </button>
                     </div>
 
                     {sale.staff_name && (
@@ -574,10 +687,22 @@ export default function SalesHistoryView() {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="sale-status-badge" style={{ fontSize: '11px', padding: '3px 10px' }}>
-                  <BadgeCheck size={13} />
-                  <span>Completed</span>
-                </span>
+                {detailSale.refund_status === 'full' ? (
+                  <span className="sale-status-badge" style={{ fontSize: '11px', padding: '3px 10px', background: '#FFE4E6', color: '#BE123C', borderColor: '#FECDD3' }}>
+                    <RotateCcw size={13} />
+                    <span>Refunded</span>
+                  </span>
+                ) : detailSale.refund_status === 'partial' ? (
+                  <span className="sale-status-badge" style={{ fontSize: '11px', padding: '3px 10px', background: '#FEF3C7', color: '#D97706', borderColor: '#FDE68A' }}>
+                    <RotateCcw size={13} />
+                    <span>Partially Refunded</span>
+                  </span>
+                ) : (
+                  <span className="sale-status-badge" style={{ fontSize: '11px', padding: '3px 10px' }}>
+                    <BadgeCheck size={13} />
+                    <span>Completed</span>
+                  </span>
+                )}
                 <button
                   type="button"
                   className="sale-detail-header-close-btn"
@@ -608,8 +733,20 @@ export default function SalesHistoryView() {
               <div className="sale-detail-grid">
                 <div>
                   <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500 }}>Customer</div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>
-                    {detailSale.customer_name || 'Walk-in Guest'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                      {detailSale.customer_name || 'Walk-in Guest'}
+                    </span>
+                    <button
+                      type="button"
+                      className="history-print-btn"
+                      title="Print / Reprint Receipt"
+                      onClick={(e) => handlePrintSale(detailSale, e)}
+                      disabled={printingSaleId === detailSale.id}
+                    >
+                      <Printer size={12} />
+                      <span>{printingSaleId === detailSale.id ? 'Printing...' : 'Print'}</span>
+                    </button>
                   </div>
                   {detailSale.customer_phone && (
                     <div style={{ fontSize: '11.5px', color: '#64748B' }}>{detailSale.customer_phone}</div>
@@ -632,75 +769,215 @@ export default function SalesHistoryView() {
                 Purchased Items ({detailSale.items?.length || 0})
               </div>
               <div className="sale-detail-items-box">
-                {detailSale.items?.map((it, idx) => (
-                  <div key={idx} className="sale-detail-item-row">
-                    <span className="sale-detail-item-name">
-                      {it.product_name}
-                    </span>
-                    <div className="sale-detail-item-right">
-                      <span className="sale-detail-item-qty">
-                        ×{it.quantity}
+                {detailSale.items?.map((it, idx) => {
+                  const key = String(it.product_id || it.product_name);
+                  const refundedQty = (detailSale.refunds || []).reduce((sum, rf) => {
+                    const match = (rf.items || []).find((rIt: any) => String(rIt.product_id || rIt.product_name) === key);
+                    return sum + (match ? Number(match.quantity) || 0 : 0);
+                  }, 0);
+                  const remainingQty = Math.max(0, it.quantity - refundedQty);
+
+                  return (
+                    <div key={idx} className={`sale-detail-item-row ${refundedQty > 0 ? 'has-refund' : ''}`}>
+                      <span className="sale-detail-item-name">
+                        {it.product_name}
                       </span>
-                      <span className="sale-detail-item-price">
-                        ${fmtMoney(it.line_total)}
-                      </span>
+                      <div className="sale-detail-item-right">
+                        {refundedQty > 0 ? (
+                          <div className="sale-detail-refund-tags">
+                            <span className={`sale-refund-tag ${remainingQty === 0 ? 'full' : ''}`}>
+                              Refund ×{refundedQty}
+                            </span>
+                            <span className={`sale-remaining-unrefunded ${remainingQty === 0 ? 'zero' : ''}`}>
+                              {remainingQty === 0 ? '(0 unrefunded)' : `(${remainingQty} unrefunded)`}
+                            </span>
+                            <span className="sale-detail-item-orig-qty">
+                              Orig: ×{it.quantity}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="sale-detail-item-qty">
+                            ×{it.quantity}
+                          </span>
+                        )}
+                        <span
+                          className="sale-detail-item-price"
+                          style={remainingQty === 0 ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}
+                        >
+                          ${fmtMoney(it.line_total)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Financial Totals */}
-              <div className="sale-detail-totals">
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#64748B' }}>
-                  <span>Subtotal</span>
-                  <span style={{ fontWeight: 600, color: '#0F172A' }}>${fmtMoney(detailSale.subtotal)}</span>
-                </div>
-                {Number(detailSale.item_discount_total) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#E11D48' }}>
-                    <span>Item Discounts</span>
-                    <span style={{ fontWeight: 600 }}>-${fmtMoney(detailSale.item_discount_total)}</span>
+              {(() => {
+                const sRefunds = detailSale.refunds || [];
+                const gstRefunded =
+                  detailSale.gst_reversed_total !== undefined
+                    ? Number(detailSale.gst_reversed_total)
+                    : sRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.gst_reversed_total) || 0), 0);
+                const netTax =
+                  detailSale.net_tax_amount !== undefined
+                    ? Number(detailSale.net_tax_amount)
+                    : Math.max(0, Math.round(((Number(detailSale.tax_amount) || 0) - gstRefunded) * 100) / 100);
+
+                const subtotalRefunded =
+                  detailSale.subtotal_refunded_total !== undefined
+                    ? Number(detailSale.subtotal_refunded_total)
+                    : sRefunds.reduce((sum: number, rf: any) => sum + (Number(rf.subtotal_refunded) || 0), 0);
+                const netSubtotal =
+                  detailSale.net_subtotal !== undefined
+                    ? Number(detailSale.net_subtotal)
+                    : Math.max(0, Math.round(((Number(detailSale.subtotal) || 0) - subtotalRefunded) * 100) / 100);
+
+                const hasRefunds = Number(detailSale.refunded_amount) > 0 || sRefunds.length > 0;
+                const displaySubtotal = hasRefunds ? netSubtotal : Number(detailSale.subtotal);
+                const displayTax = hasRefunds ? netTax : Number(detailSale.tax_amount);
+
+                return (
+                  <div className="sale-detail-totals">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#64748B' }}>
+                      <span>Subtotal</span>
+                      <span style={{ fontWeight: 600, color: '#0F172A' }}>
+                        ${fmtMoney(displaySubtotal)}
+                        {subtotalRefunded > 0 && (
+                          <span style={{ fontSize: '11px', color: '#BE123C', fontWeight: 500, marginLeft: '6px' }}>
+                            (-${fmtMoney(subtotalRefunded)} refunded)
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    {Number(detailSale.item_discount_total) > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#E11D48' }}>
+                        <span>Item Discounts</span>
+                        <span style={{ fontWeight: 600 }}>-${fmtMoney(detailSale.item_discount_total)}</span>
+                      </div>
+                    )}
+                    {Number(detailSale.overall_discount) > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#E11D48' }}>
+                        <span>Overall Discount</span>
+                        <span style={{ fontWeight: 600 }}>-${fmtMoney(detailSale.overall_discount)}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#64748B' }}>
+                      <span>Tax (8%)</span>
+                      <span style={{ fontWeight: 600, color: '#0F172A' }}>
+                        ${fmtMoney(displayTax)}
+                        {gstRefunded > 0 && (
+                          <span style={{ fontSize: '11px', color: '#BE123C', fontWeight: 500, marginLeft: '6px' }}>
+                            (-${fmtMoney(gstRefunded)} refunded)
+                          </span>
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="sale-detail-total-paid">
+                      <span>Total Paid</span>
+                      <span style={{ color: '#E11D48' }}>${fmtMoney(detailSale.total_amount)}</span>
+                    </div>
+
+                    {hasRefunds && (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#BE123C', marginTop: '4px' }}>
+                          <span>Total Refunded</span>
+                          <span style={{ fontWeight: 700 }}>-${fmtMoney(detailSale.refunded_amount)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#0F172A', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #CBD5E1' }}>
+                          <span style={{ fontWeight: 600 }}>Net Retained Balance</span>
+                          <span style={{ fontWeight: 800, color: '#059669' }}>
+                            ${fmtMoney(Math.max(0, Number(detailSale.total_amount) - Number(detailSale.refunded_amount)))}
+                          </span>
+                        </div>
+                      </>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginTop: '6px' }}>
+                      <span>Payment Method</span>
+                      <span style={{ fontWeight: 600, color: '#0F172A' }}>
+                        {getPaymentMethodLabel(detailSale.payment_method)} (Tendered: ${fmtMoney(detailSale.amount_tendered || detailSale.total_amount)})
+                      </span>
+                    </div>
+
+                    {Number(detailSale.change_amount) > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                        <span>Change Returned</span>
+                        <span style={{ fontWeight: 600, color: '#059669' }}>
+                          ${fmtMoney(detailSale.change_amount)}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
-                {Number(detailSale.overall_discount) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#E11D48' }}>
-                    <span>Overall Discount</span>
-                    <span style={{ fontWeight: 600 }}>-${fmtMoney(detailSale.overall_discount)}</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#64748B' }}>
-                  <span>Tax (8%)</span>
-                  <span style={{ fontWeight: 600, color: '#0F172A' }}>${fmtMoney(detailSale.tax_amount)}</span>
-                </div>
+                );
+              })()}
 
-                <div className="sale-detail-total-paid">
-                  <span>Total Paid</span>
-                  <span style={{ color: '#E11D48' }}>${fmtMoney(detailSale.total_amount)}</span>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginTop: '6px' }}>
-                  <span>Payment Method</span>
-                  <span style={{ fontWeight: 600, color: '#0F172A' }}>
-                    {getPaymentMethodLabel(detailSale.payment_method)} (Tendered: ${fmtMoney(detailSale.amount_tendered || detailSale.total_amount)})
-                  </span>
-                </div>
-
-                {Number(detailSale.change_amount) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
-                    <span>Change Returned</span>
-                    <span style={{ fontWeight: 600, color: '#059669' }}>
-                      ${fmtMoney(detailSale.change_amount)}
+              {/* Refund Audit History Box */}
+              {detailSale.refunds && detailSale.refunds.length > 0 && (
+                <div className="refund-history-box">
+                  <div className="refund-history-header">
+                    <span>Refund Audit Trail ({detailSale.refunds.length})</span>
+                    <span style={{ color: '#BE123C' }}>
+                      Total Refunded: -${fmtMoney(detailSale.refunded_amount)}
                     </span>
                   </div>
-                )}
-              </div>
+                  {detailSale.refunds.map((rf, rIdx) => (
+                    <div key={rIdx} className="refund-history-item">
+                      <div className="refund-history-left">
+                        <span className="refund-history-no">{rf.refund_receipt_number}</span>
+                        <span className="refund-history-date">
+                          {formatDateTime(rf.created_at)} • {rf.refund_method?.toUpperCase()}
+                          {rf.reason ? ` • ${rf.reason}` : ''}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                          Items: {(rf.items || []).map((ri) => `${ri.product_name} (×${ri.quantity})`).join(', ')}
+                        </span>
+                      </div>
+                      <span className="refund-history-amount">
+                        -${fmtMoney(rf.total_refund_amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Fixed Footer Close Button */}
-            <div className="sale-detail-footer">
+            {/* Fixed Footer: Refund Button on Left Side of Close Button */}
+            <div className="sale-detail-footer" style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                className="sale-detail-refund-btn"
+                onClick={() => setShowRefundModal(true)}
+                disabled={detailSale.refund_status === 'full'}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '12px',
+                  backgroundColor: detailSale.refund_status === 'full' ? '#F1F5F9' : '#E11D48',
+                  color: detailSale.refund_status === 'full' ? '#94A3B8' : '#ffffff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: detailSale.refund_status === 'full' ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <RotateCcw size={15} />
+                <span>
+                  {detailSale.refund_status === 'full' ? 'Fully Refunded' : 'Refund'}
+                </span>
+              </button>
+
               <button
                 type="button"
                 className="sale-detail-close-btn"
                 onClick={() => setDetailSale(null)}
+                style={{ flex: 1 }}
               >
                 <X size={16} />
                 <span>Close</span>
@@ -708,6 +985,17 @@ export default function SalesHistoryView() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── 7. Refund Modal Popup ──────────────────────────── */}
+      {showRefundModal && detailSale && (
+        <RefundModal
+          isOpen={showRefundModal}
+          onClose={() => setShowRefundModal(false)}
+          type="sale"
+          transaction={detailSale}
+          onRefundSuccess={handleRefundSuccess}
+        />
       )}
     </div>
   );

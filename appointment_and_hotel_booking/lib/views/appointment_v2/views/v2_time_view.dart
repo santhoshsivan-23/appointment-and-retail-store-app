@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../services/auth_storage.dart';
 import '../../../models/appointment_model.dart';
+import '../../../models/category_model.dart';
+import '../../../models/product_model.dart';
 import '../../../models/staff_model.dart';
 import '../../../utils/appointment_v2_utils.dart';
 import '../components/v2_appointment_expanded_panel.dart';
@@ -13,6 +15,8 @@ class V2TimeView extends StatefulWidget {
   final StaffModel selectedStaff;
   final String selectedDate;
   final int? expandedApptId;
+  final List<CategoryModel>? categories;
+  final List<ProductModel>? products;
   final ValueChanged<int> onToggleExpand;
   final ValueChanged<AppointmentModel> onStartService;
   final ValueChanged<AppointmentModel> onContinueService;
@@ -28,6 +32,8 @@ class V2TimeView extends StatefulWidget {
     required this.selectedStaff,
     required this.selectedDate,
     required this.expandedApptId,
+    this.categories,
+    this.products,
     required this.onToggleExpand,
     required this.onStartService,
     required this.onContinueService,
@@ -441,6 +447,8 @@ class _V2TimeViewState extends State<V2TimeView> {
                 appointment: appt,
                 selectedStaff: widget.selectedStaff,
                 selectedDate: widget.selectedDate,
+                categories: widget.categories,
+                products: widget.products,
                 onCollapse: () => widget.onToggleExpand(appt.id),
                 onStartService: widget.onStartService,
                 onContinueService: widget.onContinueService,

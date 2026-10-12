@@ -9,6 +9,7 @@ import '../models/product_model.dart';
 import '../models/staff_model.dart';
 import '../services/api_service.dart';
 import '../services/auth_storage.dart';
+import '../services/sqlite_service.dart';
 import '../widgets/staff_avatar.dart';
 
 class AppointmentView extends StatefulWidget {
@@ -289,8 +290,8 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
       final results = await Future.wait([
         ApiService.getAppointments(date: dateStr),
         ApiService.getStaff(includeDeleted: true),
-        ApiService.getCategories(),
-        ApiService.getProducts(),
+        SqliteService.getActiveCategories(),
+        SqliteService.getActiveProducts(),
         ApiService.getAppointmentStats(date: dateStr),
       ]);
       if (!mounted) return;
@@ -2155,9 +2156,23 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
         badgeText = const Color(0xFF475569);
     }
 
-    final serviceName = appt.services.isNotEmpty
+    String serviceName = appt.services.isNotEmpty
         ? appt.services.first['name']?.toString() ?? appt.customerName
         : appt.customerName;
+    if (appt.services.isNotEmpty) {
+      final s = appt.services.first;
+      final rawName = (s['name'] ?? s['product_name'] ?? '').toString();
+      final pid = int.tryParse(s['product_id']?.toString() ?? s['id']?.toString() ?? '');
+      final p = _products.where((prod) =>
+          (pid != null && prod.id == pid) ||
+          prod.name.trim().toLowerCase() == rawName.trim().toLowerCase()).firstOrNull;
+      if (p != null && p.categoryId != null) {
+        final cat = _categories.where((c) => c.id == p.categoryId).firstOrNull;
+        if (cat != null) {
+          serviceName = '$rawName (${cat.name})';
+        }
+      }
+    }
 
     // Check if this active card overlays a cancelled/no_show card
     final hasUnderlyingInactive = (appt.status == 'booked' || appt.status == 'in_service') &&
@@ -4010,6 +4025,13 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
                                   final s = appt.services[idx];
                                   final sName = (s['name'] ?? s['product_name'] ?? 'Service').toString();
                                   final sPrice = s['price'] != null ? (s['price'] as num).toDouble() : null;
+                                  final pid = int.tryParse(s['product_id']?.toString() ?? s['id']?.toString() ?? '');
+                                  final p = _products.where((prod) =>
+                                      (pid != null && prod.id == pid) ||
+                                      prod.name.trim().toLowerCase() == sName.trim().toLowerCase()).firstOrNull;
+                                  final cat = (p != null && p.categoryId != null)
+                                      ? _categories.where((c) => c.id == p.categoryId).firstOrNull
+                                      : null;
                                   return Container(
                                     height: 32,
                                     alignment: Alignment.center,
@@ -4025,15 +4047,40 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
-                                          child: Text(
-                                            sName,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 12.5,
-                                              fontWeight: FontWeight.w500,
-                                              color: const Color(0xFF334155),
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                          child: Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  sName,
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 12.5,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: const Color(0xFF334155),
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              if (cat != null) ...[
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFFF1F5F9),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                                                  ),
+                                                  child: Text(
+                                                    cat.name,
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 9.5,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: const Color(0xFF475569),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
                                           ),
                                         ),
                                         if (sPrice != null)

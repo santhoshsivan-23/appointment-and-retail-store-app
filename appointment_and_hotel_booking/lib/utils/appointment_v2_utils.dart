@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/appointment_model.dart';
+import '../models/category_model.dart';
+import '../models/product_model.dart';
 
 /// Represents a discrete business time slot (e.g. 08:00 – 08:30)
 class BusinessSlot {
@@ -353,4 +355,30 @@ ClientOverlapResult checkClientOverlap(
   }
 
   return const ClientOverlapResult(hasConflict: false);
+}
+
+/// Helper to resolve service names with their SQLite category names (e.g. "Haircut (Haircare)")
+String resolveServicesWithCategories(
+  AppointmentModel appointment,
+  List<ProductModel>? products,
+  List<CategoryModel>? categories,
+) {
+  if (appointment.services.isEmpty) return 'General Consultation / Service';
+  if (products == null || categories == null || products.isEmpty) {
+    return appointment.servicesSummary;
+  }
+  return appointment.services.map((s) {
+    final name = (s['name'] ?? s['product_name'] ?? 'Service').toString();
+    final pid = int.tryParse(s['product_id']?.toString() ?? s['id']?.toString() ?? '');
+    final p = products.where((prod) =>
+        (pid != null && prod.id == pid) ||
+        prod.name.trim().toLowerCase() == name.trim().toLowerCase()).firstOrNull;
+    if (p != null && p.categoryId != null) {
+      final cat = categories.where((c) => c.id == p.categoryId).firstOrNull;
+      if (cat != null) {
+        return '$name (${cat.name})';
+      }
+    }
+    return name;
+  }).join(', ');
 }

@@ -2,11 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../models/appointment_model.dart';
+import '../../../models/category_model.dart';
 import '../../../models/customer_model.dart';
 import '../../../models/product_model.dart';
 import '../../../models/staff_model.dart';
 import '../../../services/api_service.dart';
 import '../../../services/auth_storage.dart';
+import '../../../services/sqlite_service.dart';
 import '../../../utils/appointment_v2_utils.dart';
 import '../../../widgets/clock_time_picker_modal.dart';
 import '../../../widgets/wheel_time_picker.dart';
@@ -22,6 +24,8 @@ class AddAppointmentV2Modal extends StatefulWidget {
   final String timeFormat; // '12' or '24'
   final bool? useWheelPickers;
   final List<AppointmentModel> existingAppointments;
+  final List<CategoryModel>? categories;
+  final List<ProductModel>? products;
   final VoidCallback onClose;
   final ValueChanged<AppointmentModel> onSuccess;
 
@@ -36,6 +40,8 @@ class AddAppointmentV2Modal extends StatefulWidget {
     this.timeFormat = '12',
     this.useWheelPickers,
     required this.existingAppointments,
+    this.categories,
+    this.products,
     required this.onClose,
     required this.onSuccess,
   });
@@ -63,9 +69,12 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
   bool _isSearchingCustomers = false;
   Timer? _customerSearchDebounce;
 
-  // Step 4: Services
+  // Step 4: Services & Categories loaded from SQLite
   final TextEditingController _serviceSearchController = TextEditingController();
+  List<CategoryModel> _categories = [];
+  List<ProductModel> _allProducts = [];
   List<ProductModel> _serviceResults = [];
+  int? _selectedCategoryId; // null = all
   bool _isSearchingServices = false;
   Timer? _serviceSearchDebounce;
   final List<ProductModel> _selectedServices = [];
@@ -89,6 +98,19 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
 
     if (widget.useWheelPickers == null) {
       _loadTimeSelectionPreference();
+    }
+    _loadSqliteData();
+  }
+
+  Future<void> _loadSqliteData() async {
+    final cats = widget.categories ?? await SqliteService.getActiveCategories();
+    final prods = widget.products ?? await SqliteService.getActiveProducts();
+    if (mounted) {
+      setState(() {
+        _categories = cats.where((c) => c.showInAppointment).toList();
+        _allProducts = prods;
+        _filterServices();
+      });
     }
   }
 
@@ -168,34 +190,36 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
     });
   }
 
+  void _filterServices() {
+    final q = _serviceSearchController.text.trim().toLowerCase();
+    final allowedCatIds = _categories.map((c) => c.id).toSet();
+
+    final filtered = _allProducts.where((p) {
+      if (p.categoryId != null && allowedCatIds.isNotEmpty && !allowedCatIds.contains(p.categoryId)) {
+        return false;
+      }
+      if (_selectedCategoryId != null && p.categoryId != _selectedCategoryId) {
+        return false;
+      }
+      if (q.isNotEmpty) {
+        final matchName = p.name.toLowerCase().contains(q);
+        final matchSku = p.sku.toLowerCase().contains(q);
+        return matchName || matchSku;
+      }
+      return true;
+    }).toList();
+
+    setState(() {
+      _serviceResults = filtered;
+      _isSearchingServices = false;
+    });
+  }
+
   void _onServiceSearchChanged(String query) {
     _serviceSearchDebounce?.cancel();
-    final q = query.trim();
-    if (q.isEmpty) {
-      setState(() {
-        _serviceResults = [];
-        _isSearchingServices = false;
-      });
-      return;
-    }
-
-    setState(() => _isSearchingServices = true);
-    _serviceSearchDebounce = Timer(const Duration(milliseconds: 250), () async {
-      try {
-        final results = await ApiService.searchProducts(q);
-        if (mounted) {
-          setState(() {
-            _serviceResults = results;
-            _isSearchingServices = false;
-          });
-        }
-      } catch (_) {
-        if (mounted) {
-          setState(() {
-            _serviceResults = [];
-            _isSearchingServices = false;
-          });
-        }
+    _serviceSearchDebounce = Timer(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _filterServices();
       }
     });
   }
@@ -981,24 +1005,27 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
                       separatorBuilder: (_, index) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final c = _customerResults[index];
-                        return ListTile(
-                          dense: true,
-                          title: Text(
-                            c.name,
-                            style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600),
+                        return Material(
+                          color: Colors.transparent,
+                          child: ListTile(
+                            dense: true,
+                            title: Text(
+                              c.name,
+                              style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: Text(
+                              c.phone.isNotEmpty ? c.phone : 'No phone',
+                              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                            ),
+                            onTap: () {
+                              setState(() {
+                                _selectedCustomer = c;
+                                _customerSearchController.clear();
+                                _customerResults = [];
+                                _errorMsg = null;
+                              });
+                            },
                           ),
-                          subtitle: Text(
-                            c.phone.isNotEmpty ? c.phone : 'No phone',
-                            style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
-                          ),
-                          onTap: () {
-                            setState(() {
-                              _selectedCustomer = c;
-                              _customerSearchController.clear();
-                              _customerResults = [];
-                              _errorMsg = null;
-                            });
-                          },
                         );
                       },
                     ),
@@ -1040,6 +1067,35 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
     );
   }
 
+  Widget _buildCategoryFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF9333EA) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF9333EA) : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? Colors.white : const Color(0xFF475569),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildServiceSection() {
     return _buildCardSection(
       icon: Icons.work_outline_rounded,
@@ -1053,12 +1109,48 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Category Filter Chips Row (Loaded from SQLite)
+          if (_categories.isNotEmpty) ...[
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildCategoryFilterChip(
+                    label: 'All Items',
+                    isSelected: _selectedCategoryId == null,
+                    onTap: () {
+                      setState(() {
+                        _selectedCategoryId = null;
+                        _filterServices();
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                  ..._categories.map((c) => Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: _buildCategoryFilterChip(
+                          label: c.name,
+                          isSelected: _selectedCategoryId == c.id,
+                          onTap: () {
+                            setState(() {
+                              _selectedCategoryId = c.id;
+                              _filterServices();
+                            });
+                          },
+                        ),
+                      )),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
           TextField(
             controller: _serviceSearchController,
             onChanged: _onServiceSearchChanged,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF64748B)),
-              hintText: 'Search service or product name...',
+              hintText: 'Search service or product name (SQLite)...',
               hintStyle: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF94A3B8)),
               filled: true,
               fillColor: const Color(0xFFF8FAFC),
@@ -1101,24 +1193,44 @@ class _AddAppointmentV2ModalState extends State<AddAppointmentV2Modal> {
                 itemBuilder: (context, index) {
                   final prod = _serviceResults[index];
                   final isSelected = _selectedServices.any((p) => p.id == prod.id);
-                  return CheckboxListTile(
-                    dense: true,
-                    value: isSelected,
-                    title: Text(
-                      prod.name,
-                      style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600),
+                  final catName = _categories.where((c) => c.id == prod.categoryId).firstOrNull?.name;
+                  return Material(
+                    color: Colors.transparent,
+                    child: CheckboxListTile(
+                      dense: true,
+                      value: isSelected,
+                      title: Text(
+                        prod.name,
+                        style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        catName != null ? '$catName • ${prod.productType.toUpperCase()}' : prod.productType.toUpperCase(),
+                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                      ),
+                      secondary: Text(
+                        '\$${prod.price.toStringAsFixed(2)}',
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                      ),
+                      onChanged: (_) => _toggleService(prod),
                     ),
-                    subtitle: Text(
-                      prod.productType,
-                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
-                    ),
-                    secondary: Text(
-                      '\$${prod.price.toStringAsFixed(2)}',
-                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
-                    ),
-                    onChanged: (_) => _toggleService(prod),
                   );
                 },
+              ),
+            )
+          else
+            Container(
+              margin: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Center(
+                child: Text(
+                  'No products or services found in SQLite database.',
+                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                ),
               ),
             ),
 

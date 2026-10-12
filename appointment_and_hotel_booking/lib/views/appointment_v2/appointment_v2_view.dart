@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../models/appointment_model.dart';
+import '../../models/category_model.dart';
 import '../../models/customer_model.dart';
 import '../../models/product_model.dart';
 import '../../models/staff_model.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_storage.dart';
+import '../../services/sqlite_service.dart';
 import '../../utils/appointment_v2_utils.dart';
 import 'appointment_v2_calendar_sidebar.dart';
 import 'appointment_v2_header.dart';
@@ -39,6 +41,10 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
   bool _isLoadingStaff = true;
   StaffModel? _selectedStaff;
 
+  // SQLite Cached Categories & Products
+  List<CategoryModel> _categories = [];
+  List<ProductModel> _products = [];
+
   // Selected Date (default: today)
   String _selectedDate = getTodayDateStr();
   DateTime _calendarViewDate = DateTime.now();
@@ -58,6 +64,18 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
     super.initState();
     _loadConfig();
     _fetchStaff();
+    _loadSqliteData();
+  }
+
+  Future<void> _loadSqliteData() async {
+    final cats = await SqliteService.getActiveCategories();
+    final prods = await SqliteService.getActiveProducts();
+    if (mounted) {
+      setState(() {
+        _categories = cats;
+        _products = prods;
+      });
+    }
   }
 
   Future<void> _loadConfig() async {
@@ -219,6 +237,8 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
                             selectedStaff: _selectedStaff!,
                             selectedDate: _selectedDate,
                             appointments: _appointments,
+                            categories: _categories,
+                            products: _products,
                             openTime: _openTime,
                             closeTime: _closeTime,
                             slotDuration: _slotDuration,
@@ -276,6 +296,8 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
                             selectedStaff: _selectedStaff!,
                             selectedDate: _selectedDate,
                             appointments: _appointments,
+                            categories: _categories,
+                            products: _products,
                             openTime: _openTime,
                             closeTime: _closeTime,
                             slotDuration: _slotDuration,
@@ -390,6 +412,8 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
       barrierColor: Colors.black.withValues(alpha: 0.55),
       builder: (ctx) => AppointmentDetailsV2Modal(
         appt: appt,
+        categories: _categories,
+        products: _products,
         onClose: () => Navigator.pop(ctx),
         onStartService: () {
           _handleStartService(appt);
@@ -467,6 +491,8 @@ class _AppointmentV2ViewState extends State<AppointmentV2View> {
         timeFormat: timeFormat,
         useWheelPickers: useWheel,
         existingAppointments: _appointments,
+        categories: _categories,
+        products: _products,
         onClose: () => Navigator.pop(ctx),
         onSuccess: (newAppt) {
           Navigator.pop(ctx);
