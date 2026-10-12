@@ -3,10 +3,12 @@ import 'models/business_model.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_terminal_shell.dart';
 import 'services/auth_storage.dart';
+import 'services/sqlite_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SqliteService.initFfi();
 
   // Check saved session
   final bool loggedIn = await AuthStorage.isLoggedIn();

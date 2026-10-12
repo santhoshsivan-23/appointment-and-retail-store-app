@@ -486,6 +486,8 @@ async function initDatabase() {
         sort_order INT DEFAULT 0,
         show_in_appointment BOOLEAN DEFAULT TRUE,
         is_active BOOLEAN DEFAULT TRUE,
+        is_deleted BOOLEAN DEFAULT FALSE,
+        deleted_at DATETIME NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -502,6 +504,7 @@ async function initDatabase() {
         modifiers JSON NULL,
         combo_items JSON NULL,
         is_active BOOLEAN DEFAULT TRUE,
+        is_deleted BOOLEAN DEFAULT FALSE,
         deleted_at DATETIME NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -575,6 +578,18 @@ async function initDatabase() {
 
     try {
       await pool.query('ALTER TABLE categories ADD COLUMN show_in_appointment BOOLEAN DEFAULT TRUE');
+    } catch (_) {}
+
+    try {
+      await pool.query('ALTER TABLE categories ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE');
+    } catch (_) {}
+
+    try {
+      await pool.query('ALTER TABLE categories ADD COLUMN deleted_at DATETIME NULL');
+    } catch (_) {}
+
+    try {
+      await pool.query('ALTER TABLE products ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE');
     } catch (_) {}
 
     try {
@@ -890,7 +905,7 @@ async function getCategories(businessId) {
   if (!useFallback && pool) {
     try {
       const [rows] = await pool.query(
-        'SELECT * FROM categories WHERE (business_id = ? OR business_id = 1) AND is_active = TRUE ORDER BY sort_order ASC, id ASC',
+        'SELECT * FROM categories WHERE (business_id = ? OR business_id = 1) AND is_active = TRUE AND (is_deleted = FALSE OR is_deleted IS NULL) ORDER BY sort_order ASC, id ASC',
         [businessId || 1]
       );
       return rows;
@@ -900,7 +915,9 @@ async function getCategories(businessId) {
   }
 
   const list = readJson('categories');
-  return list.filter((c) => c.is_active !== false).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  return list
+    .filter((c) => c.is_active !== false && c.is_deleted !== true && c.is_deleted !== 1)
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 }
 
 async function createCategory(data) {
@@ -908,8 +925,8 @@ async function createCategory(data) {
   if (!useFallback && pool) {
     try {
       const query = `
-        INSERT INTO categories (business_id, name, description, icon, sort_order, show_in_appointment, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, TRUE)
+        INSERT INTO categories (business_id, name, description, icon, sort_order, show_in_appointment, is_active, is_deleted)
+        VALUES (?, ?, ?, ?, ?, ?, TRUE, FALSE)
       `;
       const [res] = await pool.query(query, [
         data.business_id || 1,
@@ -919,7 +936,7 @@ async function createCategory(data) {
         data.sort_order || 0,
         showInAppointment,
       ]);
-      return { id: res.insertId, ...data, show_in_appointment: showInAppointment, is_active: true, created_at: new Date().toISOString() };
+      return { id: res.insertId, ...data, show_in_appointment: showInAppointment, is_active: true, is_deleted: false, created_at: new Date().toISOString() };
     } catch (e) {
       console.error(e);
     }
@@ -936,6 +953,8 @@ async function createCategory(data) {
     sort_order: Number(data.sort_order) || 0,
     show_in_appointment: showInAppointment,
     is_active: true,
+    is_deleted: false,
+    deleted_at: null,
     created_at: new Date().toISOString(),
   };
   list.push(newCat);
@@ -957,6 +976,7 @@ async function updateCategory(id, data) {
         values.push(data.show_in_appointment === true || data.show_in_appointment === 1 || data.show_in_appointment === 'true');
       }
       if (data.is_active !== undefined) { fields.push('is_active = ?'); values.push(Boolean(data.is_active)); }
+      if (data.is_deleted !== undefined) { fields.push('is_deleted = ?'); values.push(Boolean(data.is_deleted)); }
 
       if (fields.length > 0) {
         values.push(id);
@@ -983,7 +1003,7 @@ async function updateCategory(id, data) {
 async function deleteCategory(id) {
   if (!useFallback && pool) {
     try {
-      await pool.query('UPDATE categories SET is_active = FALSE WHERE id = ?', [id]);
+      await pool.query('UPDATE categories SET is_deleted = TRUE, is_active = FALSE, deleted_at = NOW() WHERE id = ?', [id]);
       return true;
     } catch (e) {
       console.error(e);
@@ -993,7 +1013,9 @@ async function deleteCategory(id) {
   const list = readJson('categories');
   const idx = list.findIndex((c) => String(c.id) === String(id));
   if (idx === -1) return false;
+  list[idx].is_deleted = true;
   list[idx].is_active = false;
+  list[idx].deleted_at = new Date().toISOString();
   writeJson('categories', list);
   return true;
 }
@@ -1003,7 +1025,7 @@ async function getProducts(businessId, categoryId = null, productType = null, se
   const s = (search || '').trim().toLowerCase();
   if (!useFallback && pool) {
     try {
-      let query = 'SELECT * FROM products WHERE (business_id = ? OR business_id = 1) AND is_active = TRUE';
+      let query = 'SELECT * FROM products WHERE (business_id = ? OR business_id = 1) AND is_active = TRUE AND (is_deleted = FALSE OR is_deleted IS NULL)';
       const params = [businessId || 1];
       if (categoryId) {
         query += ' AND category_id = ?';
@@ -1027,7 +1049,7 @@ async function getProducts(businessId, categoryId = null, productType = null, se
   }
 
   let list = readJson('products');
-  list = list.filter((p) => p.is_active !== false);
+  list = list.filter((p) => p.is_active !== false && p.is_deleted !== true && p.is_deleted !== 1);
   if (categoryId) {
     list = list.filter((p) => String(p.category_id) === String(categoryId));
   }
@@ -1053,7 +1075,7 @@ async function getPaginatedProducts(businessId, { categoryId = null, productType
 
   if (!useFallback && pool) {
     try {
-      let whereClause = ' WHERE (business_id = ? OR business_id = 1) AND is_active = TRUE';
+      let whereClause = ' WHERE (business_id = ? OR business_id = 1) AND is_active = TRUE AND (is_deleted = FALSE OR is_deleted IS NULL)';
       const countParams = [businessId || 1];
 
       if (categoryId && categoryId !== 'all') {
@@ -1103,7 +1125,7 @@ async function getPaginatedProducts(businessId, { categoryId = null, productType
 
   // Fallback storage (JSON file)
   let list = readJson('products');
-  list = list.filter((p) => p.is_active !== false);
+  list = list.filter((p) => p.is_active !== false && p.is_deleted !== true && p.is_deleted !== 1);
   if (categoryId && categoryId !== 'all') {
     list = list.filter((p) => String(p.category_id) === String(categoryId));
   }
@@ -1145,12 +1167,12 @@ async function createProduct(data) {
     try {
       const query = `
         INSERT INTO products 
-        (business_id, category_id, name, sku, product_type, price, description, modifiers, combo_items, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+        (business_id, category_id, name, sku, product_type, price, description, modifiers, combo_items, is_active, is_deleted)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, FALSE)
       `;
       const [res] = await pool.query(query, [
         data.business_id || 1,
-        data.category_id || null,
+        data.category_id ? Number(data.category_id) : null,
         data.name.trim(),
         data.sku || '',
         data.product_type || 'normal',
@@ -1159,7 +1181,7 @@ async function createProduct(data) {
         JSON.stringify(data.modifiers || []),
         JSON.stringify(data.combo_items || []),
       ]);
-      return { id: res.insertId, ...data, is_active: true, created_at: new Date().toISOString() };
+      return { id: res.insertId, ...data, is_active: true, is_deleted: false, created_at: new Date().toISOString() };
     } catch (e) {
       console.error(e);
     }
@@ -1179,6 +1201,7 @@ async function createProduct(data) {
     modifiers: data.modifiers || [],
     combo_items: data.combo_items || [],
     is_active: true,
+    is_deleted: false,
     deleted_at: null,
     created_at: new Date().toISOString(),
   };
@@ -1190,22 +1213,53 @@ async function createProduct(data) {
 async function updateProduct(id, data) {
   if (!useFallback && pool) {
     try {
-      await pool.query(
-        `UPDATE products 
-         SET category_id = ?, name = ?, sku = ?, product_type = ?, price = ?, description = ?, modifiers = ?, combo_items = ?
-         WHERE id = ?`,
-        [
-          data.category_id || null,
-          data.name,
-          data.sku,
-          data.product_type,
-          data.price,
-          data.description,
-          JSON.stringify(data.modifiers || []),
-          JSON.stringify(data.combo_items || []),
-          id,
-        ]
-      );
+      const fields = [];
+      const values = [];
+      if (data.category_id !== undefined) {
+        fields.push('category_id = ?');
+        values.push(data.category_id ? Number(data.category_id) : null);
+      }
+      if (data.name !== undefined) {
+        fields.push('name = ?');
+        values.push(data.name.trim());
+      }
+      if (data.sku !== undefined) {
+        fields.push('sku = ?');
+        values.push(data.sku);
+      }
+      if (data.product_type !== undefined) {
+        fields.push('product_type = ?');
+        values.push(data.product_type);
+      }
+      if (data.price !== undefined) {
+        fields.push('price = ?');
+        values.push(Number(data.price) || 0.0);
+      }
+      if (data.description !== undefined) {
+        fields.push('description = ?');
+        values.push(data.description);
+      }
+      if (data.modifiers !== undefined) {
+        fields.push('modifiers = ?');
+        values.push(JSON.stringify(data.modifiers || []));
+      }
+      if (data.combo_items !== undefined) {
+        fields.push('combo_items = ?');
+        values.push(JSON.stringify(data.combo_items || []));
+      }
+      if (data.is_active !== undefined) {
+        fields.push('is_active = ?');
+        values.push(Boolean(data.is_active));
+      }
+      if (data.is_deleted !== undefined) {
+        fields.push('is_deleted = ?');
+        values.push(Boolean(data.is_deleted));
+      }
+
+      if (fields.length > 0) {
+        values.push(id);
+        await pool.query(`UPDATE products SET ${fields.join(', ')} WHERE id = ?`, values);
+      }
       const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
       return rows[0] || null;
     } catch (e) {
@@ -1224,7 +1278,7 @@ async function updateProduct(id, data) {
 async function deleteProduct(id) {
   if (!useFallback && pool) {
     try {
-      await pool.query('UPDATE products SET is_active = FALSE, deleted_at = NOW() WHERE id = ?', [id]);
+      await pool.query('UPDATE products SET is_deleted = TRUE, is_active = FALSE, deleted_at = NOW() WHERE id = ?', [id]);
       return true;
     } catch (e) {
       console.error(e);
@@ -1234,6 +1288,7 @@ async function deleteProduct(id) {
   const list = readJson('products');
   const idx = list.findIndex((p) => String(p.id) === String(id));
   if (idx === -1) return false;
+  list[idx].is_deleted = true;
   list[idx].is_active = false;
   list[idx].deleted_at = new Date().toISOString();
   writeJson('products', list);

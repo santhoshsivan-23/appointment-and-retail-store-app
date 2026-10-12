@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/category_model.dart';
 import '../services/api_service.dart';
+import '../services/sqlite_service.dart';
 import '../theme/app_theme.dart';
 
 class CategoriesView extends StatefulWidget {
@@ -14,6 +15,8 @@ class CategoriesView extends StatefulWidget {
 class _CategoriesViewState extends State<CategoriesView> {
   List<CategoryModel> _categories = [];
   bool _isLoading = true;
+  bool _isSyncing = false;
+  int _localDbCategoryCount = 0;
 
   @override
   void initState() {
@@ -21,14 +24,57 @@ class _CategoriesViewState extends State<CategoriesView> {
     _loadCategories();
   }
 
-  Future<void> _loadCategories() async {
+  Future<void> _loadCategories({bool syncLocal = true}) async {
     setState(() => _isLoading = true);
     final cats = await ApiService.getCategories();
+    final localCount = await SqliteService.getActiveCategoriesCount();
     if (!mounted) return;
     setState(() {
       _categories = cats;
+      _localDbCategoryCount = localCount;
       _isLoading = false;
     });
+  }
+
+  /// Synchronize categories between Category API and local SQLite database
+  Future<void> _syncCategoriesWithSqlite({bool showFeedback = true}) async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    try {
+      // 1. Fetch all categories from API (source of truth)
+      final apiCategories = await ApiService.getCategories();
+      // 2. Store or update retrieved category data in SQLite
+      final count = await SqliteService.syncCategories(apiCategories);
+      final totalLocal = await SqliteService.getActiveCategoriesCount();
+
+      if (!mounted) return;
+      setState(() {
+        _localDbCategoryCount = totalLocal;
+      });
+
+      await _loadCategories(syncLocal: false);
+
+      if (mounted && showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully synchronized $count categories to SQLite database.'),
+            backgroundColor: AppTheme.secondary,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted && showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to synchronize categories with SQLite: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
   }
 
   void _showAddEditCategoryModal({CategoryModel? existing}) {
@@ -130,7 +176,10 @@ class _CategoriesViewState extends State<CategoriesView> {
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
               onPressed: () async {
                 if (nameCtrl.text.trim().isEmpty) return;
+                final messenger = ScaffoldMessenger.of(context);
                 Navigator.pop(ctx);
+                setState(() => _isLoading = true);
+
                 final data = {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
@@ -138,10 +187,38 @@ class _CategoriesViewState extends State<CategoriesView> {
                   'sort_order': int.tryParse(sortCtrl.text) ?? 0,
                   'show_in_appointment': showInAppointment,
                 };
+
+                bool apiSuccess = false;
                 if (existing == null) {
-                  await ApiService.createCategory(data);
+                  apiSuccess = await ApiService.createCategory(data);
                 } else {
-                  await ApiService.updateCategory(existing.id, data);
+                  apiSuccess = await ApiService.updateCategory(existing.id, data);
+                }
+
+                if (apiSuccess) {
+                  // After API succeeds, re-fetch latest categories and sync into SQLite
+                  final allCats = await ApiService.getCategories();
+                  await SqliteService.syncCategories(allCats);
+
+                  if (mounted) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(existing == null
+                            ? 'Category created and synchronized with SQLite.'
+                            : 'Category updated and synchronized with SQLite.'),
+                        backgroundColor: AppTheme.secondary,
+                      ),
+                    );
+                  }
+                } else {
+                  if (mounted) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to save category via API.'),
+                        backgroundColor: AppTheme.error,
+                      ),
+                    );
+                  }
                 }
                 _loadCategories();
               },
@@ -158,7 +235,7 @@ class _CategoriesViewState extends State<CategoriesView> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Category?'),
-        content: Text('Are you sure you want to remove "${cat.name}"? Products in this category will remain available.'),
+        content: Text('Are you sure you want to remove "${cat.name}"? This category will be soft-deleted and hidden from active lists and product selection.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
@@ -170,10 +247,33 @@ class _CategoriesViewState extends State<CategoriesView> {
       ),
     );
 
-    if (confirm == true) {
-      await ApiService.deleteCategory(cat.id);
+    if (!mounted || confirm != true) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isLoading = true);
+      final apiSuccess = await ApiService.deleteCategory(cat.id);
+      if (apiSuccess) {
+        final allCats = await ApiService.getCategories();
+        await SqliteService.syncCategories(allCats);
+
+        if (mounted) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Category "${cat.name}" deleted and synchronized with SQLite.'),
+              backgroundColor: AppTheme.secondary,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Failed to delete category via API.'),
+              backgroundColor: AppTheme.error,
+            ),
+          );
+        }
+      }
       _loadCategories();
-    }
   }
 
   IconData _resolveIcon(String iconName) {
@@ -228,20 +328,82 @@ class _CategoriesViewState extends State<CategoriesView> {
                     ),
                   ],
                 ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(160, 48),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  icon: const Icon(Icons.add, size: 20),
-                  label: Text('New Category', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
-                  onPressed: () => _showAddEditCategoryModal(),
+                Row(
+                  children: [
+                    // Sync Category Button (Synchronizes with SQLite)
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.secondary,
+                        side: BorderSide(color: AppTheme.secondary.withValues(alpha: 0.6), width: 1.5),
+                        backgroundColor: AppTheme.secondaryContainer.withValues(alpha: 0.15),
+                        minimumSize: const Size(160, 48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      icon: _isSyncing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.secondary),
+                            )
+                          : const Icon(Icons.sync, size: 20),
+                      label: Text(
+                        _isSyncing ? 'Syncing...' : 'Sync Category',
+                        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: _isSyncing ? null : () => _syncCategoriesWithSqlite(showFeedback: true),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(160, 48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      icon: const Icon(Icons.add, size: 20),
+                      label: Text('New Category', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+                      onPressed: () => _showAddEditCategoryModal(),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // SQLite status chip
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.storage_outlined, size: 14, color: AppTheme.secondary),
+                      const SizedBox(width: 5),
+                      Text(
+                        'SQLite: $_localDbCategoryCount Categories',
+                        style: GoogleFonts.inter(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.secondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '${_categories.length} Active Categories',
+                  style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
 
             Expanded(
               child: _isLoading

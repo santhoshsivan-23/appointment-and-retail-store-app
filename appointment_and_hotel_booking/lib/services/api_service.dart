@@ -264,7 +264,10 @@ class ApiService {
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final list = (body['data'] as List? ?? []);
-        return list.map((x) => CategoryModel.fromJson(Map<String, dynamic>.from(x))).toList();
+        return list
+            .map((x) => CategoryModel.fromJson(Map<String, dynamic>.from(x)))
+            .where((c) => !c.isDeleted && c.isActive)
+            .toList();
       }
     } catch (e) {
       debugPrint('Error getting categories: $e');
@@ -327,7 +330,10 @@ class ApiService {
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final list = (body['data'] as List? ?? []);
-        return list.map((x) => ProductModel.fromJson(Map<String, dynamic>.from(x))).toList();
+        return list
+            .map((x) => ProductModel.fromJson(Map<String, dynamic>.from(x)))
+            .where((p) => !p.isDeleted && p.isActive)
+            .toList();
       }
     } catch (e) {
       debugPrint('Error getting products: $e');
@@ -344,6 +350,20 @@ class ApiService {
         body: jsonEncode(data),
       );
       return res.statusCode == 201 || res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> updateProduct(int id, Map<String, dynamic> data) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final res = await http.put(
+        Uri.parse('$baseUrl/products/$id'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+      return res.statusCode == 200;
     } catch (_) {
       return false;
     }
@@ -373,7 +393,10 @@ class ApiService {
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final list = (body['data'] as List? ?? []);
-        return list.map((x) => ProductModel.fromJson(Map<String, dynamic>.from(x))).toList();
+        return list
+            .map((x) => ProductModel.fromJson(Map<String, dynamic>.from(x)))
+            .where((p) => !p.isDeleted && p.isActive)
+            .toList();
       }
     } catch (e) {
       debugPrint('Error in searchProducts, falling back: $e');

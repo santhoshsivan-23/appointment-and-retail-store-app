@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../models/appointment_model.dart';
+import '../../../models/category_model.dart';
+import '../../../models/product_model.dart';
 import '../../../services/api_service.dart';
+import '../../../services/sqlite_service.dart';
 import '../../../utils/appointment_v2_utils.dart';
 
 /// Appointment Details V2 Modal matching React AppointmentDetailsV2Modal
 class AppointmentDetailsV2Modal extends StatefulWidget {
   final AppointmentModel appt;
   final String timeFormat;
+  final List<CategoryModel>? categories;
+  final List<ProductModel>? products;
   final VoidCallback onClose;
   final VoidCallback onStartService;
   final VoidCallback onContinueService;
@@ -18,6 +23,8 @@ class AppointmentDetailsV2Modal extends StatefulWidget {
     super.key,
     required this.appt,
     this.timeFormat = '12',
+    this.categories,
+    this.products,
     required this.onClose,
     required this.onStartService,
     required this.onContinueService,
@@ -32,11 +39,36 @@ class AppointmentDetailsV2Modal extends StatefulWidget {
 class _AppointmentDetailsV2ModalState extends State<AppointmentDetailsV2Modal> {
   late AppointmentModel _currentAppt;
   bool _isUpdatingStatus = false;
+  List<CategoryModel> _sqliteCategories = [];
+  List<ProductModel> _sqliteProducts = [];
 
   @override
   void initState() {
     super.initState();
     _currentAppt = widget.appt;
+    _loadSqliteData();
+  }
+
+  Future<void> _loadSqliteData() async {
+    final cats = widget.categories ?? await SqliteService.getActiveCategories();
+    final prods = widget.products ?? await SqliteService.getActiveProducts();
+    if (mounted) {
+      setState(() {
+        _sqliteCategories = cats;
+        _sqliteProducts = prods;
+      });
+    }
+  }
+
+  String? _findCategoryName(AppointmentServiceItem s) {
+    final p = _sqliteProducts.where((prod) =>
+        (s.productId != null && prod.id == s.productId) ||
+        prod.name.trim().toLowerCase() == s.name.trim().toLowerCase()).firstOrNull;
+    if (p != null && p.categoryId != null) {
+      final cat = _sqliteCategories.where((c) => c.id == p.categoryId).firstOrNull;
+      return cat?.name;
+    }
+    return null;
   }
 
   Future<void> _handleStatusChange(String newStatus) async {
@@ -487,13 +519,36 @@ class _AppointmentDetailsV2ModalState extends State<AppointmentDetailsV2Modal> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                s.name,
-                                style: GoogleFonts.inter(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF1E293B),
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    s.name,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                  if (_findCategoryName(s) != null) ...[
+                                    const SizedBox(height: 2),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF3E8FF),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        _findCategoryName(s)!,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF7E22CE),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ],
                           ),

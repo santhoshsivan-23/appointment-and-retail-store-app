@@ -124,16 +124,18 @@ export default function ProductsView() {
         >
           All Categories
         </button>
-        {categories.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            className={`pf-cat-chip ${selectedCategoryId === c.id ? 'pf-cat-chip--active' : ''}`}
-            onClick={() => setSelectedCategoryId(c.id)}
-          >
-            {c.name}
-          </button>
-        ))}
+        {categories
+          .filter((c) => !c.is_deleted && c.is_active !== false)
+          .map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={`pf-cat-chip ${selectedCategoryId === c.id ? 'pf-cat-chip--active' : ''}`}
+              onClick={() => setSelectedCategoryId(c.id)}
+            >
+              {c.name}
+            </button>
+          ))}
       </div>
 
       {/* ── Content Area ───────────────────────────────── */}
@@ -271,14 +273,19 @@ interface ProductModalProps {
 }
 
 function ProductModal({ existing, categories, onClose, onSaved }: ProductModalProps) {
+  const activeCategories = categories.filter((c) => !c.is_deleted && c.is_active !== false);
   const [name, setName] = useState(existing?.name ?? '');
   const [sku, setSku] = useState(existing?.sku ?? `PRD-${Date.now() % 1000}`);
   const [price, setPrice] = useState(existing ? String(existing.price) : '25.00');
   const [description, setDescription] = useState(existing?.description ?? '');
   const [productType, setProductType] = useState<string>(existing?.product_type ?? 'normal');
-  const [categoryId, setCategoryId] = useState<number | string>(
-    existing?.category_id ?? (categories.length > 0 ? categories[0].id : ''),
-  );
+  const [categoryId, setCategoryId] = useState<number | string>(() => {
+    if (existing?.category_id) {
+      const match = activeCategories.find((c) => c.id === existing.category_id);
+      if (match) return match.id;
+    }
+    return activeCategories.length > 0 ? activeCategories[0].id : '';
+  });
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
@@ -405,14 +412,14 @@ function ProductModal({ existing, categories, onClose, onSaved }: ProductModalPr
           </div>
 
           {/* Category */}
-          {categories.length > 0 && (
+          {activeCategories.length > 0 && (
             <div className="product-modal__field">
               <label>Assign Category *</label>
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
               >
-                {categories.map((c) => (
+                {activeCategories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>

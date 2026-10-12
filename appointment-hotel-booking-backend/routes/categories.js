@@ -51,12 +51,23 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete category
+// Delete category (Soft delete)
 router.delete('/:id', async (req, res) => {
   try {
     const ok = await deleteCategory(req.params.id);
     if (!ok) return res.status(404).json({ success: false, message: 'Category not found' });
     res.json({ success: true, message: 'Category deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Soft delete category (patch alias)
+router.patch('/:id/soft-delete', async (req, res) => {
+  try {
+    const ok = await deleteCategory(req.params.id);
+    if (!ok) return res.status(404).json({ success: false, message: 'Category not found' });
+    res.json({ success: true, message: 'Category soft deleted successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

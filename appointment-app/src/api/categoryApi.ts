@@ -10,6 +10,8 @@ export interface Category {
   sort_order: number;
   show_in_appointment: boolean;
   is_active: boolean;
+  is_deleted?: boolean;
+  deleted_at?: string;
   created_at?: string;
 }
 

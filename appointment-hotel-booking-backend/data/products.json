@@ -12,7 +12,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.920Z"
+    "created_at": "2026-10-11T06:08:58.920Z",
+    "is_deleted": false
   },
   {
     "id": 54,
@@ -27,7 +28,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.912Z"
+    "created_at": "2026-10-11T06:08:58.912Z",
+    "is_deleted": false
   },
   {
     "id": 53,
@@ -42,7 +44,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.904Z"
+    "created_at": "2026-10-11T06:08:58.904Z",
+    "is_deleted": false
   },
   {
     "id": 52,
@@ -57,7 +60,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.897Z"
+    "created_at": "2026-10-11T06:08:58.897Z",
+    "is_deleted": false
   },
   {
     "id": 51,
@@ -72,7 +76,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.888Z"
+    "created_at": "2026-10-11T06:08:58.888Z",
+    "is_deleted": false
   },
   {
     "id": 50,
@@ -87,7 +92,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.882Z"
+    "created_at": "2026-10-11T06:08:58.882Z",
+    "is_deleted": false
   },
   {
     "id": 49,
@@ -102,7 +108,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.875Z"
+    "created_at": "2026-10-11T06:08:58.875Z",
+    "is_deleted": false
   },
   {
     "id": 48,
@@ -117,7 +124,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.867Z"
+    "created_at": "2026-10-11T06:08:58.867Z",
+    "is_deleted": false
   },
   {
     "id": 47,
@@ -132,7 +140,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.859Z"
+    "created_at": "2026-10-11T06:08:58.859Z",
+    "is_deleted": false
   },
   {
     "id": 46,
@@ -147,7 +156,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.849Z"
+    "created_at": "2026-10-11T06:08:58.849Z",
+    "is_deleted": false
   },
   {
     "id": 45,
@@ -162,7 +172,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.842Z"
+    "created_at": "2026-10-11T06:08:58.842Z",
+    "is_deleted": false
   },
   {
     "id": 44,
@@ -177,7 +188,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.835Z"
+    "created_at": "2026-10-11T06:08:58.835Z",
+    "is_deleted": false
   },
   {
     "id": 43,
@@ -192,7 +204,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.827Z"
+    "created_at": "2026-10-11T06:08:58.827Z",
+    "is_deleted": false
   },
   {
     "id": 42,
@@ -207,7 +220,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.820Z"
+    "created_at": "2026-10-11T06:08:58.820Z",
+    "is_deleted": false
   },
   {
     "id": 41,
@@ -222,7 +236,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.812Z"
+    "created_at": "2026-10-11T06:08:58.812Z",
+    "is_deleted": false
   },
   {
     "id": 40,
@@ -237,7 +252,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.805Z"
+    "created_at": "2026-10-11T06:08:58.805Z",
+    "is_deleted": false
   },
   {
     "id": 39,
@@ -252,7 +268,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.798Z"
+    "created_at": "2026-10-11T06:08:58.798Z",
+    "is_deleted": false
   },
   {
     "id": 38,
@@ -267,7 +284,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.790Z"
+    "created_at": "2026-10-11T06:08:58.790Z",
+    "is_deleted": false
   },
   {
     "id": 37,
@@ -282,7 +300,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.783Z"
+    "created_at": "2026-10-11T06:08:58.783Z",
+    "is_deleted": false
   },
   {
     "id": 36,
@@ -297,7 +316,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.774Z"
+    "created_at": "2026-10-11T06:08:58.774Z",
+    "is_deleted": false
   },
   {
     "id": 35,
@@ -312,7 +332,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.768Z"
+    "created_at": "2026-10-11T06:08:58.768Z",
+    "is_deleted": false
   },
   {
     "id": 34,
@@ -327,7 +348,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.761Z"
+    "created_at": "2026-10-11T06:08:58.761Z",
+    "is_deleted": false
   },
   {
     "id": 33,
@@ -342,7 +364,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.752Z"
+    "created_at": "2026-10-11T06:08:58.752Z",
+    "is_deleted": false
   },
   {
     "id": 32,
@@ -357,7 +380,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.745Z"
+    "created_at": "2026-10-11T06:08:58.745Z",
+    "is_deleted": false
   },
   {
     "id": 31,
@@ -372,7 +396,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.737Z"
+    "created_at": "2026-10-11T06:08:58.737Z",
+    "is_deleted": false
   },
   {
     "id": 30,
@@ -387,7 +412,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.730Z"
+    "created_at": "2026-10-11T06:08:58.730Z",
+    "is_deleted": false
   },
   {
     "id": 29,
@@ -402,7 +428,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.721Z"
+    "created_at": "2026-10-11T06:08:58.721Z",
+    "is_deleted": false
   },
   {
     "id": 28,
@@ -417,7 +444,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.715Z"
+    "created_at": "2026-10-11T06:08:58.715Z",
+    "is_deleted": false
   },
   {
     "id": 27,
@@ -432,7 +460,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.704Z"
+    "created_at": "2026-10-11T06:08:58.704Z",
+    "is_deleted": false
   },
   {
     "id": 26,
@@ -447,7 +476,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.697Z"
+    "created_at": "2026-10-11T06:08:58.697Z",
+    "is_deleted": false
   },
   {
     "id": 25,
@@ -462,7 +492,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.689Z"
+    "created_at": "2026-10-11T06:08:58.689Z",
+    "is_deleted": false
   },
   {
     "id": 24,
@@ -477,7 +508,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.681Z"
+    "created_at": "2026-10-11T06:08:58.681Z",
+    "is_deleted": false
   },
   {
     "id": 23,
@@ -492,7 +524,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.674Z"
+    "created_at": "2026-10-11T06:08:58.674Z",
+    "is_deleted": false
   },
   {
     "id": 22,
@@ -507,7 +540,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.667Z"
+    "created_at": "2026-10-11T06:08:58.667Z",
+    "is_deleted": false
   },
   {
     "id": 21,
@@ -522,7 +556,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.660Z"
+    "created_at": "2026-10-11T06:08:58.660Z",
+    "is_deleted": false
   },
   {
     "id": 20,
@@ -537,7 +572,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.651Z"
+    "created_at": "2026-10-11T06:08:58.651Z",
+    "is_deleted": false
   },
   {
     "id": 19,
@@ -552,7 +588,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.644Z"
+    "created_at": "2026-10-11T06:08:58.644Z",
+    "is_deleted": false
   },
   {
     "id": 18,
@@ -567,7 +604,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.637Z"
+    "created_at": "2026-10-11T06:08:58.637Z",
+    "is_deleted": false
   },
   {
     "id": 17,
@@ -582,7 +620,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.629Z"
+    "created_at": "2026-10-11T06:08:58.629Z",
+    "is_deleted": false
   },
   {
     "id": 16,
@@ -597,7 +636,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.621Z"
+    "created_at": "2026-10-11T06:08:58.621Z",
+    "is_deleted": false
   },
   {
     "id": 15,
@@ -612,7 +652,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.614Z"
+    "created_at": "2026-10-11T06:08:58.614Z",
+    "is_deleted": false
   },
   {
     "id": 14,
@@ -627,7 +668,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.607Z"
+    "created_at": "2026-10-11T06:08:58.607Z",
+    "is_deleted": false
   },
   {
     "id": 13,
@@ -642,7 +684,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.601Z"
+    "created_at": "2026-10-11T06:08:58.601Z",
+    "is_deleted": false
   },
   {
     "id": 12,
@@ -657,7 +700,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.593Z"
+    "created_at": "2026-10-11T06:08:58.593Z",
+    "is_deleted": false
   },
   {
     "id": 11,
@@ -672,7 +716,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.586Z"
+    "created_at": "2026-10-11T06:08:58.586Z",
+    "is_deleted": false
   },
   {
     "id": 10,
@@ -687,7 +732,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.567Z"
+    "created_at": "2026-10-11T06:08:58.567Z",
+    "is_deleted": false
   },
   {
     "id": 9,
@@ -702,7 +748,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.560Z"
+    "created_at": "2026-10-11T06:08:58.560Z",
+    "is_deleted": false
   },
   {
     "id": 8,
@@ -717,7 +764,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.552Z"
+    "created_at": "2026-10-11T06:08:58.552Z",
+    "is_deleted": false
   },
   {
     "id": 7,
@@ -732,7 +780,8 @@
     "combo_items": [],
     "is_active": true,
     "deleted_at": null,
-    "created_at": "2026-10-11T06:08:58.544Z"
+    "created_at": "2026-10-11T06:08:58.544Z",
+    "is_deleted": false
   },
   {
     "id": 1,
@@ -749,7 +798,8 @@
       5
     ],
     "combo_items": [],
-    "created_at": "2026-09-28T16:08:11.029Z"
+    "created_at": "2026-09-28T16:08:11.029Z",
+    "is_deleted": false
   },
   {
     "id": 2,
@@ -765,7 +815,8 @@
       4
     ],
     "combo_items": [],
-    "created_at": "2026-09-28T16:08:11.029Z"
+    "created_at": "2026-09-28T16:08:11.029Z",
+    "is_deleted": false
   },
   {
     "id": 3,
@@ -779,7 +830,8 @@
     "is_active": true,
     "modifiers": [],
     "combo_items": [],
-    "created_at": "2026-09-28T16:08:11.029Z"
+    "created_at": "2026-09-28T16:08:11.029Z",
+    "is_deleted": false
   },
   {
     "id": 4,
@@ -793,7 +845,8 @@
     "is_active": true,
     "modifiers": [],
     "combo_items": [],
-    "created_at": "2026-09-28T16:08:11.029Z"
+    "created_at": "2026-09-28T16:08:11.029Z",
+    "is_deleted": false
   },
   {
     "id": 5,
@@ -807,7 +860,8 @@
     "is_active": true,
     "modifiers": [],
     "combo_items": [],
-    "created_at": "2026-09-28T16:08:11.029Z"
+    "created_at": "2026-09-28T16:08:11.029Z",
+    "is_deleted": false
   },
   {
     "id": 6,
@@ -837,6 +891,7 @@
         "name": "Aroma Therapy & Herbal Paw Balm"
       }
     ],
-    "created_at": "2026-09-28T16:08:11.029Z"
+    "created_at": "2026-09-28T16:08:11.029Z",
+    "is_deleted": false
   }
 ]

@@ -19,6 +19,8 @@ export interface Product {
   modifiers: number[];
   combo_items: ComboItem[];
   is_active: boolean;
+  is_deleted?: boolean;
+  deleted_at?: string;
   created_at?: string;
 }
 

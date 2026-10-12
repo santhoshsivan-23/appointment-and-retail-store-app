@@ -71,7 +71,8 @@ export default function CategoriesView() {
     setIsLoading(true);
     try {
       const res = await categoryApi.getAll();
-      setCategories(res.data?.data ?? []);
+      const rawList = res.data?.data ?? [];
+      setCategories(rawList.filter((c) => !c.is_deleted && c.is_active !== false));
     } catch {
       toast.error('Failed to load categories');
     } finally {

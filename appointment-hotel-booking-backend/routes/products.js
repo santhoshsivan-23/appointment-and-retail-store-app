@@ -143,12 +143,23 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete product
+// Delete product (Soft delete)
 router.delete('/:id', async (req, res) => {
   try {
     const ok = await deleteProduct(req.params.id);
     if (!ok) return res.status(404).json({ success: false, message: 'Product not found' });
     res.json({ success: true, message: 'Product deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Soft delete product (patch alias)
+router.patch('/:id/soft-delete', async (req, res) => {
+  try {
+    const ok = await deleteProduct(req.params.id);
+    if (!ok) return res.status(404).json({ success: false, message: 'Product not found' });
+    res.json({ success: true, message: 'Product soft deleted successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

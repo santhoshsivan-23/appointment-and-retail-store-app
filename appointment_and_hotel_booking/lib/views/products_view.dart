@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/category_model.dart';
 import '../models/product_model.dart';
 import '../services/api_service.dart';
+import '../services/sqlite_service.dart';
 import '../theme/app_theme.dart';
 
 class ProductsView extends StatefulWidget {
@@ -16,6 +17,8 @@ class _ProductsViewState extends State<ProductsView> {
   List<ProductModel> _products = [];
   List<CategoryModel> _categories = [];
   bool _isLoading = true;
+  bool _isSyncing = false;
+  int _localDbCount = 0;
 
   String _selectedType = 'all'; // 'all', 'normal', 'modifier', 'combo'
   int? _selectedCategoryId;
@@ -34,38 +37,110 @@ class _ProductsViewState extends State<ProductsView> {
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool syncLocal = true}) async {
     setState(() => _isLoading = true);
     final cats = await ApiService.getCategories();
-    final prods = await ApiService.getProducts(
-      categoryId: _selectedCategoryId,
-      productType: _selectedType == 'all' ? null : _selectedType,
-      search: _searchQuery,
-    );
+    List<ProductModel> prods = [];
+
+    try {
+      prods = await ApiService.getProducts(
+        categoryId: _selectedCategoryId,
+        productType: _selectedType == 'all' ? null : _selectedType,
+        search: _searchQuery,
+      );
+
+      // On full unfiltered load, ensure SQLite has latest product catalog
+      if (syncLocal && _selectedCategoryId == null && _selectedType == 'all' && _searchQuery.isEmpty) {
+        await SqliteService.syncProducts(prods);
+      }
+    } catch (_) {
+      // Offline fallback: load from SQLite if API is unavailable
+      final localAll = await SqliteService.getActiveProducts();
+      prods = localAll.where((p) {
+        if (_selectedCategoryId != null && p.categoryId != _selectedCategoryId) return false;
+        if (_selectedType != 'all' && p.productType != _selectedType) return false;
+        if (_searchQuery.isNotEmpty) {
+          final q = _searchQuery.toLowerCase();
+          return p.name.toLowerCase().contains(q) || p.sku.toLowerCase().contains(q) || p.description.toLowerCase().contains(q);
+        }
+        return true;
+      }).toList();
+    }
+
+    final localCount = await SqliteService.getActiveProductsCount();
+
     if (!mounted) return;
     setState(() {
       _categories = cats;
       _products = prods;
+      _localDbCount = localCount;
       _isLoading = false;
     });
   }
 
-  void _showAddProductModal() {
-    final nameCtrl = TextEditingController();
-    final skuCtrl = TextEditingController(text: 'PRD-${DateTime.now().millisecondsSinceEpoch % 1000}');
-    final priceCtrl = TextEditingController(text: '25.00');
-    final descCtrl = TextEditingController();
-    String prodType = 'normal';
-    int? catId = _categories.isNotEmpty ? _categories.first.id : null;
+  /// Synchronize product data between Product API and local SQLite database
+  Future<void> _syncProductsWithSqlite({bool showFeedback = true}) async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    try {
+      // 1. Fetch all products from API (source of truth)
+      final apiProducts = await ApiService.getProducts();
+      // 2. Store or update retrieved product data in SQLite
+      final count = await SqliteService.syncProducts(apiProducts);
+      final totalLocal = await SqliteService.getActiveProductsCount();
+
+      if (!mounted) return;
+      setState(() {
+        _localDbCount = totalLocal;
+      });
+
+      await _loadData(syncLocal: false);
+
+      if (mounted && showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully synchronized $count products to SQLite database.'),
+            backgroundColor: AppTheme.secondary,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted && showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to synchronize products with SQLite: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
+  }
+
+  void _showAddEditProductModal({ProductModel? existing}) {
+    final activeCategories = _categories.where((c) => !c.isDeleted && c.isActive).toList();
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final skuCtrl = TextEditingController(text: existing?.sku.isNotEmpty == true ? existing!.sku : 'PRD-${DateTime.now().millisecondsSinceEpoch % 1000}');
+    final priceCtrl = TextEditingController(text: existing != null ? existing.price.toStringAsFixed(2) : '25.00');
+    final descCtrl = TextEditingController(text: existing?.description ?? '');
+    String prodType = existing?.productType ?? 'normal';
+    int? catId;
+    if (existing?.categoryId != null && activeCategories.any((c) => c.id == existing!.categoryId)) {
+      catId = existing!.categoryId;
+    } else if (activeCategories.isNotEmpty) {
+      catId = activeCategories.first.id;
+    }
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
+        builder: (dialogCtx, setModalState) => AlertDialog(
           backgroundColor: AppTheme.surfaceContainerLowest,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(
-            'Create New Product / Service',
+            existing == null ? 'Create New Product / Service' : 'Edit Product / Service',
             style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 18),
           ),
           content: SizedBox(
@@ -118,11 +193,11 @@ class _ProductsViewState extends State<ProductsView> {
                   const SizedBox(height: 12),
 
                   // Category Selector
-                  if (_categories.isNotEmpty) ...[
+                  if (activeCategories.isNotEmpty) ...[
                     DropdownButtonFormField<int>(
                       initialValue: catId,
                       decoration: const InputDecoration(labelText: 'Assign Category *'),
-                      items: _categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                      items: activeCategories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
                       onChanged: (v) => setModalState(() => catId = v),
                     ),
                     const SizedBox(height: 12),
@@ -144,17 +219,59 @@ class _ProductsViewState extends State<ProductsView> {
               onPressed: () async {
                 if (nameCtrl.text.trim().isEmpty) return;
                 Navigator.pop(ctx);
-                await ApiService.createProduct({
+                setState(() => _isLoading = true);
+
+                final payload = {
                   'name': nameCtrl.text.trim(),
                   'product_type': prodType,
                   'price': double.tryParse(priceCtrl.text) ?? 0.0,
                   'sku': skuCtrl.text.trim(),
                   'category_id': catId,
                   'description': descCtrl.text.trim(),
-                });
-                _loadData();
+                };
+
+                bool apiSuccess = false;
+                if (existing == null) {
+                  // Rule 2: Add New Product - send to API first
+                  apiSuccess = await ApiService.createProduct(payload);
+                } else {
+                  // Rule 3: Edit Existing Product - send to Update API first
+                  apiSuccess = await ApiService.updateProduct(existing.id, payload);
+                }
+
+                if (apiSuccess) {
+                  // After API succeeds, call Product API again to fetch latest product list
+                  final allProducts = await ApiService.getProducts();
+                  // Store or synchronize latest product data in SQLite
+                  await SqliteService.syncProducts(allProducts);
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(existing == null
+                            ? 'Product created and synchronized with SQLite.'
+                            : 'Product updated and synchronized with SQLite.'),
+                        backgroundColor: AppTheme.secondary,
+                      ),
+                    );
+                  }
+                  await _loadData(syncLocal: false);
+                } else {
+                  // Rule 5: If API fails, do NOT update SQLite or treat as success
+                  if (mounted) {
+                    setState(() => _isLoading = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(existing == null
+                            ? 'Failed to create product on server. SQLite was not modified.'
+                            : 'Failed to update product on server. SQLite was not modified.'),
+                        backgroundColor: AppTheme.error,
+                      ),
+                    );
+                  }
+                }
               },
-              child: const Text('Save Product'),
+              child: Text(existing == null ? 'Save Product' : 'Save Changes'),
             ),
           ],
         ),
@@ -196,8 +313,37 @@ class _ProductsViewState extends State<ProductsView> {
     );
 
     if (ok == true) {
-      await ApiService.deleteProduct(prod.id);
-      _loadData();
+      setState(() => _isLoading = true);
+      // Rule 4: Send request to Delete Product API first
+      final apiSuccess = await ApiService.deleteProduct(prod.id);
+
+      if (apiSuccess) {
+        // After API successfully processes deletion, call Product API again
+        final allProducts = await ApiService.getProducts();
+        // Synchronize SQLite with latest API response
+        await SqliteService.syncProducts(allProducts);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Product "${prod.name}" deleted and SQLite synchronized.'),
+              backgroundColor: AppTheme.secondary,
+            ),
+          );
+        }
+        await _loadData(syncLocal: false);
+      } else {
+        // If API fails, do NOT update SQLite
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to delete "${prod.name}" on server. SQLite was not modified.'),
+              backgroundColor: AppTheme.error,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -247,7 +393,33 @@ class _ProductsViewState extends State<ProductsView> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
+
+                // Update Product Button (Synchronizes with SQLite)
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.secondary,
+                    side: BorderSide(color: AppTheme.secondary.withValues(alpha: 0.6), width: 1.5),
+                    backgroundColor: AppTheme.secondaryContainer.withValues(alpha: 0.15),
+                    minimumSize: const Size(160, 48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  icon: _isSyncing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.secondary),
+                        )
+                      : const Icon(Icons.sync, size: 20),
+                  label: Text(
+                    _isSyncing ? 'Syncing...' : 'Update Product',
+                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: _isSyncing ? null : () => _syncProductsWithSqlite(showFeedback: true),
+                ),
+                const SizedBox(width: 12),
+
+                // New Product Button
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primary,
@@ -257,7 +429,7 @@ class _ProductsViewState extends State<ProductsView> {
                   ),
                   icon: const Icon(Icons.add_box_outlined, size: 20),
                   label: Text('New Product', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
-                  onPressed: _showAddProductModal,
+                  onPressed: () => _showAddEditProductModal(),
                 ),
               ],
             ),
@@ -279,10 +451,30 @@ class _ProductsViewState extends State<ProductsView> {
                   Container(height: 24, width: 1, color: AppTheme.outlineVariant.withValues(alpha: 0.5)),
                   const SizedBox(width: 16),
                   _buildCategoryChip(null, 'All Categories'),
-                  ..._categories.map((c) => Padding(
+                  ..._categories.where((c) => !c.isDeleted && c.isActive).map((c) => Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: _buildCategoryChip(c.id, c.name),
                       )),
+                  const SizedBox(width: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.storage_outlined, size: 14, color: AppTheme.secondary),
+                        const SizedBox(width: 5),
+                        Text(
+                          'SQLite: $_localDbCount items',
+                          style: GoogleFonts.inter(fontSize: 11.5, color: AppTheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -410,9 +602,20 @@ class _ProductsViewState extends State<ProductsView> {
                   style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: typeColor),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.error),
-                onPressed: () => _deleteProduct(prod),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primary),
+                    tooltip: 'Edit product',
+                    onPressed: () => _showAddEditProductModal(existing: prod),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.error),
+                    tooltip: 'Delete product',
+                    onPressed: () => _deleteProduct(prod),
+                  ),
+                ],
               ),
             ],
           ),
