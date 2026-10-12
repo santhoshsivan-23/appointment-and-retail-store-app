@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'refund_model.dart';
 
 class AppointmentModel {
   final int id;
@@ -16,6 +17,9 @@ class AppointmentModel {
   final List<Map<String, dynamic>> services;
   final String notes;
   final DateTime? createdAt;
+  final String refundStatus; // 'none', 'partial', 'full'
+  final double refundedAmount;
+  final List<RefundRecordModel> refunds;
 
   AppointmentModel({
     required this.id,
@@ -33,6 +37,9 @@ class AppointmentModel {
     this.services = const [],
     this.notes = '',
     this.createdAt,
+    this.refundStatus = 'none',
+    this.refundedAmount = 0.0,
+    this.refunds = const [],
   });
 
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
@@ -50,6 +57,24 @@ class AppointmentModel {
           if (decoded is List) {
             svcList = decoded
                 .map((e) => Map<String, dynamic>.from(e as Map))
+                .toList();
+          }
+        } catch (_) {}
+      }
+    }
+
+    List<RefundRecordModel> refundList = [];
+    if (json['refunds'] != null) {
+      if (json['refunds'] is List) {
+        refundList = (json['refunds'] as List)
+            .map((e) => RefundRecordModel.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+      } else if (json['refunds'] is String) {
+        try {
+          final decoded = jsonDecode(json['refunds']);
+          if (decoded is List) {
+            refundList = decoded
+                .map((e) => RefundRecordModel.fromJson(Map<String, dynamic>.from(e as Map)))
                 .toList();
           }
         } catch (_) {}
@@ -104,6 +129,9 @@ class AppointmentModel {
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
+      refundStatus: (json['refund_status'] ?? 'none').toString(),
+      refundedAmount: double.tryParse(json['refunded_amount']?.toString() ?? '0') ?? 0.0,
+      refunds: refundList,
     );
   }
 
@@ -122,6 +150,9 @@ class AppointmentModel {
       'total_amount': totalAmount,
       'services': services,
       'notes': notes,
+      'refund_status': refundStatus,
+      'refunded_amount': refundedAmount,
+      'refunds': refunds.map((e) => e.toJson()).toList(),
     };
   }
 

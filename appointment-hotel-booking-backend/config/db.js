@@ -15,6 +15,7 @@ const jsonFiles = {
   products: path.join(dataDir, 'products.json'),
   appointments: path.join(dataDir, 'appointments.json'),
   sales: path.join(dataDir, 'sales.json'),
+  refunds: path.join(dataDir, 'refunds.json'),
   settings: path.join(dataDir, 'settings.json'),
 };
 
@@ -568,6 +569,26 @@ async function initDatabase() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY unique_business (business_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS refunds (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        refund_receipt_number VARCHAR(100) NOT NULL UNIQUE,
+        business_id INT NOT NULL DEFAULT 1,
+        sale_id INT NULL,
+        appointment_id INT NULL,
+        refund_type ENUM('partial', 'full') NOT NULL DEFAULT 'partial',
+        subtotal_refunded DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        discount_reversed_total DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        gst_reversed_total DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        total_refund_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        refund_method VARCHAR(50) NOT NULL DEFAULT 'cash',
+        reason VARCHAR(255) DEFAULT '',
+        notes TEXT,
+        items JSON NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_sale (sale_id),
+        INDEX idx_appointment (appointment_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `;
 
     // Run each statement
@@ -598,6 +619,22 @@ async function initDatabase() {
 
     try {
       await pool.query('ALTER TABLE settings ADD COLUMN appointment_v2_clock BOOLEAN DEFAULT TRUE');
+    } catch (_) {}
+
+    try {
+      await pool.query("ALTER TABLE sales ADD COLUMN refund_status ENUM('none', 'partial', 'full') DEFAULT 'none'");
+    } catch (_) {}
+
+    try {
+      await pool.query('ALTER TABLE sales ADD COLUMN refunded_amount DECIMAL(10, 2) DEFAULT 0.00');
+    } catch (_) {}
+
+    try {
+      await pool.query("ALTER TABLE appointments ADD COLUMN refund_status ENUM('none', 'partial', 'full') DEFAULT 'none'");
+    } catch (_) {}
+
+    try {
+      await pool.query('ALTER TABLE appointments ADD COLUMN refunded_amount DECIMAL(10, 2) DEFAULT 0.00');
     } catch (_) {}
 
     try {
@@ -1329,11 +1366,38 @@ async function getAppointments(date = null, staffId = null, search = null, statu
         query += ' ORDER BY a.appointment_date DESC, a.start_time DESC';
       }
       const [rows] = await pool.query(query, params);
+
+      let allRefunds = [];
+      try {
+        const [refRows] = await pool.query('SELECT * FROM refunds ORDER BY created_at ASC');
+        allRefunds = refRows.map((rf) => {
+          if (rf.items && typeof rf.items === 'string') {
+            try { rf.items = JSON.parse(rf.items); } catch (_) { rf.items = []; }
+          }
+          return rf;
+        });
+      } catch (_) {}
+
+      const refundsByAppt = {};
+      allRefunds.forEach((rf) => {
+        if (rf.appointment_id) {
+          if (!refundsByAppt[rf.appointment_id]) refundsByAppt[rf.appointment_id] = [];
+          refundsByAppt[rf.appointment_id].push(rf);
+        }
+      });
+
       return rows.map((r) => {
         if (r.services && typeof r.services === 'string') {
           try { r.services = JSON.parse(r.services); } catch (_) { r.services = []; }
         }
-        return r;
+        const aRefunds = refundsByAppt[r.id] || [];
+        const totalRefunded = aRefunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+        return {
+          ...r,
+          refunds: aRefunds,
+          refunded_amount: Number(r.refunded_amount) || totalRefunded,
+          refund_status: r.refund_status || (aRefunds.length > 0 ? (totalRefunded >= Number(r.total_amount) ? 'full' : 'partial') : 'none'),
+        };
       });
     } catch (e) {
       console.error(e);
@@ -1345,10 +1409,26 @@ async function getAppointments(date = null, staffId = null, search = null, statu
   const staffMap = {};
   staffList.forEach((st) => { staffMap[String(st.id)] = st.name; });
 
-  list = list.map((a) => ({
-    ...a,
-    staff_name: a.staff_name || staffMap[String(a.staff_id)] || '',
-  }));
+  const allRefundsFallback = readJson('refunds');
+  const refundsByApptFallback = {};
+  allRefundsFallback.forEach((rf) => {
+    if (rf.appointment_id) {
+      if (!refundsByApptFallback[rf.appointment_id]) refundsByApptFallback[rf.appointment_id] = [];
+      refundsByApptFallback[rf.appointment_id].push(rf);
+    }
+  });
+
+  list = list.map((a) => {
+    const aRefunds = refundsByApptFallback[a.id] || [];
+    const totalRefunded = aRefunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+    return {
+      ...a,
+      staff_name: a.staff_name || staffMap[String(a.staff_id)] || '',
+      refunds: aRefunds,
+      refunded_amount: Number(a.refunded_amount) || totalRefunded,
+      refund_status: a.refund_status || (aRefunds.length > 0 ? (totalRefunded >= Number(a.total_amount) ? 'full' : 'partial') : 'none'),
+    };
+  });
 
   if (date) {
     list = list.filter((a) => a.appointment_date === date);
@@ -1382,16 +1462,39 @@ async function getAppointmentById(id) {
   if (!useFallback && pool) {
     try {
       const [rows] = await pool.query('SELECT * FROM appointments WHERE id = ?', [id]);
-      if (rows[0] && rows[0].services && typeof rows[0].services === 'string') {
-        try { rows[0].services = JSON.parse(rows[0].services); } catch (_) { rows[0].services = []; }
+      if (!rows[0]) return null;
+      const appt = rows[0];
+      if (appt.services && typeof appt.services === 'string') {
+        try { appt.services = JSON.parse(appt.services); } catch (_) { appt.services = []; }
       }
-      return rows[0] || null;
+      try {
+        const [refRows] = await pool.query('SELECT * FROM refunds WHERE appointment_id = ? ORDER BY created_at ASC', [id]);
+        appt.refunds = refRows.map((rf) => {
+          if (rf.items && typeof rf.items === 'string') {
+            try { rf.items = JSON.parse(rf.items); } catch (_) { rf.items = []; }
+          }
+          return rf;
+        });
+      } catch (_) {
+        appt.refunds = [];
+      }
+      const totalRefunded = appt.refunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+      appt.refunded_amount = Number(appt.refunded_amount) || totalRefunded;
+      appt.refund_status = appt.refund_status || (appt.refunds.length > 0 ? (totalRefunded >= Number(appt.total_amount) ? 'full' : 'partial') : 'none');
+      return appt;
     } catch (e) {
       console.error(e);
     }
   }
   const list = readJson('appointments');
-  return list.find((a) => String(a.id) === String(id)) || null;
+  const appt = list.find((a) => String(a.id) === String(id)) || null;
+  if (!appt) return null;
+  const allRefundsFallback = readJson('refunds');
+  appt.refunds = allRefundsFallback.filter((rf) => String(rf.appointment_id) === String(id));
+  const totalRefunded = appt.refunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+  appt.refunded_amount = Number(appt.refunded_amount) || totalRefunded;
+  appt.refund_status = appt.refund_status || (appt.refunds.length > 0 ? (totalRefunded >= Number(appt.total_amount) ? 'full' : 'partial') : 'none');
+  return appt;
 }
 
 async function getAppointmentStats(date = null) {
@@ -1582,11 +1685,38 @@ async function getSales(filters = {}) {
       if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
       sql += ' ORDER BY sales.created_at DESC';
       const [rows] = await pool.query(sql, values);
+
+      let allRefunds = [];
+      try {
+        const [refRows] = await pool.query('SELECT * FROM refunds ORDER BY created_at ASC');
+        allRefunds = refRows.map((rf) => {
+          if (rf.items && typeof rf.items === 'string') {
+            try { rf.items = JSON.parse(rf.items); } catch (_) { rf.items = []; }
+          }
+          return rf;
+        });
+      } catch (_) {}
+
+      const refundsBySale = {};
+      allRefunds.forEach((rf) => {
+        if (rf.sale_id) {
+          if (!refundsBySale[rf.sale_id]) refundsBySale[rf.sale_id] = [];
+          refundsBySale[rf.sale_id].push(rf);
+        }
+      });
+
       return rows.map((r) => {
         if (r.items && typeof r.items === 'string') {
           try { r.items = JSON.parse(r.items); } catch (_) { r.items = []; }
         }
-        return r;
+        const sRefunds = refundsBySale[r.id] || [];
+        const totalRefunded = sRefunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+        return {
+          ...r,
+          refunds: sRefunds,
+          refunded_amount: Number(r.refunded_amount) || totalRefunded,
+          refund_status: r.refund_status || (sRefunds.length > 0 ? (totalRefunded >= Number(r.total_amount) ? 'full' : 'partial') : 'none'),
+        };
       });
     } catch (e) {
       console.error(e);
@@ -1597,10 +1727,26 @@ async function getSales(filters = {}) {
   const staffMap = {};
   staffList.forEach((st) => { staffMap[String(st.id)] = st.name; });
 
-  list = list.map((s) => ({
-    ...s,
-    staff_name: s.staff_name || staffMap[String(s.staff_id)] || '',
-  }));
+  const allRefundsFallback = readJson('refunds');
+  const refundsBySaleFallback = {};
+  allRefundsFallback.forEach((rf) => {
+    if (rf.sale_id) {
+      if (!refundsBySaleFallback[rf.sale_id]) refundsBySaleFallback[rf.sale_id] = [];
+      refundsBySaleFallback[rf.sale_id].push(rf);
+    }
+  });
+
+  list = list.map((s) => {
+    const sRefunds = refundsBySaleFallback[s.id] || [];
+    const totalRefunded = sRefunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+    return {
+      ...s,
+      staff_name: s.staff_name || staffMap[String(s.staff_id)] || '',
+      refunds: sRefunds,
+      refunded_amount: Number(s.refunded_amount) || totalRefunded,
+      refund_status: s.refund_status || (sRefunds.length > 0 ? (totalRefunded >= Number(s.total_amount) ? 'full' : 'partial') : 'none'),
+    };
+  });
 
   if (filters.appointment_id) {
     list = list.filter((s) => String(s.appointment_id) === String(filters.appointment_id));
@@ -1624,16 +1770,39 @@ async function getSaleById(id) {
   if (!useFallback && pool) {
     try {
       const [rows] = await pool.query('SELECT * FROM sales WHERE id = ?', [id]);
-      if (rows[0] && rows[0].items && typeof rows[0].items === 'string') {
-        rows[0].items = JSON.parse(rows[0].items);
+      if (!rows[0]) return null;
+      const s = rows[0];
+      if (s.items && typeof s.items === 'string') {
+        try { s.items = JSON.parse(s.items); } catch (_) { s.items = []; }
       }
-      return rows[0] || null;
+      try {
+        const [refRows] = await pool.query('SELECT * FROM refunds WHERE sale_id = ? ORDER BY created_at ASC', [id]);
+        s.refunds = refRows.map((rf) => {
+          if (rf.items && typeof rf.items === 'string') {
+            try { rf.items = JSON.parse(rf.items); } catch (_) { rf.items = []; }
+          }
+          return rf;
+        });
+      } catch (_) {
+        s.refunds = [];
+      }
+      const totalRefunded = s.refunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+      s.refunded_amount = Number(s.refunded_amount) || totalRefunded;
+      s.refund_status = s.refund_status || (s.refunds.length > 0 ? (totalRefunded >= Number(s.total_amount) ? 'full' : 'partial') : 'none');
+      return s;
     } catch (e) {
       console.error(e);
     }
   }
   const list = readJson('sales');
-  return list.find((s) => String(s.id) === String(id)) || null;
+  const s = list.find((item) => String(item.id) === String(id)) || null;
+  if (!s) return null;
+  const allRefundsFallback = readJson('refunds');
+  s.refunds = allRefundsFallback.filter((rf) => String(rf.sale_id) === String(id));
+  const totalRefunded = s.refunds.reduce((acc, rf) => acc + (Number(rf.total_refund_amount) || 0), 0);
+  s.refunded_amount = Number(s.refunded_amount) || totalRefunded;
+  s.refund_status = s.refund_status || (s.refunds.length > 0 ? (totalRefunded >= Number(s.total_amount) ? 'full' : 'partial') : 'none');
+  return s;
 }
 
 async function createSale(data) {
@@ -1705,6 +1874,437 @@ async function createSale(data) {
   list.push(sale);
   writeJson('sales', list);
   return sale;
+}
+
+// =================== Refund Calculations & Operations ===================
+function calculateRefundDetails(originalTransaction, refundItems, existingRefunds = []) {
+  const prevRefundedMap = {};
+  let totalPrevRefundAmount = 0;
+  for (const ref of existingRefunds) {
+    totalPrevRefundAmount += Number(ref.total_refund_amount) || 0;
+    if (Array.isArray(ref.items)) {
+      for (const it of ref.items) {
+        const key = String(it.product_id || it.product_name);
+        prevRefundedMap[key] = (prevRefundedMap[key] || 0) + (Number(it.quantity) || 0);
+      }
+    }
+  }
+
+  const origItems = originalTransaction.items || originalTransaction.services || [];
+  const origSubtotal = Number(originalTransaction.subtotal) ||
+    origItems.reduce((acc, it) => acc + (Number(it.unit_price !== undefined ? it.unit_price : it.price) || 0) * (Number(it.quantity) || 1), 0);
+  const origItemDiscount = Number(originalTransaction.item_discount_total) || 0;
+  const origOverallDiscount = Number(originalTransaction.overall_discount) || 0;
+  const origTaxAmount = Number(originalTransaction.tax_amount) || 0;
+  const origTotalAmount = Number(originalTransaction.total_amount) || 0;
+
+  const netItemsTotal = Math.max(0, origSubtotal - origItemDiscount);
+  const overallDiscountRatio = netItemsTotal > 0 ? (origOverallDiscount / netItemsTotal) : 0;
+  const origTaxable = Math.max(0, netItemsTotal - origOverallDiscount);
+  const taxRate = origTaxable > 0 ? (origTaxAmount / origTaxable) : (origTaxAmount > 0 ? 0.08 : 0);
+
+  let subtotalRefunded = 0;
+  let lineDiscountReversedTotal = 0;
+  const processedRefundItems = [];
+
+  for (const reqItem of refundItems) {
+    const qtyToRefund = Number(reqItem.quantity) || 0;
+    if (qtyToRefund <= 0) continue;
+
+    const orig = origItems.find((it) =>
+      (reqItem.product_id && (it.product_id === reqItem.product_id || it.id === reqItem.product_id)) ||
+      (it.product_name && (it.product_name === reqItem.product_name || it.product_name === reqItem.name)) ||
+      (it.name && (it.name === reqItem.product_name || it.name === reqItem.name))
+    );
+
+    if (!orig) {
+      throw new Error(`Item "${reqItem.product_name || reqItem.product_id}" not found in original transaction.`);
+    }
+
+    const origQty = Number(orig.quantity) || 1;
+    const unitPrice = Number(orig.unit_price !== undefined ? orig.unit_price : orig.price) || 0;
+    const origLineDiscount = Number(orig.discount) || 0;
+    const key = String(orig.product_id || orig.id || orig.product_name || orig.name);
+    const prevQty = prevRefundedMap[key] || 0;
+    const maxRefundable = origQty - prevQty;
+
+    if (qtyToRefund > maxRefundable) {
+      throw new Error(`Cannot refund ${qtyToRefund} × "${orig.product_name || orig.name}". Only ${maxRefundable} remaining.`);
+    }
+
+    const itemBaseGross = qtyToRefund * unitPrice;
+    const unitLineDiscount = origQty > 0 ? (origLineDiscount / origQty) : 0;
+    const itemLineDiscountReversal = qtyToRefund * unitLineDiscount;
+    const itemNetBeforeOverall = Math.max(0, itemBaseGross - itemLineDiscountReversal);
+
+    const itemOverallDiscountReversal = itemNetBeforeOverall * overallDiscountRatio;
+    const itemTaxable = Math.max(0, itemNetBeforeOverall - itemOverallDiscountReversal);
+    const itemGstReversal = Math.round((itemTaxable * taxRate) * 100) / 100;
+    const itemRefundTotal = Math.round((itemTaxable + itemGstReversal) * 100) / 100;
+
+    subtotalRefunded += itemBaseGross;
+    lineDiscountReversedTotal += itemLineDiscountReversal;
+
+    processedRefundItems.push({
+      product_id: orig.product_id || orig.id || null,
+      product_name: orig.product_name || orig.name || 'Item',
+      unit_price: unitPrice,
+      quantity: qtyToRefund,
+      original_quantity: origQty,
+      previously_refunded: prevQty,
+      remaining_quantity: origQty - prevQty - qtyToRefund,
+      line_discount_reversed: Math.round(itemLineDiscountReversal * 100) / 100,
+      overall_discount_reversed: Math.round(itemOverallDiscountReversal * 100) / 100,
+      total_discount_reversed: Math.round((itemLineDiscountReversal + itemOverallDiscountReversal) * 100) / 100,
+      gst_reversed: itemGstReversal,
+      refund_amount: itemRefundTotal,
+    });
+  }
+
+  if (processedRefundItems.length === 0) {
+    throw new Error('Please select at least one item and quantity to refund.');
+  }
+
+  const selectedNetLineSum = Math.max(0, subtotalRefunded - lineDiscountReversedTotal);
+  const overallDiscountReversedTotal = selectedNetLineSum * overallDiscountRatio;
+  const totalDiscountReversed = Math.round((lineDiscountReversedTotal + overallDiscountReversedTotal) * 100) / 100;
+  const taxableRefund = Math.max(0, selectedNetLineSum - overallDiscountReversedTotal);
+  const gstReversedTotal = Math.round((taxableRefund * taxRate) * 100) / 100;
+  let totalRefundAmount = Math.round((taxableRefund + gstReversedTotal) * 100) / 100;
+
+  // Determine if this results in full refund of all items
+  let isAllItemsFullyRefunded = true;
+  for (const orig of origItems) {
+    const origQty = Number(orig.quantity) || 1;
+    const key = String(orig.product_id || orig.id || orig.product_name || orig.name);
+    const prevQty = prevRefundedMap[key] || 0;
+    const currentRefItem = processedRefundItems.find((p) => String(p.product_id || p.product_name) === key);
+    const thisRefQty = currentRefItem ? currentRefItem.quantity : 0;
+    if (prevQty + thisRefQty < origQty) {
+      isAllItemsFullyRefunded = false;
+      break;
+    }
+  }
+
+  // Exact matching for full refund to eliminate 1-cent drift
+  if (isAllItemsFullyRefunded) {
+    const remainingPaidBalance = Math.round((origTotalAmount - totalPrevRefundAmount) * 100) / 100;
+    if (remainingPaidBalance > 0) {
+      totalRefundAmount = remainingPaidBalance;
+    }
+  }
+
+  // Strict boundary cap
+  if (totalPrevRefundAmount + totalRefundAmount > origTotalAmount + 0.01) {
+    totalRefundAmount = Math.max(0, Math.round((origTotalAmount - totalPrevRefundAmount) * 100) / 100);
+  }
+
+  return {
+    subtotal_refunded: Math.round(subtotalRefunded * 100) / 100,
+    discount_reversed_total: totalDiscountReversed,
+    gst_reversed_total: gstReversedTotal,
+    total_refund_amount: totalRefundAmount,
+    items: processedRefundItems,
+    is_fully_refunded: isAllItemsFullyRefunded,
+    refund_type: isAllItemsFullyRefunded ? 'full' : 'partial',
+  };
+}
+
+async function getSaleRefunds(saleId) {
+  if (!useFallback && pool) {
+    try {
+      const [rows] = await pool.query('SELECT * FROM refunds WHERE sale_id = ? ORDER BY created_at ASC', [saleId]);
+      return rows.map((r) => {
+        if (r.items && typeof r.items === 'string') {
+          try { r.items = JSON.parse(r.items); } catch (_) { r.items = []; }
+        }
+        return r;
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  const allRefunds = readJson('refunds');
+  return allRefunds.filter((r) => String(r.sale_id) === String(saleId));
+}
+
+async function getAppointmentRefunds(appointmentId) {
+  if (!useFallback && pool) {
+    try {
+      const [rows] = await pool.query('SELECT * FROM refunds WHERE appointment_id = ? ORDER BY created_at ASC', [appointmentId]);
+      return rows.map((r) => {
+        if (r.items && typeof r.items === 'string') {
+          try { r.items = JSON.parse(r.items); } catch (_) { r.items = []; }
+        }
+        return r;
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  const allRefunds = readJson('refunds');
+  return allRefunds.filter((r) => String(r.appointment_id) === String(appointmentId));
+}
+
+async function createSaleRefund({ sale_id, items, reason, notes, refund_method }) {
+  const sale = await getSaleById(sale_id);
+  if (!sale) {
+    throw new Error('Sale not found.');
+  }
+
+  const existingRefunds = await getSaleRefunds(sale_id);
+  const calc = calculateRefundDetails(sale, items, existingRefunds);
+
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const refundReceiptNumber = `#REF-${yyyy}${mm}${dd}-${sale.id}-${randomSuffix}`;
+
+  const prevRefunded = existingRefunds.reduce((sum, rf) => sum + (Number(rf.total_refund_amount) || 0), 0);
+  const newRefundedAmount = Math.round((prevRefunded + calc.total_refund_amount) * 100) / 100;
+  const newStatus = calc.is_fully_refunded ? 'full' : 'partial';
+
+  let refundRecord;
+
+  if (!useFallback && pool) {
+    try {
+      const insertSql = `
+        INSERT INTO refunds
+        (refund_receipt_number, business_id, sale_id, appointment_id, refund_type,
+         subtotal_refunded, discount_reversed_total, gst_reversed_total, total_refund_amount,
+         refund_method, reason, notes, items)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const [res] = await pool.query(insertSql, [
+        refundReceiptNumber,
+        sale.business_id || 1,
+        sale.id,
+        sale.appointment_id || null,
+        calc.refund_type,
+        calc.subtotal_refunded,
+        calc.discount_reversed_total,
+        calc.gst_reversed_total,
+        calc.total_refund_amount,
+        refund_method || sale.payment_method || 'cash',
+        reason || '',
+        notes || '',
+        JSON.stringify(calc.items),
+      ]);
+
+      await pool.query(
+        'UPDATE sales SET refund_status = ?, refunded_amount = ? WHERE id = ?',
+        [newStatus, newRefundedAmount, sale.id]
+      );
+
+      if (sale.appointment_id) {
+        await pool.query(
+          'UPDATE appointments SET refund_status = ?, refunded_amount = ? WHERE id = ?',
+          [newStatus, newRefundedAmount, sale.appointment_id]
+        );
+      }
+
+      refundRecord = {
+        id: res.insertId,
+        refund_receipt_number: refundReceiptNumber,
+        business_id: sale.business_id || 1,
+        sale_id: sale.id,
+        appointment_id: sale.appointment_id || null,
+        refund_type: calc.refund_type,
+        subtotal_refunded: calc.subtotal_refunded,
+        discount_reversed_total: calc.discount_reversed_total,
+        gst_reversed_total: calc.gst_reversed_total,
+        total_refund_amount: calc.total_refund_amount,
+        refund_method: refund_method || sale.payment_method || 'cash',
+        reason: reason || '',
+        notes: notes || '',
+        items: calc.items,
+        created_at: now.toISOString(),
+      };
+    } catch (e) {
+      console.error('Error inserting refund in MySQL:', e);
+      throw e;
+    }
+  } else {
+    const refundsList = readJson('refunds');
+    const newId = refundsList.length > 0 ? Math.max(...refundsList.map((r) => r.id)) + 1 : 1;
+    refundRecord = {
+      id: newId,
+      refund_receipt_number: refundReceiptNumber,
+      business_id: sale.business_id || 1,
+      sale_id: sale.id,
+      appointment_id: sale.appointment_id || null,
+      refund_type: calc.refund_type,
+      subtotal_refunded: calc.subtotal_refunded,
+      discount_reversed_total: calc.discount_reversed_total,
+      gst_reversed_total: calc.gst_reversed_total,
+      total_refund_amount: calc.total_refund_amount,
+      refund_method: refund_method || sale.payment_method || 'cash',
+      reason: reason || '',
+      notes: notes || '',
+      items: calc.items,
+      created_at: now.toISOString(),
+    };
+    refundsList.push(refundRecord);
+    writeJson('refunds', refundsList);
+
+    const salesList = readJson('sales');
+    const sIdx = salesList.findIndex((s) => String(s.id) === String(sale.id));
+    if (sIdx !== -1) {
+      salesList[sIdx].refund_status = newStatus;
+      salesList[sIdx].refunded_amount = newRefundedAmount;
+      writeJson('sales', salesList);
+    }
+
+    if (sale.appointment_id) {
+      const aptList = readJson('appointments');
+      const aIdx = aptList.findIndex((a) => String(a.id) === String(sale.appointment_id));
+      if (aIdx !== -1) {
+        aptList[aIdx].refund_status = newStatus;
+        aptList[aIdx].refunded_amount = newRefundedAmount;
+        writeJson('appointments', aptList);
+      }
+    }
+  }
+
+  const updatedSale = await getSaleById(sale.id);
+  return { refund: refundRecord, sale: updatedSale };
+}
+
+async function createAppointmentRefund({ appointment_id, items, reason, notes, refund_method }) {
+  const appt = await getAppointmentById(appointment_id);
+  if (!appt) {
+    throw new Error('Appointment not found.');
+  }
+
+  // Check if linked to an existing sale record in sales
+  let linkedSale = null;
+  if (!useFallback && pool) {
+    try {
+      const [salesRows] = await pool.query('SELECT * FROM sales WHERE appointment_id = ? ORDER BY id DESC LIMIT 1', [appointment_id]);
+      if (salesRows.length > 0) linkedSale = salesRows[0];
+    } catch (_) {}
+  } else {
+    const salesList = readJson('sales');
+    linkedSale = salesList.find((s) => String(s.appointment_id) === String(appointment_id)) || null;
+  }
+
+  if (linkedSale) {
+    // Process refund through the linked sale record
+    const result = await createSaleRefund({
+      sale_id: linkedSale.id,
+      items,
+      reason,
+      notes,
+      refund_method,
+    });
+    const updatedAppt = await getAppointmentById(appointment_id);
+    return { refund: result.refund, appointment: updatedAppt, sale: result.sale };
+  }
+
+  // Standalone appointment refund (e.g. completed directly without cart POS)
+  const existingRefunds = await getAppointmentRefunds(appointment_id);
+  const calc = calculateRefundDetails(appt, items, existingRefunds);
+
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const refundReceiptNumber = `#REF-${yyyy}${mm}${dd}-APT${appt.id}-${randomSuffix}`;
+
+  const prevRefunded = existingRefunds.reduce((sum, rf) => sum + (Number(rf.total_refund_amount) || 0), 0);
+  const newRefundedAmount = Math.round((prevRefunded + calc.total_refund_amount) * 100) / 100;
+  const newStatus = calc.is_fully_refunded ? 'full' : 'partial';
+
+  let refundRecord;
+
+  if (!useFallback && pool) {
+    try {
+      const insertSql = `
+        INSERT INTO refunds
+        (refund_receipt_number, business_id, sale_id, appointment_id, refund_type,
+         subtotal_refunded, discount_reversed_total, gst_reversed_total, total_refund_amount,
+         refund_method, reason, notes, items)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const [res] = await pool.query(insertSql, [
+        refundReceiptNumber,
+        appt.business_id || 1,
+        null,
+        appt.id,
+        calc.refund_type,
+        calc.subtotal_refunded,
+        calc.discount_reversed_total,
+        calc.gst_reversed_total,
+        calc.total_refund_amount,
+        refund_method || 'cash',
+        reason || '',
+        notes || '',
+        JSON.stringify(calc.items),
+      ]);
+
+      await pool.query(
+        'UPDATE appointments SET refund_status = ?, refunded_amount = ? WHERE id = ?',
+        [newStatus, newRefundedAmount, appt.id]
+      );
+
+      refundRecord = {
+        id: res.insertId,
+        refund_receipt_number: refundReceiptNumber,
+        business_id: appt.business_id || 1,
+        sale_id: null,
+        appointment_id: appt.id,
+        refund_type: calc.refund_type,
+        subtotal_refunded: calc.subtotal_refunded,
+        discount_reversed_total: calc.discount_reversed_total,
+        gst_reversed_total: calc.gst_reversed_total,
+        total_refund_amount: calc.total_refund_amount,
+        refund_method: refund_method || 'cash',
+        reason: reason || '',
+        notes: notes || '',
+        items: calc.items,
+        created_at: now.toISOString(),
+      };
+    } catch (e) {
+      console.error('Error inserting appointment refund in MySQL:', e);
+      throw e;
+    }
+  } else {
+    const refundsList = readJson('refunds');
+    const newId = refundsList.length > 0 ? Math.max(...refundsList.map((r) => r.id)) + 1 : 1;
+    refundRecord = {
+      id: newId,
+      refund_receipt_number: refundReceiptNumber,
+      business_id: appt.business_id || 1,
+      sale_id: null,
+      appointment_id: appt.id,
+      refund_type: calc.refund_type,
+      subtotal_refunded: calc.subtotal_refunded,
+      discount_reversed_total: calc.discount_reversed_total,
+      gst_reversed_total: calc.gst_reversed_total,
+      total_refund_amount: calc.total_refund_amount,
+      refund_method: refund_method || 'cash',
+      reason: reason || '',
+      notes: notes || '',
+      items: calc.items,
+      created_at: now.toISOString(),
+    };
+    refundsList.push(refundRecord);
+    writeJson('refunds', refundsList);
+
+    const aptList = readJson('appointments');
+    const aIdx = aptList.findIndex((a) => String(a.id) === String(appt.id));
+    if (aIdx !== -1) {
+      aptList[aIdx].refund_status = newStatus;
+      aptList[aIdx].refunded_amount = newRefundedAmount;
+      writeJson('appointments', aptList);
+    }
+  }
+
+  const updatedAppt = await getAppointmentById(appt.id);
+  return { refund: refundRecord, appointment: updatedAppt };
 }
 
 // =================== Appointment Conflict Check ===================
@@ -1944,6 +2544,11 @@ module.exports = {
   getSales,
   getSaleById,
   createSale,
+  calculateRefundDetails,
+  getSaleRefunds,
+  getAppointmentRefunds,
+  createSaleRefund,
+  createAppointmentRefund,
   checkAppointmentConflict,
   getSettings,
   updateSettings,

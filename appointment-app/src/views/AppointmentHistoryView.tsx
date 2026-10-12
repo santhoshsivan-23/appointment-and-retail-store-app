@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import {
   RotateCw,
+  RotateCcw,
   CheckCircle2,
   Calendar,
   DollarSign,
@@ -19,7 +20,9 @@ import {
 } from 'lucide-react';
 import { appointmentApi, type Appointment } from '../api/appointmentApi';
 import { staffApi, type Staff } from '../api/staffApi';
+import RefundModal from '../components/RefundModal';
 import '../styles/appointment_history.css';
+import '../styles/refund_modal.css';
 
 const PAGE_SIZE = 20;
 
@@ -28,6 +31,23 @@ const fmtMoney = (val: number | string | null | undefined): string => {
   if (val === null || val === undefined) return '0.00';
   const num = typeof val === 'number' ? val : parseFloat(String(val));
   return isNaN(num) ? '0.00' : num.toFixed(2);
+};
+
+/* ── Format Date Time ──────────────────────────────────── */
+const formatDateTime = (dtStr?: string) => {
+  if (!dtStr) return 'N/A';
+  try {
+    const d = new Date(dtStr);
+    return d.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return dtStr;
+  }
 };
 
 /* ── Normalize Appointment Helper ──────────────────────── */
@@ -45,10 +65,26 @@ const normalizeAppointment = (a: any): Appointment => {
     }
   }
 
+  let parsedRefunds: any[] = [];
+  if (a.refunds) {
+    if (Array.isArray(a.refunds)) {
+      parsedRefunds = a.refunds;
+    } else if (typeof a.refunds === 'string') {
+      try {
+        parsedRefunds = JSON.parse(a.refunds);
+      } catch {
+        parsedRefunds = [];
+      }
+    }
+  }
+
   return {
     ...a,
     total_amount: Number(a.total_amount) || 0,
     services: parsedServices,
+    refunds: parsedRefunds,
+    refund_status: a.refund_status || 'none',
+    refunded_amount: Number(a.refunded_amount) || 0,
     customer_name: a.customer_name || 'Walk-in Customer',
     customer_phone: a.customer_phone || '',
     staff_name: a.staff_name || '',
@@ -69,6 +105,19 @@ export default function AppointmentHistoryView() {
   const [isPanelExpanded, setIsPanelExpanded] = useState<boolean>(true);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [detailAppointment, setDetailAppointment] = useState<Appointment | null>(null);
+  const [showRefundModal, setShowRefundModal] = useState<boolean>(false);
+
+  /* ── Handle Refund Success Callback ───────────────────── */
+  const handleRefundSuccess = (updatedApt: Appointment, _refundRecord?: any) => {
+    const normalized = normalizeAppointment(updatedApt);
+    setDetailAppointment(normalized);
+    setAllAppointments((prev) =>
+      prev.map((a) => (a.id === normalized.id ? normalized : a))
+    );
+    setDisplayAppointments((prev) =>
+      prev.map((a) => (a.id === normalized.id ? normalized : a))
+    );
+  };
 
   /* ── Sort & Filter Completed Appointments Helper ─────── */
   const processList = (rawList: any[]): Appointment[] => {
@@ -414,8 +463,37 @@ export default function AppointmentHistoryView() {
                   )}
                 </div>
 
-                {/* 3. Total Amount & Chevron */}
+                {/* 3. Total Amount, Refund Status & Chevron */}
                 <div className="apt-card-right">
+                  {a.refund_status === 'full' ? (
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: '#FEE2E2',
+                        color: '#B91C1C',
+                        border: '1px solid #FECACA',
+                      }}
+                    >
+                      Refunded
+                    </span>
+                  ) : a.refund_status === 'partial' ? (
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: '#FEF3C7',
+                        color: '#B45309',
+                        border: '1px solid #FDE68A',
+                      }}
+                    >
+                      Partial Refund
+                    </span>
+                  ) : null}
                   <div className="apt-card-total">
                     ${fmtMoney(a.total_amount)}
                   </div>
@@ -523,10 +601,22 @@ export default function AppointmentHistoryView() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <h3 className="apt-modal-title">Appointment Details</h3>
-                  <div className="apt-modal-status-badge">
-                    <CheckCircle2 size={12} />
-                    <span>{String(detailAppointment.status).toUpperCase()}</span>
-                  </div>
+                  {detailAppointment.refund_status === 'full' ? (
+                    <div className="apt-modal-status-badge" style={{ backgroundColor: '#FEE2E2', color: '#B91C1C' }}>
+                      <RotateCcw size={12} />
+                      <span>REFUNDED</span>
+                    </div>
+                  ) : detailAppointment.refund_status === 'partial' ? (
+                    <div className="apt-modal-status-badge" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
+                      <RotateCcw size={12} />
+                      <span>PARTIAL REFUND</span>
+                    </div>
+                  ) : (
+                    <div className="apt-modal-status-badge">
+                      <CheckCircle2 size={12} />
+                      <span>{String(detailAppointment.status).toUpperCase()}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="apt-modal-apt-no">
                   #APT-{String(detailAppointment.id).padStart(4, '0')}
@@ -601,11 +691,51 @@ export default function AppointmentHistoryView() {
                 <div className="apt-modal-services-box">
                   {detailAppointment.services.map((s, idx) => {
                     const sName = s.name || s.product_name || 'Service';
-                    const sPrice = Number(s.price) || 0;
+                    const sPrice = Number(s.price !== undefined ? s.price : s.unit_price) || 0;
+                    const sQty = Number(s.quantity) || 1;
+                    const sKey = String(s.product_id || s.id || sName);
+
+                    // Calculate total units refunded for this service
+                    const refundedQty = (detailAppointment.refunds || []).reduce((acc: number, rf: any) => {
+                      if (!Array.isArray(rf.items)) return acc;
+                      const match = rf.items.find(
+                        (item: any) => String(item.product_id || item.product_name) === sKey
+                      );
+                      return acc + (match ? Number(match.quantity) || 0 : 0);
+                    }, 0);
+                    const remainingQty = Math.max(0, sQty - refundedQty);
+
                     return (
-                      <div key={idx} className="apt-modal-service-row">
+                      <div
+                        key={idx}
+                        className={`apt-modal-service-row ${refundedQty > 0 ? 'has-refund' : ''}`}
+                      >
                         <span className="apt-modal-service-name">{sName}</span>
-                        <span className="apt-modal-service-price">${fmtMoney(sPrice)}</span>
+                        <div className="apt-modal-service-right">
+                          {refundedQty > 0 ? (
+                            <div className="apt-modal-refund-tags">
+                              <span className={`sale-refund-tag ${remainingQty === 0 ? 'full' : ''}`}>
+                                Refund ×{refundedQty}
+                              </span>
+                              <span className={`sale-remaining-unrefunded ${remainingQty === 0 ? 'zero' : ''}`}>
+                                {remainingQty === 0 ? '(0 unrefunded)' : `(${remainingQty} unrefunded)`}
+                              </span>
+                              <span className="apt-modal-service-orig-qty">
+                                Orig: ×{sQty}
+                              </span>
+                            </div>
+                          ) : sQty > 1 ? (
+                            <span className="apt-modal-service-qty">
+                              ×{sQty}
+                            </span>
+                          ) : null}
+                          <span
+                            className="apt-modal-service-price"
+                            style={remainingQty === 0 && refundedQty > 0 ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}
+                          >
+                            ${fmtMoney(sPrice * sQty)}
+                          </span>
+                        </div>
                       </div>
                     );
                   })}
@@ -620,27 +750,111 @@ export default function AppointmentHistoryView() {
                 </div>
               )}
 
-              {/* Total Amount */}
+              {/* Total Amount & Refund Breakdown */}
               <div className="apt-modal-total-row">
                 <span className="apt-modal-total-label">Total Amount</span>
                 <span className="apt-modal-total-value">
                   ${fmtMoney(detailAppointment.total_amount)}
                 </span>
               </div>
+
+              {Number(detailAppointment.refunded_amount) > 0 && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#BE123C', marginTop: '6px' }}>
+                    <span>Total Refunded</span>
+                    <span style={{ fontWeight: 700 }}>-${fmtMoney(detailAppointment.refunded_amount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#0F172A', marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #CBD5E1' }}>
+                    <span style={{ fontWeight: 600 }}>Net Retained Balance</span>
+                    <span style={{ fontWeight: 800, color: '#059669' }}>
+                      ${fmtMoney(Math.max(0, Number(detailAppointment.total_amount) - Number(detailAppointment.refunded_amount)))}
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* Refund Audit History Box */}
+              {detailAppointment.refunds && detailAppointment.refunds.length > 0 && (
+                <div className="refund-history-box" style={{ marginTop: '12px' }}>
+                  <div className="refund-history-header">
+                    <span>Refund Audit Trail ({detailAppointment.refunds.length})</span>
+                    <span style={{ color: '#BE123C' }}>
+                      Total Refunded: -${fmtMoney(detailAppointment.refunded_amount)}
+                    </span>
+                  </div>
+                  {detailAppointment.refunds.map((rf: any, rIdx: number) => (
+                    <div key={rIdx} className="refund-history-item">
+                      <div className="refund-history-left">
+                        <span className="refund-history-no">{rf.refund_receipt_number}</span>
+                        <span className="refund-history-date">
+                          {formatDateTime(rf.created_at)} • {rf.refund_method?.toUpperCase()}
+                          {rf.reason ? ` • ${rf.reason}` : ''}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                          Items: {(rf.items || []).map((ri: any) => `${ri.product_name} (×${ri.quantity})`).join(', ')}
+                        </span>
+                      </div>
+                      <span className="refund-history-amount">
+                        -${fmtMoney(rf.total_refund_amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Fixed Footer Close Button */}
-            <div className="apt-modal-footer">
+            {/* Fixed Footer: Refund Button on Left Side of Close Button */}
+            <div className="apt-modal-footer" style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                className="apt-modal-refund-btn"
+                onClick={() => setShowRefundModal(true)}
+                disabled={detailAppointment.refund_status === 'full'}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '12px',
+                  backgroundColor: detailAppointment.refund_status === 'full' ? '#F1F5F9' : '#E11D48',
+                  color: detailAppointment.refund_status === 'full' ? '#94A3B8' : '#ffffff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: detailAppointment.refund_status === 'full' ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <RotateCcw size={15} />
+                <span>
+                  {detailAppointment.refund_status === 'full' ? 'Fully Refunded' : 'Refund'}
+                </span>
+              </button>
+
               <button
                 type="button"
                 className="apt-modal-close-btn"
                 onClick={() => setDetailAppointment(null)}
+                style={{ flex: 1 }}
               >
                 Close
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── 7. Refund Modal Popup ──────────────────────────── */}
+      {showRefundModal && detailAppointment && (
+        <RefundModal
+          isOpen={showRefundModal}
+          onClose={() => setShowRefundModal(false)}
+          type="appointment"
+          transaction={detailAppointment}
+          onRefundSuccess={handleRefundSuccess}
+        />
       )}
     </div>
   );

@@ -100,41 +100,7 @@ class _CartViewState extends State<CartView> {
       }
     }
 
-    // 2. Fetch active categories from SQAppointment V2 and Appointment Screen – SQLite Data Loading Enhancement
-
-Update both the Appointment V2 and the existing Appointment Screen to load Categories and Products directly from the local SQLite database.
-
-Requirements
-
-Load Categories from SQLite
-
-Retrieve category data directly from the local SQLite database.
-
-Do not call the Category API to fetch categories when loading either appointment screen.
-
-Load Products from SQLite
-
-Retrieve product and service data directly from the local SQLite database.
-
-Do not call the Product API to fetch products or services when loading either appointment screen.
-
-Apply to Both Screens
-
-Implement the same SQLite-based data-loading logic in both Appointment V2 and the existing Appointment Screen.
-
-Ensure category and product selection, filtering, and display work correctly using the locally stored data.
-
-Maintain Existing Functionality
-
-Reuse the existing SQLite database and data-access methods wherever possible.
-
-Do not introduce unnecessary API calls for category or product retrieval.
-
-Handle empty or unavailable local data gracefully.
-
-Expected Result
-
-Both Appointment V2 and the existing Appointment Screen must retrieve and display Categories, Products, and Services exclusively from SQLite, without calling the corresponding APIs to fetch this data during screen loading or usage.Lite
+    // 2. Fetch active categories from SQLite
     var cats = await SqliteService.getActiveCategories();
     if (cats.isEmpty && !SqliteService.isTestEnvironment) {
       try {

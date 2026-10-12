@@ -4,6 +4,7 @@ import '../models/appointment_model.dart';
 import '../models/staff_model.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/refund_modal.dart';
 
 class AppointmentHistoryView extends StatefulWidget {
   const AppointmentHistoryView({super.key});
@@ -715,7 +716,44 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
                   ),
                 ),
 
-                // 4. Total Amount
+                // 4. Refund Status Badge & Total Amount
+                if (a.refundStatus == 'full') ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFFECACA)),
+                    ),
+                    child: Text(
+                      'Refunded',
+                      style: GoogleFonts.inter(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFB91C1C),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ] else if (a.refundStatus == 'partial') ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Text(
+                      'Partial Refund',
+                      style: GoogleFonts.inter(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFB45309),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Text(
                   '\$${a.totalAmount.toStringAsFixed(2)}',
                   style: GoogleFonts.plusJakartaSans(
@@ -902,226 +940,510 @@ class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
   void _showAppointmentDetails(AppointmentModel a) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => Dialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        contentPadding: const EdgeInsets.all(24),
-        content: SizedBox(
-          width: 480,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520, maxHeight: 720),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Top Bar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Appointment Details',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0F172A),
-                        ),
-                      ),
-                      Text(
-                        '#APT-${a.id.toString().padLeft(4, '0')}',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: Colors.grey.shade500,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDCFCE7),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF86EFAC)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.check_circle, size: 12, color: Color(0xFF166534)),
-                        const SizedBox(width: 4),
-                        Text(
-                          a.status.toUpperCase(),
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF166534),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-
-              // Customer & Staff Information
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Customer', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500)),
-                      Text(
-                        a.customerName.isNotEmpty ? a.customerName : 'Walk-in Guest',
-                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                      if (a.customerPhone.isNotEmpty)
-                        Text(a.customerPhone, style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500)),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('Assigned Staff', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500)),
-                      Text(
-                        a.staffName.isNotEmpty ? a.staffName : 'Staff #${a.staffId}',
-                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                      Text(
-                        _staffList.any((st) => st.id == a.staffId)
-                            ? _staffList.firstWhere((st) => st.id == a.staffId).role
-                            : 'Staff ID: #${a.staffId}',
-                        style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-
-              // Schedule Information
+              // ── 1. FIXED TOP HEADER ────────────────────────────
               Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade200),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFAFBFD),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_today, size: 15, color: Color(0xFF64748B)),
-                        const SizedBox(width: 6),
-                        Text(
-                          a.appointmentDate,
-                          style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)),
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Appointment Details',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 17.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF0F172A),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              if (a.refundStatus == 'full')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEE2E2),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFFFECACA)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.replay, size: 11, color: Color(0xFFB91C1C)),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        'Refunded',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFFB91C1C),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else if (a.refundStatus == 'partial')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFFFDE68A)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.replay, size: 11, color: Color(0xFFB45309)),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        'Partial Refund',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFFB45309),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFDCFCE7),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFF86EFAC)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.check_circle, size: 11, color: Color(0xFF166534)),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        a.status.toUpperCase(),
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF166534),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '#APT-${a.id.toString().padLeft(4, '0')}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    Container(width: 1, height: 18, color: Colors.grey.shade300),
-                    Row(
-                      children: [
-                        const Icon(Icons.schedule, size: 15, color: Color(0xFF64748B)),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${a.startTime} - ${a.endTime}',
-                          style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)),
-                        ),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20, color: Color(0xFF94A3B8)),
+                      onPressed: () => Navigator.pop(ctx),
+                      splashRadius: 20,
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 24),
 
-              // Services Breakdown
-              Text(
-                'Services Performed (${a.services.length})',
-                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              if (a.services.isEmpty)
-                Text('No specific service items recorded',
-                    style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade500))
-              else
-                Container(
-                  height: a.services.length >= 4 ? 140 : null,
-                  constraints: const BoxConstraints(maxHeight: 140),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Scrollbar(
-                    thumbVisibility: a.services.length > 4,
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      itemCount: a.services.length,
-                      separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey.shade200),
-                      itemBuilder: (_, idx) {
-                        final s = a.services[idx];
-                        final name = (s['name'] ?? s['product_name'] ?? 'Service').toString();
-                        final price = double.tryParse(s['price']?.toString() ?? '0') ?? 0.0;
-                        return Container(
-                          height: 32,
-                          alignment: Alignment.center,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // ── 2. SCROLLABLE INNER SECTION ONLY ───────────────
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Customer & Staff Information
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(name, style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF334155)), overflow: TextOverflow.ellipsis),
+                              Text('Customer', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500)),
+                              Text(
+                                a.customerName.isNotEmpty ? a.customerName : 'Walk-in Guest',
+                                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
                               ),
-                              Text('\$${price.toStringAsFixed(2)}',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A))),
+                              if (a.customerPhone.isNotEmpty)
+                                Text(a.customerPhone, style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500)),
                             ],
                           ),
-                        );
-                      },
-                    ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text('Assigned Staff', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500)),
+                              Text(
+                                a.staffName.isNotEmpty ? a.staffName : 'Staff #${a.staffId}',
+                                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                _staffList.any((st) => st.id == a.staffId)
+                                    ? _staffList.firstWhere((st) => st.id == a.staffId).role
+                                    : 'Staff ID: #${a.staffId}',
+                                style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade500),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Schedule Information
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_today, size: 15, color: Color(0xFF64748B)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  a.appointmentDate,
+                                  style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)),
+                                ),
+                              ],
+                            ),
+                            Container(width: 1, height: 18, color: Colors.grey.shade300),
+                            Row(
+                              children: [
+                                const Icon(Icons.schedule, size: 15, color: Color(0xFF64748B)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${a.startTime} - ${a.endTime}',
+                                  style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 24),
+
+                      // Services Breakdown
+                      Text(
+                        'Services Performed (${a.services.length})',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      if (a.services.isEmpty)
+                        Text('No specific service items recorded',
+                            style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade500))
+                      else
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            itemCount: a.services.length,
+                            separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey.shade200),
+                            itemBuilder: (_, idx) {
+                              final s = a.services[idx];
+                              final name = (s['name'] ?? s['product_name'] ?? 'Service').toString();
+                              final price = double.tryParse((s['price'] ?? s['unit_price'])?.toString() ?? '0') ?? 0.0;
+                              final qty = int.tryParse(s['quantity']?.toString() ?? '1') ?? 1;
+                              final pId = s['product_id'] ?? s['id'];
+                              final key = (pId != null ? pId.toString() : name);
+
+                              int refundedQty = 0;
+                              for (final rf in a.refunds) {
+                                for (final ri in rf.items) {
+                                  final rKey = ri.productId != null ? ri.productId.toString() : ri.productName;
+                                  if (rKey == key) {
+                                    refundedQty += ri.quantity;
+                                  }
+                                }
+                              }
+                              final remainingQty = (qty - refundedQty) > 0 ? (qty - refundedQty) : 0;
+
+                              return Container(
+                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(name, style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF334155), fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+                                    ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (refundedQty > 0) ...[
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: remainingQty == 0 ? const Color(0xFFFEE2E2) : const Color(0xFFFFF1F2),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: remainingQty == 0 ? const Color(0xFFFCA5A5) : const Color(0xFFFFE4E6)),
+                                            ),
+                                            child: Text(
+                                              'Refund ×$refundedQty',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: remainingQty == 0 ? const Color(0xFFB91C1C) : const Color(0xFFBE123C),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            remainingQty == 0 ? '(0 unrefunded)' : '($remainingQty unrefunded)',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: remainingQty == 0 ? const Color(0xFF94A3B8) : const Color(0xFF059669),
+                                              decoration: remainingQty == 0 ? TextDecoration.lineThrough : null,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Orig: ×$qty',
+                                            style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF64748B)),
+                                          ),
+                                        ] else if (qty > 1) ...[
+                                          Text('×$qty', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
+                                        ],
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '\$${(price * qty).toStringAsFixed(2)}',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w600,
+                                            decoration: remainingQty == 0 && refundedQty > 0 ? TextDecoration.lineThrough : null,
+                                            color: remainingQty == 0 && refundedQty > 0 ? const Color(0xFF94A3B8) : const Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+
+                      if (a.notes.isNotEmpty) ...[
+                        const Divider(height: 20),
+                        Text('Notes / Observations', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(a.notes, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF475569))),
+                      ],
+
+                      const Divider(height: 20),
+                      // Total
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Total Amount', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold)),
+                          Text(
+                            '\$${a.totalAmount.toStringAsFixed(2)}',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (a.refundedAmount > 0) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Total Refunded', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFFBE123C), fontWeight: FontWeight.w600)),
+                            Text(
+                              '-\$${a.refundedAmount.toStringAsFixed(2)}',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFFBE123C)),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Net Retained Balance', style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A))),
+                            Text(
+                              '\$${((a.totalAmount - a.refundedAmount) > 0 ? (a.totalAmount - a.refundedAmount) : 0.0).toStringAsFixed(2)}',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.w800, color: const Color(0xFF059669)),
+                            ),
+                          ],
+                        ),
+                      ],
+
+                      // Refund Audit Trail Box
+                      if (a.refunds.isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF1F2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFFFE4E6)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Refund Audit Trail (${a.refunds.length})',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF9F1239),
+                                    ),
+                                  ),
+                                  Text(
+                                    'Total: -\$${a.refundedAmount.toStringAsFixed(2)}',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFFBE123C),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ...a.refunds.map((rf) => Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            rf.refundReceiptNumber,
+                                            style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w700, color: const Color(0xFF881337)),
+                                          ),
+                                          Text(
+                                            '${rf.createdAt != null ? "${rf.createdAt!.day}/${rf.createdAt!.month}/${rf.createdAt!.year}" : "N/A"} • ${rf.refundMethod.toUpperCase()}${rf.reason.isNotEmpty ? " • ${rf.reason}" : ""}',
+                                            style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF9F1239)),
+                                          ),
+                                          Text(
+                                            'Items: ${rf.items.map((i) => "${i.productName} (×${i.quantity})").join(", ")}',
+                                            style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF64748B)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      '-\$${rf.totalRefundAmount.toStringAsFixed(2)}',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFFBE123C)),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-
-              if (a.notes.isNotEmpty) ...[
-                const Divider(height: 20),
-                Text('Notes / Observations', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(a.notes, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF475569))),
-              ],
-
-              const Divider(height: 20),
-              // Total
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Total Amount', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold)),
-                  Text(
-                    '\$${a.totalAmount.toStringAsFixed(2)}',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF10B981),
-                    ),
-                  ),
-                ],
               ),
-              const SizedBox(height: 20),
 
-              // Close Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F172A),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Close'),
+              // ── 3. FIXED BOTTOM FOOTER (REFUND ON LEFT, CLOSE ON RIGHT) ───
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+                  border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: a.refundStatus == 'full' ? const Color(0xFFF1F5F9) : const Color(0xFFE11D48),
+                          foregroundColor: a.refundStatus == 'full' ? const Color(0xFF94A3B8) : Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: const Icon(Icons.replay, size: 15),
+                        label: Text(
+                          a.refundStatus == 'full' ? 'Fully Refunded' : 'Refund',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13),
+                        ),
+                        onPressed: a.refundStatus == 'full'
+                            ? null
+                            : () {
+                                Navigator.pop(ctx);
+                                RefundModal.show(
+                                  context: context,
+                                  type: 'appointment',
+                                  appointment: a,
+                                  onRefundSuccess: (updatedTx, refundRecord) {
+                                    final updatedApt = updatedTx as AppointmentModel;
+                                    setState(() {
+                                      _allCompletedAppointments = _allCompletedAppointments
+                                          .map((x) => x.id == updatedApt.id ? updatedApt : x)
+                                          .toList();
+                                      _completedAppointments = _completedAppointments
+                                          .map((x) => x.id == updatedApt.id ? updatedApt : x)
+                                          .toList();
+                                    });
+                                    _showAppointmentDetails(updatedApt);
+                                  },
+                                );
+                              },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F172A),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text('Close', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

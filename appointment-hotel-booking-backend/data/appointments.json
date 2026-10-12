@@ -511,5 +511,68 @@
     "notes": "",
     "created_at": "2026-10-09T10:02:02.457Z",
     "updated_at": "2026-10-09T11:10:23.179Z"
+  },
+  {
+    "id": 24,
+    "business_id": 1,
+    "staff_id": 10,
+    "customer_id": 1,
+    "customer_name": "Claire Beauchamp",
+    "customer_phone": "+1 555-4421",
+    "staff_name": "Salad",
+    "appointment_date": "2026-10-12",
+    "start_time": "10:30",
+    "end_time": "11:00",
+    "status": "completed",
+    "total_amount": 265.68,
+    "services": [
+      {
+        "product_id": 53,
+        "name": "Reflective Tactical Harness (L)",
+        "price": 38,
+        "quantity": 1
+      },
+      {
+        "product_id": 54,
+        "name": "Interactive Puzzle Feeder Toy",
+        "price": 22,
+        "quantity": 1
+      },
+      {
+        "product_id": 55,
+        "name": "Calming Chamomile Chews (60ct)",
+        "price": 25,
+        "quantity": 1
+      },
+      {
+        "product_id": 52,
+        "name": "Ergonomic Orthopedic Memory Bed",
+        "price": 89,
+        "quantity": 1
+      },
+      {
+        "product_id": 51,
+        "name": "Dental Chew Sticks (Pack of 14)",
+        "price": 16,
+        "quantity": 1
+      },
+      {
+        "product_id": 49,
+        "name": "Probiotic Digestive Powder",
+        "price": 27,
+        "quantity": 1
+      },
+      {
+        "product_id": 50,
+        "name": "Wild Alaskan Salmon Oil (500ml)",
+        "price": 29,
+        "quantity": 1
+      }
+    ],
+    "notes": "",
+    "created_at": "2026-10-12T05:39:39.544Z",
+    "updated_at": "2026-10-12T05:39:43.581Z",
+    "refund_status": "partial",
+    "refunded_amount": 123.12
   }
 ]

@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "refund_receipt_number": "#REF-20261012-4-8257",
+    "business_id": 1,
+    "sale_id": 4,
+    "appointment_id": null,
+    "refund_type": "partial",
+    "subtotal_refunded": 180,
+    "discount_reversed_total": 0,
+    "gst_reversed_total": 14.4,
+    "total_refund_amount": 194.4,
+    "refund_method": "card",
+    "reason": "Customer returned product",
+    "notes": "",
+    "items": [
+      {
+        "product_id": 5,
+        "product_name": "Express Diagnostic Panel",
+        "unit_price": 45,
+        "quantity": 1,
+        "original_quantity": 2,
+        "previously_refunded": 0,
+        "remaining_quantity": 1,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 3.6,
+        "refund_amount": 48.6
+      },
+      {
+        "product_id": 6,
+        "product_name": "Unified Wellness & Grooming Bundle",
+        "unit_price": 135,
+        "quantity": 1,
+        "original_quantity": 2,
+        "previously_refunded": 0,
+        "remaining_quantity": 1,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 10.8,
+        "refund_amount": 145.8
+      }
+    ],
+    "created_at": "2026-10-12T05:38:41.409Z"
+  },
+  {
+    "id": 2,
+    "refund_receipt_number": "#REF-20261012-7-5084",
+    "business_id": 1,
+    "sale_id": 7,
+    "appointment_id": 24,
+    "refund_type": "partial",
+    "subtotal_refunded": 114,
+    "discount_reversed_total": 0,
+    "gst_reversed_total": 9.12,
+    "total_refund_amount": 123.12,
+    "refund_method": "cash",
+    "reason": "Customer returned product",
+    "notes": "",
+    "items": [
+      {
+        "product_id": 53,
+        "product_name": "Reflective Tactical Harness (L)",
+        "unit_price": 38,
+        "quantity": 1,
+        "original_quantity": 1,
+        "previously_refunded": 0,
+        "remaining_quantity": 0,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 3.04,
+        "refund_amount": 41.04
+      },
+      {
+        "product_id": 54,
+        "product_name": "Interactive Puzzle Feeder Toy",
+        "unit_price": 22,
+        "quantity": 1,
+        "original_quantity": 1,
+        "previously_refunded": 0,
+        "remaining_quantity": 0,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 1.76,
+        "refund_amount": 23.76
+      },
+      {
+        "product_id": 55,
+        "product_name": "Calming Chamomile Chews (60ct)",
+        "unit_price": 25,
+        "quantity": 1,
+        "original_quantity": 1,
+        "previously_refunded": 0,
+        "remaining_quantity": 0,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 2,
+        "refund_amount": 27
+      },
+      {
+        "product_id": 50,
+        "product_name": "Wild Alaskan Salmon Oil (500ml)",
+        "unit_price": 29,
+        "quantity": 1,
+        "original_quantity": 1,
+        "previously_refunded": 0,
+        "remaining_quantity": 0,
+        "line_discount_reversed": 0,
+        "overall_discount_reversed": 0,
+        "total_discount_reversed": 0,
+        "gst_reversed": 2.32,
+        "refund_amount": 31.32
+      }
+    ],
+    "created_at": "2026-10-12T05:40:14.402Z"
+  }
+]

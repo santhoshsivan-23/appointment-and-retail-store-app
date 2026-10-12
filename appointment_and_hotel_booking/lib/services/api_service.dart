@@ -7,6 +7,7 @@ import '../models/business_model.dart';
 import '../models/category_model.dart';
 import '../models/customer_model.dart';
 import '../models/product_model.dart';
+import '../models/refund_model.dart';
 import '../models/sale_model.dart';
 import '../models/staff_model.dart';
 import 'auth_storage.dart';
@@ -626,6 +627,106 @@ class ApiService {
       }
     } catch (e) {
       debugPrint('Error getting sales: $e');
+    }
+    return [];
+  }
+
+  // Refund API: Process Sale Refund
+  static Future<ApiResponse> processSaleRefund(int saleId, Map<String, dynamic> payload) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final url = Uri.parse('$baseUrl/sales/$saleId/refund');
+      final res = await http
+          .post(url, headers: await _getHeaders(), body: jsonEncode(payload))
+          .timeout(const Duration(seconds: 15));
+      final body = jsonDecode(res.body);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        return ApiResponse(
+          success: true,
+          message: body['message'] ?? 'Refund processed successfully!',
+          data: body,
+          statusCode: res.statusCode,
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: body['message'] ?? 'Failed to process refund (${res.statusCode})',
+          statusCode: res.statusCode,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error processing sale refund: $e');
+      return ApiResponse(
+        success: false,
+        message: 'Network error processing refund: $e',
+        statusCode: 500,
+      );
+    }
+  }
+
+  // Refund API: Process Appointment Refund
+  static Future<ApiResponse> processAppointmentRefund(int appointmentId, Map<String, dynamic> payload) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final url = Uri.parse('$baseUrl/appointments/$appointmentId/refund');
+      final res = await http
+          .post(url, headers: await _getHeaders(), body: jsonEncode(payload))
+          .timeout(const Duration(seconds: 15));
+      final body = jsonDecode(res.body);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        return ApiResponse(
+          success: true,
+          message: body['message'] ?? 'Refund processed successfully!',
+          data: body,
+          statusCode: res.statusCode,
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: body['message'] ?? 'Failed to process refund (${res.statusCode})',
+          statusCode: res.statusCode,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error processing appointment refund: $e');
+      return ApiResponse(
+        success: false,
+        message: 'Network error processing refund: $e',
+        statusCode: 500,
+      );
+    }
+  }
+
+  // Refund API: Get Sale Refunds
+  static Future<List<RefundRecordModel>> getSaleRefunds(int saleId) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final url = Uri.parse('$baseUrl/sales/$saleId/refunds');
+      final res = await http.get(url, headers: await _getHeaders()).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List? ?? []);
+        return list.map((x) => RefundRecordModel.fromJson(Map<String, dynamic>.from(x))).toList();
+      }
+    } catch (e) {
+      debugPrint('Error getting sale refunds: $e');
+    }
+    return [];
+  }
+
+  // Refund API: Get Appointment Refunds
+  static Future<List<RefundRecordModel>> getAppointmentRefunds(int appointmentId) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final url = Uri.parse('$baseUrl/appointments/$appointmentId/refunds');
+      final res = await http.get(url, headers: await _getHeaders()).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List? ?? []);
+        return list.map((x) => RefundRecordModel.fromJson(Map<String, dynamic>.from(x))).toList();
+      }
+    } catch (e) {
+      debugPrint('Error getting appointment refunds: $e');
     }
     return [];
   }
