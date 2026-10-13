@@ -19,8 +19,9 @@
   border: 1px solid #E2E8F0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
   margin-bottom: 16px;
-  overflow: hidden;
   flex-shrink: 0;
+  position: relative;
+  z-index: 50;
   transition: all 0.2s ease;
 }
 
@@ -157,7 +158,6 @@
 
 .apt-main-card__collapsible-inner {
   min-height: 0;
-  overflow: hidden;
   padding: 14px 18px 16px 18px;
   display: flex;
   flex-direction: column;
@@ -166,6 +166,7 @@
 }
 
 .apt-main-card__collapsible--collapsed .apt-main-card__collapsible-inner {
+  overflow: hidden;
   padding-top: 0;
   padding-bottom: 0;
 }
@@ -250,6 +251,14 @@
   align-items: center;
   gap: 8px;
   flex: 1;
+}
+
+.apt-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .apt-search-box {
@@ -1060,6 +1069,26 @@
   }
 
   .apt-search-section {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  .apt-search-section .date-filter-root,
+  .apt-date-range-filter {
+    width: 100% !important;
+  }
+
+  .apt-search-section .date-filter-trigger {
+    width: 100% !important;
+    height: 40px !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
+  }
+
+  .apt-search-row {
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;

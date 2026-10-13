@@ -13,17 +13,18 @@ import {
   ChevronDown,
   User,
   Phone,
-  BadgeCheck,
   Clock,
   ShieldCheck,
   History,
   Printer,
+  BadgeCheck,
 } from 'lucide-react';
-import { appointmentApi, type Appointment } from '../api/appointmentApi';
+import { appointmentApi, type Appointment, type AppointmentSummary } from '../api/appointmentApi';
 import { staffApi, type Staff } from '../api/staffApi';
 import { useAppSelector } from '../store/hooks';
 import { executeReceiptPrint } from '../utils/receiptPrinter';
 import RefundModal from '../components/RefundModal';
+import DateRangeFilter from '../components/DateRangeFilter';
 import '../styles/appointment_history.css';
 import '../styles/refund_modal.css';
 
@@ -118,9 +119,28 @@ const normalizeAppointment = (a: any): Appointment => {
 };
 
 export default function AppointmentHistoryView() {
+  /* ── Date Defaults (Today by default) ──────────────────── */
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+
+  const [startDate, setStartDate] = useState<string>(todayStr);
+  const [endDate, setEndDate] = useState<string>(todayStr);
+
   /* ── State ────────────────────────────────────────────── */
-  const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [displayAppointments, setDisplayAppointments] = useState<Appointment[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [summary, setSummary] = useState<AppointmentSummary>({
+    total: 0,
+    completed: 0,
+    total_revenue: 0,
+  });
+
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -183,17 +203,14 @@ export default function AppointmentHistoryView() {
   const handleRefundSuccess = (updatedApt: Appointment, _refundRecord?: any) => {
     const normalized = normalizeAppointment(updatedApt);
     setDetailAppointment(normalized);
-    setAllAppointments((prev) =>
-      prev.map((a) => (a.id === normalized.id ? normalized : a))
-    );
     setDisplayAppointments((prev) =>
       prev.map((a) => (a.id === normalized.id ? normalized : a))
     );
+    fetchSummary(startDate, endDate, activeSearchQuery);
   };
 
   /* ── Sort & Filter Completed Appointments Helper ─────── */
   const processList = (rawList: any[]): Appointment[] => {
-    // STRICTLY DISPLAY ONLY COMPLETED / PERFORMED APPOINTMENTS
     const completed = rawList
       .map(normalizeAppointment)
       .filter((a) => {
@@ -201,7 +218,6 @@ export default function AppointmentHistoryView() {
         return s === 'completed' || s === 'performed';
       });
 
-    // Sort newest first by date and startTime
     completed.sort((a, b) => {
       const cmp = (b.appointment_date || '').localeCompare(a.appointment_date || '');
       if (cmp !== 0) return cmp;
@@ -211,33 +227,74 @@ export default function AppointmentHistoryView() {
     return completed;
   };
 
-  /* ── Load History ─────────────────────────────────────── */
-  const loadHistory = useCallback(async () => {
-    setIsLoading(true);
+  /* ── 1. Fetch Summary API ─────────────────────────────── */
+  const fetchSummary = useCallback(async (start: string, end: string, query?: string) => {
     try {
-      const [aptRes, staffRes] = await Promise.all([
-        appointmentApi.getAppointments({ status: 'completed' }),
-        staffApi.getAll(true),
-      ]);
-
-      const apts = processList(aptRes.data?.data ?? []);
-      setAllAppointments(apts);
-      setDisplayAppointments(apts);
-      setStaffList(staffRes.data?.data ?? []);
-      setCurrentPage(1);
-      setActiveSearchQuery('');
-      setSearchInput('');
+      const res = await appointmentApi.getSummary({
+        start_date: start,
+        end_date: end,
+        search: query || undefined,
+      });
+      if (res.data?.data) {
+        setSummary(res.data.data);
+      }
     } catch (err) {
-      console.error('Error loading appointment history:', err);
-      toast.error('Failed to load appointment history');
-    } finally {
-      setIsLoading(false);
+      console.error('Error fetching appointment summary:', err);
     }
   }, []);
 
+  /* ── 2. Fetch History Data API (Backend Paginated) ─────── */
+  const fetchAppointments = useCallback(
+    async (pageToLoad: number, start: string, end: string, query?: string) => {
+      setIsLoading(true);
+      try {
+        const res = await appointmentApi.getAppointments({
+          start_date: start,
+          end_date: end,
+          status: 'completed',
+          search: query || undefined,
+          page: pageToLoad,
+          limit: PAGE_SIZE,
+        });
+        const rawList = res.data?.data ?? [];
+        const apts = processList(rawList);
+        setDisplayAppointments(apts);
+        const total = res.data?.total ?? apts.length;
+        setTotalCount(total);
+        setTotalPages(res.data?.totalPages ?? Math.max(1, Math.ceil(total / PAGE_SIZE)));
+        setCurrentPage(pageToLoad);
+      } catch (err) {
+        console.error('Error loading appointment history:', err);
+        toast.error('Failed to load appointment history');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  /* ── Initial Load ─────────────────────────────────────── */
   useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+    staffApi.getAll(true).then((res) => {
+      setStaffList(res.data?.data ?? []);
+    }).catch((err) => console.error(err));
+
+    fetchAppointments(1, todayStr, todayStr);
+    fetchSummary(todayStr, todayStr);
+  }, [fetchAppointments, fetchSummary, todayStr]);
+
+  /* ── Date Range Change Handler ────────────────────────── */
+  const handleDateRangeChange = (newStart: string, newEnd: string) => {
+    setStartDate(newStart);
+    setEndDate(newEnd);
+    fetchAppointments(1, newStart, newEnd, activeSearchQuery);
+    fetchSummary(newStart, newEnd, activeSearchQuery);
+  };
+
+  /* ── Page Change Handler (Loads only current page records) */
+  const handlePageChange = (newPage: number) => {
+    fetchAppointments(newPage, startDate, endDate, activeSearchQuery);
+  };
 
   /* ── Search Handlers ──────────────────────────────────── */
   const handlePerformSearch = async () => {
@@ -245,16 +302,10 @@ export default function AppointmentHistoryView() {
     setIsSearching(true);
     setActiveSearchQuery(query);
     try {
-      const res = await appointmentApi.getAppointments({
-        search: query.length > 0 ? query : undefined,
-        status: 'completed',
-      });
-      const apts = processList(res.data?.data ?? []);
-      setDisplayAppointments(apts);
-      setCurrentPage(1);
-    } catch (err) {
-      console.error('Error searching appointment history:', err);
-      toast.error('Error searching appointments');
+      await Promise.all([
+        fetchAppointments(1, startDate, endDate, query.length > 0 ? query : undefined),
+        fetchSummary(startDate, endDate, query.length > 0 ? query : undefined),
+      ]);
     } finally {
       setIsSearching(false);
     }
@@ -263,44 +314,19 @@ export default function AppointmentHistoryView() {
   const handleResetSearch = () => {
     setSearchInput('');
     setActiveSearchQuery('');
-    setDisplayAppointments(allAppointments);
-    setCurrentPage(1);
+    fetchAppointments(1, startDate, endDate);
+    fetchSummary(startDate, endDate);
   };
 
-  /* ── Metrics ──────────────────────────────────────────── */
-  const todayStr = useMemo(() => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  }, []);
+  /* ── Reload Handler ───────────────────────────────────── */
+  const handleRefresh = () => {
+    fetchAppointments(currentPage, startDate, endDate, activeSearchQuery);
+    fetchSummary(startDate, endDate, activeSearchQuery);
+  };
 
-  const totalPerformedCount = allAppointments.length;
-
-  const todayPerformedCount = useMemo(() => {
-    return allAppointments.filter((a) => a.appointment_date === todayStr).length;
-  }, [allAppointments, todayStr]);
-
-  const totalRevenue = useMemo(() => {
-    return allAppointments.reduce(
-      (sum, a) => sum + (typeof a.total_amount === 'number' ? a.total_amount : parseFloat(String(a.total_amount)) || 0),
-      0
-    );
-  }, [allAppointments]);
-
-  /* ── Pagination ───────────────────────────────────────── */
-  const totalItems = displayAppointments.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  const validPage = Math.min(Math.max(1, currentPage), totalPages);
-
-  const paginatedList = useMemo(() => {
-    const start = (validPage - 1) * PAGE_SIZE;
-    return displayAppointments.slice(start, start + PAGE_SIZE);
-  }, [displayAppointments, validPage]);
-
-  const startItem = totalItems === 0 ? 0 : (validPage - 1) * PAGE_SIZE + 1;
-  const endItem = Math.min(validPage * PAGE_SIZE, totalItems);
+  /* ── Pagination Bounds ────────────────────────────────── */
+  const startItem = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const endItem = Math.min(currentPage * PAGE_SIZE, totalCount);
 
   /* ── Helper to resolve staff role ─────────────────────── */
   const getStaffRole = (staffId?: number | null) => {
@@ -321,7 +347,7 @@ export default function AppointmentHistoryView() {
           <div className="apt-main-card__header-left">
             <h1 className="apt-main-card__title">Appointment History</h1>
             <div className="apt-main-card__badge">
-              {allAppointments.length} Performed
+              {summary.completed} Performed
             </div>
           </div>
 
@@ -331,7 +357,7 @@ export default function AppointmentHistoryView() {
               className="apt-refresh-btn"
               onClick={(e) => {
                 e.stopPropagation();
-                loadHistory();
+                handleRefresh();
               }}
               disabled={isLoading}
               title="Refresh appointment history"
@@ -356,101 +382,111 @@ export default function AppointmentHistoryView() {
           </div>
         </div>
 
-        {/* Collapsible Content: 3 KPI Cards + Search & Apply Filter Bar */}
+        {/* Collapsible Content: 3 KPI Cards + Date Range & Search Bar */}
         <div className={`apt-main-card__collapsible ${!isPanelExpanded ? 'apt-main-card__collapsible--collapsed' : ''}`}>
           <div className="apt-main-card__collapsible-inner">
-            {/* 2. Compact KPI Metrics Summary */}
+            {/* 2. Compact KPI Metrics Summary from Summary API */}
             <div className="apt-metrics-row">
-              {/* Total Performed */}
+              {/* Total Appointments */}
+              <div className="apt-metric-card">
+                <div className="apt-metric-icon" style={{ background: '#EFF6FF', color: '#2563EB' }}>
+                  <Calendar size={18} />
+                </div>
+                <div className="apt-metric-info">
+                  <div className="apt-metric-title">Total Appointments</div>
+                  <div className="apt-metric-value">{summary.total} Booked</div>
+                  <div className="apt-metric-sub">In selected date range</div>
+                </div>
+              </div>
+
+              {/* Completed Appointments */}
               <div className="apt-metric-card">
                 <div className="apt-metric-icon" style={{ background: '#ECFDF5', color: '#10B981' }}>
                   <CheckCircle2 size={18} />
                 </div>
                 <div className="apt-metric-info">
-                  <div className="apt-metric-title">Total Performed</div>
-                  <div className="apt-metric-value">{totalPerformedCount} Appointments</div>
-                  <div className="apt-metric-sub">100% completed &amp; fulfilled</div>
+                  <div className="apt-metric-title">Completed Appointments</div>
+                  <div className="apt-metric-value">{summary.completed} Completed</div>
+                  <div className="apt-metric-sub">100% fulfilled &amp; performed</div>
                 </div>
               </div>
 
-              {/* Performed Today */}
-              <div className="apt-metric-card">
-                <div className="apt-metric-icon" style={{ background: '#F0F9FF', color: '#0EA5E9' }}>
-                  <Calendar size={18} />
-                </div>
-                <div className="apt-metric-info">
-                  <div className="apt-metric-title">Performed Today</div>
-                  <div className="apt-metric-value">{todayPerformedCount} Completed</div>
-                  <div className="apt-metric-sub">Sessions served today</div>
-                </div>
-              </div>
-
-              {/* Service Revenue */}
+              {/* Total Revenue */}
               <div className="apt-metric-card">
                 <div className="apt-metric-icon" style={{ background: '#F5F3FF', color: '#8B5CF6' }}>
                   <DollarSign size={18} />
                 </div>
                 <div className="apt-metric-info">
-                  <div className="apt-metric-title">Service Revenue</div>
-                  <div className="apt-metric-value">${fmtMoney(totalRevenue)}</div>
+                  <div className="apt-metric-title">Total Revenue</div>
+                  <div className="apt-metric-value">${fmtMoney(summary.total_revenue)}</div>
                   <div className="apt-metric-sub">Total earned from performed sessions</div>
                 </div>
               </div>
             </div>
 
-            {/* 3. Search Bar & Audit Banner */}
+            {/* 3. Date Range Filter & Search Bar */}
             <div className="apt-search-bar">
               <div className="apt-search-section">
-                <div className="apt-search-box">
-                  <Search size={16} className="apt-search-box__icon" />
-                  <input
-                    type="text"
-                    className="apt-search-input"
-                    placeholder="Search customer name, phone, or staff..."
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handlePerformSearch();
-                    }}
-                  />
-                  {searchInput && (
+                {/* Modern Date Range Filter Popup */}
+                <DateRangeFilter
+                  startDate={startDate}
+                  endDate={endDate}
+                  onChange={handleDateRangeChange}
+                  className="apt-date-range-filter"
+                />
+
+                <div className="apt-search-row">
+                  <div className="apt-search-box">
+                    <Search size={16} className="apt-search-box__icon" />
+                    <input
+                      type="text"
+                      className="apt-search-input"
+                      placeholder="Search customer name, phone, or staff..."
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handlePerformSearch();
+                      }}
+                    />
+                    {searchInput && (
+                      <button
+                        type="button"
+                        className="apt-search-clear-btn"
+                        onClick={() => {
+                          setSearchInput('');
+                          if (activeSearchQuery) handleResetSearch();
+                        }}
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="apt-btn-apply"
+                    onClick={handlePerformSearch}
+                    disabled={isSearching}
+                  >
+                    {isSearching ? (
+                      <RotateCw size={13} className="apt-spin" />
+                    ) : (
+                      <Search size={13} />
+                    )}
+                    <span>Apply</span>
+                  </button>
+
+                  {activeSearchQuery && (
                     <button
                       type="button"
-                      className="apt-search-clear-btn"
-                      onClick={() => {
-                        setSearchInput('');
-                        if (activeSearchQuery) handleResetSearch();
-                      }}
+                      className="apt-btn-reset"
+                      onClick={handleResetSearch}
                     >
-                      <X size={14} />
+                      <X size={13} />
+                      <span>Reset</span>
                     </button>
                   )}
                 </div>
-
-                <button
-                  type="button"
-                  className="apt-btn-apply"
-                  onClick={handlePerformSearch}
-                  disabled={isSearching}
-                >
-                  {isSearching ? (
-                    <RotateCw size={13} className="apt-spin" />
-                  ) : (
-                    <Search size={13} />
-                  )}
-                  <span>Apply</span>
-                </button>
-
-                {activeSearchQuery && (
-                  <button
-                    type="button"
-                    className="apt-btn-reset"
-                    onClick={handleResetSearch}
-                  >
-                    <X size={13} />
-                    <span>Reset</span>
-                  </button>
-                )}
               </div>
 
               <div className="apt-audit-badge">
@@ -487,7 +523,7 @@ export default function AppointmentHistoryView() {
             <button
               type="button"
               className="apt-empty-reload-btn"
-              onClick={loadHistory}
+              onClick={handleRefresh}
             >
               <RotateCw size={15} />
               <span>Reload History</span>
@@ -495,7 +531,7 @@ export default function AppointmentHistoryView() {
           </div>
         ) : (
           <div className="apt-history-list">
-            {paginatedList.map((a) => (
+            {displayAppointments.map((a) => (
               <div
                 key={a.id}
                 className="apt-history-card"
@@ -593,15 +629,15 @@ export default function AppointmentHistoryView() {
       {!isLoading && displayAppointments.length > 0 && (
         <div className="apt-pagination-bar">
           <div className="apt-pagination-info">
-            Showing {startItem} - {endItem} of {totalItems} records (Page {validPage} of {totalPages})
+            Showing {startItem} - {endItem} of {totalCount} records (Page {currentPage} of {totalPages})
           </div>
 
           <div className="apt-pagination-actions">
             <button
               type="button"
               className="apt-page-nav-btn"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={validPage <= 1}
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
             >
               <ChevronLeft size={16} />
               <span>Prev</span>
@@ -613,8 +649,8 @@ export default function AppointmentHistoryView() {
                 <button
                   key={p}
                   type="button"
-                  className={`apt-page-num-btn ${p === validPage ? 'apt-page-num-btn--active' : ''}`}
-                  onClick={() => setCurrentPage(p)}
+                  className={`apt-page-num-btn ${p === currentPage ? 'apt-page-num-btn--active' : ''}`}
+                  onClick={() => handlePageChange(p)}
                 >
                   {p}
                 </button>
@@ -623,32 +659,32 @@ export default function AppointmentHistoryView() {
               <>
                 <button
                   type="button"
-                  className={`apt-page-num-btn ${validPage === 1 ? 'apt-page-num-btn--active' : ''}`}
-                  onClick={() => setCurrentPage(1)}
+                  className={`apt-page-num-btn ${currentPage === 1 ? 'apt-page-num-btn--active' : ''}`}
+                  onClick={() => handlePageChange(1)}
                 >
                   1
                 </button>
-                {validPage > 3 && <span className="apt-page-ellipsis">...</span>}
+                {currentPage > 3 && <span className="apt-page-ellipsis">...</span>}
                 {Array.from(
                   { length: 3 },
-                  (_, i) => Math.max(2, Math.min(totalPages - 1, validPage - 1 + i))
+                  (_, i) => Math.max(2, Math.min(totalPages - 1, currentPage - 1 + i))
                 )
                   .filter((v, idx, arr) => arr.indexOf(v) === idx && v > 1 && v < totalPages)
                   .map((p) => (
                     <button
                       key={p}
                       type="button"
-                      className={`apt-page-num-btn ${p === validPage ? 'apt-page-num-btn--active' : ''}`}
-                      onClick={() => setCurrentPage(p)}
+                      className={`apt-page-num-btn ${p === currentPage ? 'apt-page-num-btn--active' : ''}`}
+                      onClick={() => handlePageChange(p)}
                     >
                       {p}
                     </button>
                   ))}
-                {validPage < totalPages - 2 && <span className="apt-page-ellipsis">...</span>}
+                {currentPage < totalPages - 2 && <span className="apt-page-ellipsis">...</span>}
                 <button
                   type="button"
-                  className={`apt-page-num-btn ${validPage === totalPages ? 'apt-page-num-btn--active' : ''}`}
-                  onClick={() => setCurrentPage(totalPages)}
+                  className={`apt-page-num-btn ${currentPage === totalPages ? 'apt-page-num-btn--active' : ''}`}
+                  onClick={() => handlePageChange(totalPages)}
                 >
                   {totalPages}
                 </button>
@@ -658,8 +694,8 @@ export default function AppointmentHistoryView() {
             <button
               type="button"
               className="apt-page-nav-btn"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={validPage >= totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
             >
               <span>Next</span>
               <ChevronRight size={16} />

@@ -20,8 +20,9 @@
   border: 1px solid #E2E8F0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
   margin-bottom: 16px;
-  overflow: hidden;
   flex-shrink: 0;
+  position: relative;
+  z-index: 50;
   transition: all 0.2s ease;
 }
 
@@ -158,7 +159,6 @@
 
 .sales-main-card__collapsible-inner {
   min-height: 0;
-  overflow: hidden;
   padding: 14px 18px 16px 18px;
   display: flex;
   flex-direction: column;
@@ -167,6 +167,7 @@
 }
 
 .sales-main-card__collapsible--collapsed .sales-main-card__collapsible-inner {
+  overflow: hidden;
   padding-top: 0;
   padding-bottom: 0;
 }
@@ -247,7 +248,13 @@
   flex-wrap: wrap;
 }
 
+.sales-date-range-filter {
+  order: 1;
+  flex-shrink: 0;
+}
+
 .sales-filter-chips {
+  order: 2;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -298,6 +305,8 @@
 }
 
 .sales-search-section {
+  order: 3;
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1137,37 +1146,48 @@
 
   /* 3. Filter Chips & Search with Enhanced Apply Button */
   .sales-filter-bar {
-    flex-direction: column;
-    gap: 10px;
-    align-items: stretch;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    align-items: stretch !important;
+    width: 100% !important;
   }
 
-  .sales-filter-chips {
-    display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+  .sales-date-range-filter {
+    order: 1 !important;
+    width: 100% !important;
   }
 
-  .sales-filter-chips::-webkit-scrollbar {
-    display: none;
+  .sales-date-range-filter .date-filter-root {
+    width: 100% !important;
   }
 
-  .sales-filter-chip {
-    flex-shrink: 0;
-    padding: 6px 12px;
-    font-size: 12px;
-    border-radius: 9999px;
+  .sales-date-range-filter .date-filter-trigger {
+    width: 100% !important;
+    height: 40px !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
   }
 
   .sales-search-section {
+    order: 2 !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
     gap: 8px !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .sales-filter-chips {
+    order: 3 !important;
+    display: flex !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+    padding-bottom: 4px !important;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
     width: 100% !important;
   }
 

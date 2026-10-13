@@ -103,11 +103,22 @@ export interface CreateSalePayload {
   notes?: string;
 }
 
+export interface SaleSummary {
+  total: number;
+  completed: number;
+  total_revenue: number;
+}
+
 export interface SaleQueryParams {
   appointment_id?: number;
   customer_id?: number;
   search?: string;
   include_appointments?: string | boolean;
+  start_date?: string;
+  end_date?: string;
+  payment_method?: string;
+  page?: number;
+  limit?: number;
 }
 
 /* ── Helper functions matching Flutter SaleModel ───────── */
@@ -138,7 +149,29 @@ export function getPaymentMethodLabel(method: string): string {
 /* ── API ───────────────────────────────────────────────── */
 export const saleApi = {
   getAll: (params?: SaleQueryParams) =>
-    axiosClient.get<{ success: boolean; data: Sale[]; count: number }>('/sales', {
+    axiosClient.get<{
+      success: boolean;
+      data: Sale[];
+      count?: number;
+      total?: number;
+      page?: number;
+      limit?: number;
+      totalPages?: number;
+    }>('/sales', {
+      params,
+    }),
+
+  getSummary: (params?: {
+    start_date?: string;
+    end_date?: string;
+    search?: string;
+    payment_method?: string;
+    include_appointments?: string | boolean;
+  }) =>
+    axiosClient.get<{
+      success: boolean;
+      data: SaleSummary;
+    }>('/sales/summary', {
       params,
     }),
 

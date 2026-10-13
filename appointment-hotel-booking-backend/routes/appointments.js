@@ -2,15 +2,53 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 
-// GET /api/appointments?date=YYYY-MM-DD&staff_id=X&search=...&status=...
+// GET /api/appointments?date=YYYY-MM-DD&start_date=...&end_date=...&staff_id=X&search=...&status=...&page=...&limit=...
 router.get('/', async (req, res) => {
   try {
-    const { date, staff_id, search, status } = req.query;
-    const appointments = await db.getAppointments(date || null, staff_id || null, search || null, status || null);
+    const { date, start_date, end_date, staff_id, search, status, page, limit } = req.query;
+    const appointments = await db.getAppointments({
+      date: date || null,
+      start_date: start_date || null,
+      end_date: end_date || null,
+      staff_id: staff_id || null,
+      search: search || null,
+      status: status || null,
+      page: page || null,
+      limit: limit || null,
+    });
+
+    if (appointments && appointments.total !== undefined) {
+      return res.json({
+        success: true,
+        data: appointments.data,
+        total: appointments.total,
+        page: appointments.page,
+        limit: appointments.limit,
+        totalPages: appointments.totalPages,
+        count: appointments.data.length,
+      });
+    }
+
     res.json({ success: true, data: appointments, count: appointments.length });
   } catch (err) {
     console.error('Error fetching appointments:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch appointments.' });
+  }
+});
+
+// GET /api/appointments/summary?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&search=...
+router.get('/summary', async (req, res) => {
+  try {
+    const { start_date, end_date, date, search } = req.query;
+    const summary = await db.getAppointmentSummary({
+      startDate: start_date || date || null,
+      endDate: end_date || date || null,
+      search: search || null,
+    });
+    res.json({ success: true, data: summary });
+  } catch (err) {
+    console.error('Error fetching appointment summary:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch appointment summary.' });
   }
 });
 

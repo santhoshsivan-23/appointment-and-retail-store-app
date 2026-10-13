@@ -1337,7 +1337,32 @@ async function deleteProduct(id) {
 }
 
 // ----------------- Appointments Helpers -----------------
-async function getAppointments(date = null, staffId = null, search = null, status = null) {
+async function getAppointments(date = null, staffId = null, search = null, status = null, options = {}) {
+  let filterDate = date;
+  let filterStaffId = staffId;
+  let filterSearch = search;
+  let filterStatus = status;
+  let startDate = null;
+  let endDate = null;
+  let page = null;
+  let limit = null;
+
+  if (date && typeof date === 'object' && date !== null) {
+    filterDate = date.date || null;
+    filterStaffId = date.staff_id || date.staffId || null;
+    filterSearch = date.search || null;
+    filterStatus = date.status || null;
+    startDate = date.start_date || date.startDate || null;
+    endDate = date.end_date || date.endDate || null;
+    page = date.page ? parseInt(date.page, 10) : null;
+    limit = date.limit ? parseInt(date.limit, 10) : null;
+  } else if (options && typeof options === 'object') {
+    startDate = options.start_date || options.startDate || null;
+    endDate = options.end_date || options.endDate || null;
+    page = options.page ? parseInt(options.page, 10) : null;
+    limit = options.limit ? parseInt(options.limit, 10) : null;
+  }
+
   if (!useFallback && pool) {
     try {
       let query = `
@@ -1347,28 +1372,67 @@ async function getAppointments(date = null, staffId = null, search = null, statu
         WHERE a.business_id = 1
       `;
       const params = [];
-      if (date) {
-        query += ' AND a.appointment_date = ?';
-        params.push(date);
+      const whereConditions = [];
+
+      if (startDate && endDate) {
+        whereConditions.push('DATE(a.appointment_date) BETWEEN ? AND ?');
+        params.push(startDate, endDate);
+      } else if (startDate) {
+        whereConditions.push('DATE(a.appointment_date) >= ?');
+        params.push(startDate);
+      } else if (endDate) {
+        whereConditions.push('DATE(a.appointment_date) <= ?');
+        params.push(endDate);
+      } else if (filterDate) {
+        whereConditions.push('DATE(a.appointment_date) = ?');
+        params.push(filterDate);
       }
-      if (staffId) {
-        query += ' AND a.staff_id = ?';
-        params.push(staffId);
+
+      if (filterStaffId) {
+        whereConditions.push('a.staff_id = ?');
+        params.push(filterStaffId);
       }
-      if (status) {
-        query += ' AND a.status = ?';
-        params.push(status);
+      if (filterStatus) {
+        whereConditions.push('a.status = ?');
+        params.push(filterStatus);
       }
-      if (search && search.trim().length > 0) {
-        const term = `%${search.trim()}%`;
-        query += ' AND (a.customer_name LIKE ? OR a.customer_phone LIKE ? OR a.staff_name LIKE ? OR s.name LIKE ?)';
+      if (filterSearch && filterSearch.trim().length > 0) {
+        const term = `%${filterSearch.trim()}%`;
+        whereConditions.push('(a.customer_name LIKE ? OR a.customer_phone LIKE ? OR a.staff_name LIKE ? OR s.name LIKE ?)');
         params.push(term, term, term, term);
       }
-      if (date) {
+
+      if (whereConditions.length > 0) {
+        query += ' AND ' + whereConditions.join(' AND ');
+      }
+
+      let totalCount = null;
+      if (page && limit) {
+        let countQuery = `
+          SELECT COUNT(*) AS total
+          FROM appointments a
+          LEFT JOIN staff s ON a.staff_id = s.id
+          WHERE a.business_id = 1
+        `;
+        if (whereConditions.length > 0) {
+          countQuery += ' AND ' + whereConditions.join(' AND ');
+        }
+        const [countRows] = await pool.query(countQuery, params);
+        totalCount = Number(countRows[0]?.total || 0);
+      }
+
+      if (filterDate && !endDate) {
         query += ' ORDER BY a.start_time ASC';
       } else {
         query += ' ORDER BY a.appointment_date DESC, a.start_time DESC';
       }
+
+      if (page && limit) {
+        const offset = Math.max(0, (page - 1) * limit);
+        query += ' LIMIT ? OFFSET ?';
+        params.push(limit, offset);
+      }
+
       const [rows] = await pool.query(query, params);
 
       let allRefunds = [];
@@ -1390,7 +1454,7 @@ async function getAppointments(date = null, staffId = null, search = null, statu
         }
       });
 
-      return rows.map((r) => {
+      const mapped = rows.map((r) => {
         if (r.services && typeof r.services === 'string') {
           try { r.services = JSON.parse(r.services); } catch (_) { r.services = []; }
         }
@@ -1411,6 +1475,18 @@ async function getAppointments(date = null, staffId = null, search = null, statu
           net_subtotal: Math.max(0, Math.round((origSubtotal - totalSubtotalRefunded) * 100) / 100),
         };
       });
+
+      if (page && limit) {
+        return {
+          data: mapped,
+          total: totalCount,
+          page,
+          limit,
+          totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+        };
+      }
+
+      return mapped;
     } catch (e) {
       console.error(e);
     }
@@ -1450,17 +1526,27 @@ async function getAppointments(date = null, staffId = null, search = null, statu
     };
   });
 
-  if (date) {
-    list = list.filter((a) => a.appointment_date === date);
+  if (startDate && endDate) {
+    list = list.filter((a) => {
+      const d = (a.appointment_date || '').slice(0, 10);
+      return d >= startDate && d <= endDate;
+    });
+  } else if (startDate) {
+    list = list.filter((a) => (a.appointment_date || '').slice(0, 10) >= startDate);
+  } else if (endDate) {
+    list = list.filter((a) => (a.appointment_date || '').slice(0, 10) <= endDate);
+  } else if (filterDate) {
+    list = list.filter((a) => (a.appointment_date || '').slice(0, 10) === filterDate);
   }
-  if (staffId) {
-    list = list.filter((a) => String(a.staff_id) === String(staffId));
+
+  if (filterStaffId) {
+    list = list.filter((a) => String(a.staff_id) === String(filterStaffId));
   }
-  if (status) {
-    list = list.filter((a) => String(a.status).toLowerCase() === String(status).toLowerCase());
+  if (filterStatus) {
+    list = list.filter((a) => String(a.status).toLowerCase() === String(filterStatus).toLowerCase());
   }
-  if (search && search.trim().length > 0) {
-    const q = search.trim().toLowerCase();
+  if (filterSearch && filterSearch.trim().length > 0) {
+    const q = filterSearch.trim().toLowerCase();
     list = list.filter((a) => {
       const cName = (a.customer_name || '').toLowerCase();
       const cPhone = (a.customer_phone || '').toLowerCase();
@@ -1468,14 +1554,99 @@ async function getAppointments(date = null, staffId = null, search = null, statu
       return cName.includes(q) || cPhone.includes(q) || sName.includes(q);
     });
   }
-  if (date) {
-    return list.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+
+  if (filterDate && !endDate) {
+    list.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+  } else {
+    list.sort((a, b) => {
+      const dCmp = (b.appointment_date || '').localeCompare(a.appointment_date || '');
+      if (dCmp !== 0) return dCmp;
+      return (b.start_time || '').localeCompare(a.start_time || '');
+    });
   }
-  return list.sort((a, b) => {
-    const dCmp = (b.appointment_date || '').localeCompare(a.appointment_date || '');
-    if (dCmp !== 0) return dCmp;
-    return (b.start_time || '').localeCompare(a.start_time || '');
+
+  const totalCount = list.length;
+  if (page && limit) {
+    const offset = Math.max(0, (page - 1) * limit);
+    return {
+      data: list.slice(offset, offset + limit),
+      total: totalCount,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+    };
+  }
+
+  return list;
+}
+
+// ----------------- Appointment Summary Fast API -----------------
+async function getAppointmentSummary({ startDate = null, endDate = null, search = null } = {}) {
+  if (!useFallback && pool) {
+    try {
+      let query = `
+        SELECT 
+          COUNT(*) AS total,
+          COUNT(CASE WHEN a.status IN ('completed', 'performed') THEN 1 END) AS completed,
+          COALESCE(SUM(CASE WHEN a.status IN ('completed', 'performed') THEN a.total_amount ELSE 0 END), 0) AS total_revenue
+        FROM appointments a
+        LEFT JOIN staff s ON a.staff_id = s.id
+        WHERE a.business_id = 1
+      `;
+      const params = [];
+      if (startDate && endDate) {
+        query += ' AND DATE(a.appointment_date) BETWEEN ? AND ?';
+        params.push(startDate, endDate);
+      } else if (startDate) {
+        query += ' AND DATE(a.appointment_date) = ?';
+        params.push(startDate);
+      }
+      if (search && search.trim().length > 0) {
+        const term = `%${search.trim()}%`;
+        query += ' AND (a.customer_name LIKE ? OR a.customer_phone LIKE ? OR a.staff_name LIKE ? OR s.name LIKE ?)';
+        params.push(term, term, term, term);
+      }
+      const [rows] = await pool.query(query, params);
+      return {
+        total: Number(rows[0]?.total || 0),
+        completed: Number(rows[0]?.completed || 0),
+        total_revenue: Math.round(Number(rows[0]?.total_revenue || 0) * 100) / 100,
+      };
+    } catch (e) {
+      console.error('Error in getAppointmentSummary:', e);
+    }
+  }
+
+  let list = readJson('appointments');
+  if (startDate && endDate) {
+    list = list.filter((a) => {
+      const d = (a.appointment_date || '').slice(0, 10);
+      return d >= startDate && d <= endDate;
+    });
+  } else if (startDate) {
+    list = list.filter((a) => (a.appointment_date || '').slice(0, 10) === startDate);
+  }
+  if (search && search.trim().length > 0) {
+    const q = search.trim().toLowerCase();
+    list = list.filter((a) => {
+      const cName = (a.customer_name || '').toLowerCase();
+      const cPhone = (a.customer_phone || '').toLowerCase();
+      const sName = (a.staff_name || '').toLowerCase();
+      return cName.includes(q) || cPhone.includes(q) || sName.includes(q);
+    });
+  }
+  const total = list.length;
+  const completedList = list.filter((a) => {
+    const st = (a.status || '').toLowerCase();
+    return st === 'completed' || st === 'performed';
   });
+  const completed = completedList.length;
+  const totalRevenue = completedList.reduce((sum, a) => sum + (Number(a.total_amount) || 0), 0);
+  return {
+    total,
+    completed,
+    total_revenue: Math.round(totalRevenue * 100) / 100,
+  };
 }
 
 async function getAppointmentById(id) {
@@ -1693,6 +1864,12 @@ async function deleteAppointment(id) {
 
 // =================== Sales CRUD ===================
 async function getSales(filters = {}) {
+  const startDate = filters.start_date || filters.startDate || null;
+  const endDate = filters.end_date || filters.endDate || null;
+  const paymentMethod = filters.payment_method || filters.paymentMethod || null;
+  const page = filters.page ? parseInt(filters.page, 10) : null;
+  const limit = filters.limit ? parseInt(filters.limit, 10) : null;
+
   if (!useFallback && pool) {
     try {
       let sql = `
@@ -1713,13 +1890,43 @@ async function getSales(filters = {}) {
         conditions.push('sales.customer_id = ?');
         values.push(filters.customer_id);
       }
+      if (startDate && endDate) {
+        conditions.push('DATE(sales.created_at) BETWEEN ? AND ?');
+        values.push(startDate, endDate);
+      } else if (startDate) {
+        conditions.push('DATE(sales.created_at) >= ?');
+        values.push(startDate);
+      } else if (endDate) {
+        conditions.push('DATE(sales.created_at) <= ?');
+        values.push(endDate);
+      }
+      if (paymentMethod && paymentMethod !== 'all') {
+        conditions.push('LOWER(sales.payment_method) = ?');
+        values.push(paymentMethod.toLowerCase());
+      }
       if (filters.search && filters.search.trim().length > 0) {
         const term = `%${filters.search.trim()}%`;
         conditions.push('(sales.customer_name LIKE ? OR sales.customer_phone LIKE ? OR sales.staff_name LIKE ? OR s.name LIKE ?)');
         values.push(term, term, term, term);
       }
       if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
+
+      let totalCount = null;
+      if (page && limit) {
+        let countSql = `SELECT COUNT(*) AS total FROM sales LEFT JOIN staff s ON sales.staff_id = s.id`;
+        if (conditions.length > 0) countSql += ' WHERE ' + conditions.join(' AND ');
+        const [cRows] = await pool.query(countSql, values);
+        totalCount = Number(cRows[0]?.total || 0);
+      }
+
       sql += ' ORDER BY sales.created_at DESC';
+
+      if (page && limit) {
+        const offset = Math.max(0, (page - 1) * limit);
+        sql += ' LIMIT ? OFFSET ?';
+        values.push(limit, offset);
+      }
+
       const [rows] = await pool.query(sql, values);
 
       let allRefunds = [];
@@ -1741,7 +1948,7 @@ async function getSales(filters = {}) {
         }
       });
 
-      return rows.map((r) => {
+      const mapped = rows.map((r) => {
         if (r.items && typeof r.items === 'string') {
           try { r.items = JSON.parse(r.items); } catch (_) { r.items = []; }
         }
@@ -1762,6 +1969,18 @@ async function getSales(filters = {}) {
           net_subtotal: Math.max(0, Math.round((origSubtotal - totalSubtotalRefunded) * 100) / 100),
         };
       });
+
+      if (page && limit) {
+        return {
+          data: mapped,
+          total: totalCount,
+          page,
+          limit,
+          totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+        };
+      }
+
+      return mapped;
     } catch (e) {
       console.error(e);
     }
@@ -1806,6 +2025,19 @@ async function getSales(filters = {}) {
     list = list.filter((s) => !s.appointment_id || s.appointment_id == 0);
   }
   if (filters.customer_id) list = list.filter((s) => String(s.customer_id) === String(filters.customer_id));
+  if (startDate && endDate) {
+    list = list.filter((s) => {
+      const d = (s.created_at || '').slice(0, 10);
+      return d >= startDate && d <= endDate;
+    });
+  } else if (startDate) {
+    list = list.filter((s) => (s.created_at || '').slice(0, 10) >= startDate);
+  } else if (endDate) {
+    list = list.filter((s) => (s.created_at || '').slice(0, 10) <= endDate);
+  }
+  if (paymentMethod && paymentMethod !== 'all') {
+    list = list.filter((s) => (s.payment_method || '').toLowerCase() === paymentMethod.toLowerCase());
+  }
   if (filters.search && filters.search.trim().length > 0) {
     const q = filters.search.trim().toLowerCase();
     list = list.filter((s) => {
@@ -1815,7 +2047,106 @@ async function getSales(filters = {}) {
       return cName.includes(q) || cPhone.includes(q) || sName.includes(q);
     });
   }
-  return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  const totalCount = list.length;
+  if (page && limit) {
+    const offset = Math.max(0, (page - 1) * limit);
+    return {
+      data: list.slice(offset, offset + limit),
+      total: totalCount,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+    };
+  }
+
+  return list;
+}
+
+// ----------------- Sale Summary Fast API -----------------
+async function getSaleSummary({ startDate = null, endDate = null, search = null, paymentMethod = null, include_appointments = false } = {}) {
+  if (!useFallback && pool) {
+    try {
+      let sql = `
+        SELECT 
+          COUNT(*) AS total,
+          COUNT(*) AS completed,
+          COALESCE(SUM(sales.total_amount), 0) AS total_revenue
+        FROM sales
+        LEFT JOIN staff s ON sales.staff_id = s.id
+        WHERE 1=1
+      `;
+      const conditions = [];
+      const values = [];
+      if (include_appointments !== 'true' && include_appointments !== true) {
+        conditions.push('(sales.appointment_id IS NULL OR sales.appointment_id = 0)');
+      }
+      if (startDate && endDate) {
+        conditions.push('DATE(sales.created_at) BETWEEN ? AND ?');
+        values.push(startDate, endDate);
+      } else if (startDate) {
+        conditions.push('DATE(sales.created_at) >= ?');
+        values.push(startDate);
+      } else if (endDate) {
+        conditions.push('DATE(sales.created_at) <= ?');
+        values.push(endDate);
+      }
+      if (paymentMethod && paymentMethod !== 'all') {
+        conditions.push('LOWER(sales.payment_method) = ?');
+        values.push(paymentMethod.toLowerCase());
+      }
+      if (search && search.trim().length > 0) {
+        const term = `%${search.trim()}%`;
+        conditions.push('(sales.customer_name LIKE ? OR sales.customer_phone LIKE ? OR sales.staff_name LIKE ? OR s.name LIKE ?)');
+        values.push(term, term, term, term);
+      }
+      if (conditions.length > 0) {
+        sql += ' AND ' + conditions.join(' AND ');
+      }
+      const [rows] = await pool.query(sql, values);
+      return {
+        total: Number(rows[0]?.total || 0),
+        completed: Number(rows[0]?.completed || 0),
+        total_revenue: Math.round(Number(rows[0]?.total_revenue || 0) * 100) / 100,
+      };
+    } catch (e) {
+      console.error('Error in getSaleSummary:', e);
+    }
+  }
+
+  let list = readJson('sales');
+  if (include_appointments !== 'true' && include_appointments !== true) {
+    list = list.filter((s) => !s.appointment_id || s.appointment_id == 0);
+  }
+  if (startDate && endDate) {
+    list = list.filter((s) => {
+      const d = (s.created_at || '').slice(0, 10);
+      return d >= startDate && d <= endDate;
+    });
+  } else if (startDate) {
+    list = list.filter((s) => (s.created_at || '').slice(0, 10) === startDate);
+  }
+  if (paymentMethod && paymentMethod !== 'all') {
+    list = list.filter((s) => (s.payment_method || '').toLowerCase() === paymentMethod.toLowerCase());
+  }
+  if (search && search.trim().length > 0) {
+    const q = search.trim().toLowerCase();
+    list = list.filter((s) => {
+      const cName = (s.customer_name || '').toLowerCase();
+      const cPhone = (s.customer_phone || '').toLowerCase();
+      const sName = (s.staff_name || '').toLowerCase();
+      return cName.includes(q) || cPhone.includes(q) || sName.includes(q);
+    });
+  }
+  const total = list.length;
+  const completed = total;
+  const totalRevenue = list.reduce((sum, s) => sum + (Number(s.total_amount) || 0), 0);
+  return {
+    total,
+    completed,
+    total_revenue: Math.round(totalRevenue * 100) / 100,
+  };
 }
 
 async function getSaleById(id) {
@@ -2622,12 +2953,14 @@ module.exports = {
   getAppointments,
   getAppointmentById,
   getAppointmentStats,
+  getAppointmentSummary,
   createAppointment,
   updateAppointmentStatus,
   updateAppointment,
   deleteAppointment,
   getSales,
   getSaleById,
+  getSaleSummary,
   createSale,
   calculateRefundDetails,
   getSaleRefunds,

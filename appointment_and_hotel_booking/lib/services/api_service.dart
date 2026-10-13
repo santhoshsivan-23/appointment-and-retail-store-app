@@ -11,6 +11,7 @@ import '../models/refund_model.dart';
 import '../models/sale_model.dart';
 import '../models/staff_model.dart';
 import '../models/printer_settings_model.dart';
+import '../models/history_summary_model.dart';
 import 'auth_storage.dart';
 
 class ApiResponse {
@@ -436,6 +437,82 @@ class ApiService {
     return [];
   }
 
+  /// Get paginated appointments by date range, search, and status (History Data API)
+  static Future<PaginatedResult<AppointmentModel>> getAppointmentsPaginated({
+    String? startDate,
+    String? endDate,
+    String? search,
+    String? status,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final params = <String, String>{
+        'page': page.toString(),
+        'limit': limit.toString(),
+      };
+      if (startDate != null && startDate.isNotEmpty) params['start_date'] = startDate;
+      if (endDate != null && endDate.isNotEmpty) params['end_date'] = endDate;
+      if (search != null && search.trim().isNotEmpty) params['search'] = search.trim();
+      if (status != null && status.isNotEmpty) params['status'] = status;
+
+      final uri = Uri.parse('$baseUrl/appointments').replace(queryParameters: params);
+      final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List? ?? []);
+        final items = list.map((x) => AppointmentModel.fromJson(Map<String, dynamic>.from(x))).toList();
+        final total = (body['total'] as num?)?.toInt() ?? items.length;
+        final totalPages = (body['totalPages'] as num?)?.toInt() ?? ((total / limit).ceil().clamp(1, 999999));
+        return PaginatedResult<AppointmentModel>(
+          items: items,
+          total: total,
+          page: page,
+          limit: limit,
+          totalPages: totalPages,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error getting paginated appointments: $e');
+    }
+    return PaginatedResult<AppointmentModel>(
+      items: [],
+      total: 0,
+      page: page,
+      limit: limit,
+      totalPages: 1,
+    );
+  }
+
+  /// Get fast summary aggregates for appointments in date range (Summary API)
+  static Future<HistorySummaryModel> getAppointmentSummary({
+    required String startDate,
+    required String endDate,
+    String? search,
+  }) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final params = <String, String>{
+        'start_date': startDate,
+        'end_date': endDate,
+      };
+      if (search != null && search.trim().isNotEmpty) params['search'] = search.trim();
+
+      final uri = Uri.parse('$baseUrl/appointments/summary').replace(queryParameters: params);
+      final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['data'] != null) {
+          return HistorySummaryModel.fromJson(Map<String, dynamic>.from(body['data']));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting appointment summary: $e');
+    }
+    return const HistorySummaryModel();
+  }
+
   static Future<Map<String, int>> getAppointmentStats({String? date}) async {
     try {
       final baseUrl = await getBaseUrl();
@@ -630,6 +707,90 @@ class ApiService {
       debugPrint('Error getting sales: $e');
     }
     return [];
+  }
+
+  /// Get paginated sales by date range, payment method, and search (History Data API)
+  static Future<PaginatedResult<SaleModel>> getSalesPaginated({
+    String? startDate,
+    String? endDate,
+    String? search,
+    String? paymentMethod,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final params = <String, String>{
+        'page': page.toString(),
+        'limit': limit.toString(),
+      };
+      if (startDate != null && startDate.isNotEmpty) params['start_date'] = startDate;
+      if (endDate != null && endDate.isNotEmpty) params['end_date'] = endDate;
+      if (search != null && search.trim().isNotEmpty) params['search'] = search.trim();
+      if (paymentMethod != null && paymentMethod.isNotEmpty && paymentMethod != 'all') {
+        params['payment_method'] = paymentMethod;
+      }
+
+      final uri = Uri.parse('$baseUrl/sales').replace(queryParameters: params);
+      final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final list = (body['data'] as List? ?? []);
+        final rawSales = list.map((x) => SaleModel.fromJson(Map<String, dynamic>.from(x))).toList();
+        // Normal POS/Cart sales only (appointment_id null or 0)
+        final items = rawSales.where((s) => s.appointmentId == null || s.appointmentId == 0).toList();
+        final total = (body['total'] as num?)?.toInt() ?? items.length;
+        final totalPages = (body['totalPages'] as num?)?.toInt() ?? ((total / limit).ceil().clamp(1, 999999));
+        return PaginatedResult<SaleModel>(
+          items: items,
+          total: total,
+          page: page,
+          limit: limit,
+          totalPages: totalPages,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error getting paginated sales: $e');
+    }
+    return PaginatedResult<SaleModel>(
+      items: [],
+      total: 0,
+      page: page,
+      limit: limit,
+      totalPages: 1,
+    );
+  }
+
+  /// Get fast summary aggregates for sales in date range (Summary API)
+  static Future<HistorySummaryModel> getSaleSummary({
+    required String startDate,
+    required String endDate,
+    String? search,
+    String? paymentMethod,
+  }) async {
+    try {
+      final baseUrl = await getBaseUrl();
+      final params = <String, String>{
+        'start_date': startDate,
+        'end_date': endDate,
+      };
+      if (search != null && search.trim().isNotEmpty) params['search'] = search.trim();
+      if (paymentMethod != null && paymentMethod.isNotEmpty && paymentMethod != 'all') {
+        params['payment_method'] = paymentMethod;
+      }
+
+      final uri = Uri.parse('$baseUrl/sales/summary').replace(queryParameters: params);
+      final res = await http.get(uri, headers: await _getHeaders()).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['data'] != null) {
+          return HistorySummaryModel.fromJson(Map<String, dynamic>.from(body['data']));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting sale summary: $e');
+    }
+    return const HistorySummaryModel();
   }
 
   // Refund API: Process Sale Refund

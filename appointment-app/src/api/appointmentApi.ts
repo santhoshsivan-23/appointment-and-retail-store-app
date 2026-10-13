@@ -47,6 +47,12 @@ export interface Appointment {
   net_subtotal?: number;
 }
 
+export interface AppointmentSummary {
+  total: number;
+  completed: number;
+  total_revenue: number;
+}
+
 export interface AppointmentStats {
   total: number;
   booked: number;
@@ -95,14 +101,34 @@ export interface CheckConflictResult {
 export const appointmentApi = {
   getAppointments: (params?: {
     date?: string;
+    start_date?: string;
+    end_date?: string;
     staff_id?: number;
     search?: string;
     status?: string;
+    page?: number;
+    limit?: number;
   }) =>
-    axiosClient.get<{ success: boolean; count: number; data: Appointment[] }>(
-      '/appointments',
-      { params }
-    ),
+    axiosClient.get<{
+      success: boolean;
+      data: Appointment[];
+      count?: number;
+      total?: number;
+      page?: number;
+      limit?: number;
+      totalPages?: number;
+    }>('/appointments', { params }),
+
+  getSummary: (params?: {
+    start_date?: string;
+    end_date?: string;
+    date?: string;
+    search?: string;
+  }) =>
+    axiosClient.get<{
+      success: boolean;
+      data: AppointmentSummary;
+    }>('/appointments/summary', { params }),
 
   getStats: (date?: string) =>
     axiosClient.get<{
