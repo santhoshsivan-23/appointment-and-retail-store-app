@@ -72,9 +72,11 @@ export default function LoginScreen() {
       toast.success(`Welcome back, ${business.owner_name || 'User'}!`);
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
+      console.error('Login error detail:', err);
       const msg =
         err?.response?.data?.message ||
         err?.response?.data?.error ||
+        err?.message ||
         'Login failed. Please try again.';
       setErrorMsg(msg);
       toast.error(msg);

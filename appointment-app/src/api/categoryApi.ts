@@ -1,4 +1,4 @@
-import axiosClient from './axiosClient';
+import { categoryService } from '../firebase/services/categoryService';
 
 /* ── Types ─────────────────────────────────────────────── */
 export interface Category {
@@ -23,17 +23,17 @@ export interface CategoryPayload {
   show_in_appointment?: boolean;
 }
 
-/* ── API ───────────────────────────────────────────────── */
+/* ── Category API (Powered by Firebase Firestore) ──────── */
 export const categoryApi = {
   getAll: () =>
-    axiosClient.get<{ data: Category[] }>('/categories'),
+    categoryService.getAll(),
 
   create: (data: CategoryPayload) =>
-    axiosClient.post('/categories', data),
+    categoryService.create(data),
 
   update: (id: number, data: Partial<CategoryPayload>) =>
-    axiosClient.put(`/categories/${id}`, data),
+    categoryService.update(id, data),
 
   delete: (id: number) =>
-    axiosClient.delete(`/categories/${id}`),
+    categoryService.delete(id),
 };

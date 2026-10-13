@@ -94,9 +94,11 @@ export default function RegisterScreen() {
       toast.success('Account created! Redirecting…');
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
+      console.error('Registration error detail:', err);
       const msg =
         err?.response?.data?.message ||
         err?.response?.data?.error ||
+        err?.message ||
         'Registration failed. Please try again.';
       setErrorMsg(msg);
       toast.error(msg);

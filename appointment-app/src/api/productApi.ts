@@ -1,4 +1,4 @@
-import axiosClient from './axiosClient';
+import { productService } from '../firebase/services/productService';
 
 /* ── Types ─────────────────────────────────────────────── */
 export interface ComboItem {
@@ -66,25 +66,23 @@ export interface ProductPaginationParams {
   search?: string;
 }
 
-/* ── API ───────────────────────────────────────────────── */
+/* ── Product API (Powered by Firebase Firestore) ───────── */
 export const productApi = {
   getAll: (params?: ProductQueryParams) =>
-    axiosClient.get<{ data: Product[] }>('/products', { params }),
+    productService.getAll(params),
 
   getPaginated: (params?: ProductPaginationParams) =>
-    axiosClient.get<PaginatedProductsResponse>('/products/cart-paginated', { params }),
+    productService.getPaginated(params),
 
   search: (keyword: string) =>
-    axiosClient.get<{ success: boolean; count: number; data: Product[] }>('/products/search', {
-      params: { q: keyword },
-    }),
+    productService.search(keyword),
 
   create: (data: ProductPayload) =>
-    axiosClient.post('/products', data),
+    productService.create(data),
 
   update: (id: number, data: Partial<ProductPayload>) =>
-    axiosClient.put(`/products/${id}`, data),
+    productService.update(id, data),
 
   delete: (id: number) =>
-    axiosClient.delete(`/products/${id}`),
+    productService.delete(id),
 };

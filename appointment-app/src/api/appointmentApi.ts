@@ -1,4 +1,4 @@
-import axiosClient from './axiosClient';
+import { appointmentService } from '../firebase/services/appointmentService';
 import type { RefundRecord, ProcessRefundPayload } from './saleApi';
 
 /* ── Types ─────────────────────────────────────────────── */
@@ -97,7 +97,7 @@ export interface CheckConflictResult {
   message?: string;
 }
 
-/* ── Appointment API ────────────────────────────────────── */
+/* ── Appointment API (Powered by Firebase Firestore) ───── */
 export const appointmentApi = {
   getAppointments: (params?: {
     date?: string;
@@ -108,88 +108,36 @@ export const appointmentApi = {
     status?: string;
     page?: number;
     limit?: number;
-  }) =>
-    axiosClient.get<{
-      success: boolean;
-      data: Appointment[];
-      count?: number;
-      total?: number;
-      page?: number;
-      limit?: number;
-      totalPages?: number;
-    }>('/appointments', { params }),
+  }) => appointmentService.getAppointments(params),
 
   getSummary: (params?: {
     start_date?: string;
     end_date?: string;
     date?: string;
     search?: string;
-  }) =>
-    axiosClient.get<{
-      success: boolean;
-      data: AppointmentSummary;
-    }>('/appointments/summary', { params }),
+  }) => appointmentService.getSummary(params),
 
-  getStats: (date?: string) =>
-    axiosClient.get<{
-      success: boolean;
-      date?: string;
-      data: AppointmentStats;
-    }>('/appointments/stats/overview', {
-      params: { date },
-    }),
+  getStats: (date?: string) => appointmentService.getStats(date),
 
-  getById: (id: number) =>
-    axiosClient.get<{ success: boolean; data: Appointment }>(
-      `/appointments/${id}`
-    ),
+  getById: (id: number) => appointmentService.getById(id),
 
-  create: (payload: CreateAppointmentPayload) =>
-    axiosClient.post<{
-      success: boolean;
-      message: string;
-      data: Appointment;
-    }>('/appointments', payload),
+  create: (payload: CreateAppointmentPayload) => appointmentService.create(payload),
 
   update: (
     id: number,
     payload: Partial<CreateAppointmentPayload> & { status?: AppointmentStatus }
-  ) =>
-    axiosClient.put<{
-      success: boolean;
-      message: string;
-      data: Appointment;
-    }>(`/appointments/${id}`, payload),
+  ) => appointmentService.update(id, payload),
 
   updateStatus: (id: number, status: AppointmentStatus) =>
-    axiosClient.put<{
-      success: boolean;
-      message: string;
-      data: Appointment;
-    }>(`/appointments/${id}/status`, { status }),
+    appointmentService.updateStatus(id, status),
 
   checkConflict: (payload: CheckConflictPayload) =>
-    axiosClient.post<{ success: boolean } & CheckConflictResult>(
-      '/appointments/check-conflict',
-      payload
-    ),
+    appointmentService.checkConflict(payload),
 
-  delete: (id: number) =>
-    axiosClient.delete<{ success: boolean; message: string }>(
-      `/appointments/${id}`
-    ),
+  delete: (id: number) => appointmentService.delete(id),
 
-  getRefunds: (id: number) =>
-    axiosClient.get<{ success: boolean; data: RefundRecord[]; count: number }>(
-      `/appointments/${id}/refunds`
-    ),
+  getRefunds: (id: number) => appointmentService.getRefunds(id),
 
   processRefund: (id: number, data: ProcessRefundPayload) =>
-    axiosClient.post<{
-      success: boolean;
-      message: string;
-      data: RefundRecord;
-      appointment: Appointment;
-      sale?: any;
-    }>(`/appointments/${id}/refund`, data),
+    appointmentService.processRefund(id, data),
 };

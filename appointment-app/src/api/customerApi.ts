@@ -1,4 +1,4 @@
-import axiosClient from './axiosClient';
+import { customerService } from '../firebase/services/customerService';
 
 /* ── Types ─────────────────────────────────────────────── */
 export interface Customer {
@@ -20,13 +20,11 @@ export interface CustomerPayload {
   notes?: string;
 }
 
-/* ── API ───────────────────────────────────────────────── */
+/* ── Customer API (Powered by Firebase Firestore) ──────── */
 export const customerApi = {
   getAll: (search?: string) =>
-    axiosClient.get<{ success: boolean; data: Customer[]; count: number }>('/customers', {
-      params: search ? { search } : undefined,
-    }),
+    customerService.getAll(search),
 
   create: (data: CustomerPayload) =>
-    axiosClient.post<{ success: boolean; data: Customer }>('/customers', data),
+    customerService.create(data),
 };

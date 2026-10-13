@@ -1,4 +1,4 @@
-import axiosClient from './axiosClient';
+import { authService } from '../firebase/services/authService';
 
 export interface LoginPayload {
   email: string;
@@ -17,7 +17,7 @@ export interface RegisterPayload {
 }
 
 export const authApi = {
-  login: (data: LoginPayload) => axiosClient.post('/auth/login', data),
-  register: (data: RegisterPayload) => axiosClient.post('/auth/register', data),
-  getProfile: () => axiosClient.get('/auth/me'),
+  login: (data: LoginPayload) => authService.login(data),
+  register: (data: RegisterPayload) => authService.register(data),
+  getProfile: () => authService.getProfile(),
 };

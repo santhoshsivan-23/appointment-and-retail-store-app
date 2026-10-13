@@ -1,4 +1,4 @@
-import axiosClient from './axiosClient';
+import { settingsService } from '../firebase/services/settingsService';
 
 /* ── Types ─────────────────────────────────────────────── */
 export interface LanPrinterSettings {
@@ -63,15 +63,11 @@ export interface SettingsPayload {
   printer_settings?: LanPrinterSettings | string;
 }
 
-/* ── API ───────────────────────────────────────────────── */
+/* ── Settings API (Powered by Firebase Firestore) ──────── */
 export const settingsApi = {
-  getSettings: (businessId?: number) =>
-    axiosClient.get<{ success: boolean; data: Settings }>('/settings', {
-      params: businessId ? { business_id: businessId } : undefined,
-    }),
+  getSettings: (businessId?: number) => settingsService.getSettings(businessId),
 
-  updateSettings: (data: SettingsPayload) =>
-    axiosClient.put<{ success: boolean; message: string; data: Settings }>('/settings', data),
+  updateSettings: (data: SettingsPayload) => settingsService.updateSettings(data),
 
   testPrint: (data: {
     ip_address: string;
@@ -82,8 +78,7 @@ export const settingsApi = {
     auto_cut?: boolean;
     open_cash_drawer?: boolean;
     test_text?: string;
-  }) =>
-    axiosClient.post<{ success: boolean; message: string }>('/settings/test-print', data),
+  }) => settingsService.testPrint(data),
 
   printReceipt: (data: {
     printer_settings?: LanPrinterSettings;
@@ -91,7 +86,5 @@ export const settingsApi = {
     appointment?: any;
     is_reprint?: boolean;
     type?: 'sale' | 'appointment';
-  }) =>
-    axiosClient.post<{ success: boolean; message: string }>('/settings/print-receipt', data),
+  }) => settingsService.printReceipt(data),
 };
-

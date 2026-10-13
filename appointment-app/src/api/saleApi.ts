@@ -1,4 +1,4 @@
-import axiosClient from './axiosClient';
+import { saleService } from '../firebase/services/saleService';
 
 /* ── Types ─────────────────────────────────────────────── */
 export interface SaleItem {
@@ -146,20 +146,9 @@ export function getPaymentMethodLabel(method: string): string {
   }
 }
 
-/* ── API ───────────────────────────────────────────────── */
+/* ── Sale API (Powered by Firebase Firestore) ──────────── */
 export const saleApi = {
-  getAll: (params?: SaleQueryParams) =>
-    axiosClient.get<{
-      success: boolean;
-      data: Sale[];
-      count?: number;
-      total?: number;
-      page?: number;
-      limit?: number;
-      totalPages?: number;
-    }>('/sales', {
-      params,
-    }),
+  getAll: (params?: SaleQueryParams) => saleService.getAll(params),
 
   getSummary: (params?: {
     start_date?: string;
@@ -167,30 +156,14 @@ export const saleApi = {
     search?: string;
     payment_method?: string;
     include_appointments?: string | boolean;
-  }) =>
-    axiosClient.get<{
-      success: boolean;
-      data: SaleSummary;
-    }>('/sales/summary', {
-      params,
-    }),
+  }) => saleService.getSummary(params),
 
-  getById: (id: number) =>
-    axiosClient.get<{ success: boolean; data: Sale }>(`/sales/${id}`),
+  getById: (id: number) => saleService.getById(id),
 
-  create: (data: CreateSalePayload) =>
-    axiosClient.post<{ success: boolean; data: Sale; message: string }>('/sales', data),
+  create: (data: CreateSalePayload) => saleService.create(data),
 
-  getRefunds: (saleId: number) =>
-    axiosClient.get<{ success: boolean; data: RefundRecord[]; count: number }>(
-      `/sales/${saleId}/refunds`
-    ),
+  getRefunds: (saleId: number) => saleService.getRefunds(saleId),
 
   processRefund: (saleId: number, data: ProcessRefundPayload) =>
-    axiosClient.post<{
-      success: boolean;
-      message: string;
-      data: RefundRecord;
-      sale: Sale;
-    }>(`/sales/${saleId}/refund`, data),
+    saleService.processRefund(saleId, data),
 };
