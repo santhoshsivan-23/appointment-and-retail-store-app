@@ -1,4 +1,5 @@
 import { settingsService } from '../firebase/services/settingsService';
+import { executeReceiptPrint, executeTestPrint } from '../utils/receiptPrinter';
 
 /* ── Types ─────────────────────────────────────────────── */
 export interface LanPrinterSettings {
@@ -69,22 +70,49 @@ export const settingsApi = {
 
   updateSettings: (data: SettingsPayload) => settingsService.updateSettings(data),
 
-  testPrint: (data: {
-    ip_address: string;
-    port: number;
+  testPrint: async (data: {
+    ip_address?: string;
+    port?: number;
     printer_name?: string;
     business_name?: string;
     paper_size?: string;
     auto_cut?: boolean;
     open_cash_drawer?: boolean;
     test_text?: string;
-  }) => settingsService.testPrint(data),
+  }) => {
+    const success = await executeTestPrint(data as any);
+    return {
+      data: {
+        success,
+        message: success
+          ? 'Test print dispatched directly from React.'
+          : 'Failed to dispatch test print.',
+      },
+    };
+  },
 
-  printReceipt: (data: {
+  printReceipt: async (data: {
     printer_settings?: LanPrinterSettings;
     sale?: any;
     appointment?: any;
     is_reprint?: boolean;
     type?: 'sale' | 'appointment';
-  }) => settingsService.printReceipt(data),
+  }) => {
+    const transaction = data.sale || data.appointment;
+    const type = data.type || (data.appointment ? 'appointment' : 'sale');
+    const success = await executeReceiptPrint({
+      printerSettings: data.printer_settings,
+      transaction,
+      type,
+      isReprint: data.is_reprint,
+    });
+    return {
+      data: {
+        success,
+        message: success
+          ? 'Receipt printed directly from React.'
+          : 'Failed to print receipt.',
+      },
+    };
+  },
 };

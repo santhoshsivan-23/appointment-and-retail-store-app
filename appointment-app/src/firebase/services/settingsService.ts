@@ -24,7 +24,7 @@ const defaultSettingsTemplate = (bId: number): Settings => ({
   printer_settings: {
     printer_name: 'Main Counter ESC/POS Printer',
     connection_type: 'lan',
-    ip_address: '192.168.1.100',
+    ip_address: '192.168.1.51',
     port: 9100,
     paper_size: 'mm80',
     business_name: '',

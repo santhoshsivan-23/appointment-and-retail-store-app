@@ -29,7 +29,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useAppSelector } from '../store/hooks';
-import { settingsApi } from '../api/settingsApi';
+import { executeReceiptPrint } from '../utils/receiptPrinter';
 import { productApi, type Product } from '../api/productApi';
 import { categoryApi, type Category } from '../api/categoryApi';
 import { customerApi, type Customer } from '../api/customerApi';
@@ -581,7 +581,7 @@ export default function CartView({
     }
   };
 
-  /* ── Dedicated Customer Order Receipt Printing ────────── */
+  /* ── Dedicated Customer Order Receipt Printing (Direct React Printing) ── */
   const printCustomerOrderReceipt = async (saleToPrint: Sale, isManualRetry = false) => {
     if (!saleToPrint || !saleToPrint.id) return;
 
@@ -595,9 +595,9 @@ export default function CartView({
 
     // Check if printer is enabled in shared memory
     if (printerSettings.is_enabled === false) {
-      console.log('LAN printer is disabled in settings; automatic receipt print skipped.');
+      console.log('Printer is disabled in settings; automatic receipt print skipped.');
       if (isManualRetry) {
-        toast.info('LAN printer is toggled off in Printer Settings.');
+        toast.info('Printer is toggled off in Printer Settings.');
       }
       return;
     }
@@ -610,32 +610,17 @@ export default function CartView({
       return;
     }
 
-    if (!printerSettings.ip_address || !printerSettings.ip_address.trim()) {
-      if (isManualRetry) {
-        toast.error('No LAN printer IP address configured in Printer Settings.');
-      }
-      return;
-    }
-
     setIsPrintingReceipt(true);
     try {
-      const res = await settingsApi.printReceipt({
-        printer_settings: printerSettings,
-        sale: saleToPrint,
+      await executeReceiptPrint({
+        printerSettings,
+        transaction: saleToPrint,
+        type: 'sale',
+        isReprint: false,
       });
-
-      if (res.data?.success) {
-        toast.success(
-          res.data.message ||
-            `Customer Order Receipt printed on LAN printer (${printerSettings.ip_address})`
-        );
-      } else {
-        const warnMsg = res.data?.message || 'LAN printer did not respond.';
-        toast.warn(`${warnMsg} You can retry from the receipt dialog.`);
-      }
     } catch (err: any) {
-      console.error('Failed to send Customer Order Receipt to LAN printer:', err);
-      const errMsg = err.response?.data?.message || err.message || 'Printer connection error';
+      console.error('Failed to send Customer Order Receipt to printer:', err);
+      const errMsg = err.message || 'Printer connection error';
       toast.error(`Printer error: ${errMsg}. Use Print button to retry.`);
     } finally {
       setIsPrintingReceipt(false);

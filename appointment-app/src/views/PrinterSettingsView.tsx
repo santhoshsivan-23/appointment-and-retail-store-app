@@ -16,12 +16,13 @@ import {
 import { settingsApi, type LanPrinterSettings } from '../api/settingsApi';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setPrinterSettings } from '../features/printer/printerSlice';
+import { executeTestPrint } from '../utils/receiptPrinter';
 import '../styles/printer_settings.css';
 
 const DEFAULT_PRINTER_SETTINGS: LanPrinterSettings = {
   printer_name: 'Main Counter LAN Printer',
   connection_type: 'lan',
-  ip_address: '192.168.1.100',
+  ip_address: '192.168.1.51',
   port: 9100,
   paper_size: 'mm80',
   business_name: 'IQ Store',
@@ -216,131 +217,56 @@ export default function PrinterSettingsView() {
     }
   };
 
-  /* ── Test Print Handler ────────────────────────────── */
+  /* ── Test Print Handler (Direct Client-Side React Printing) ── */
   const handleTestPrint = async () => {
-    if (connectionType === 'lan' && !isValidIpv4(ipAddress)) {
-      toast.error('Please enter a valid IPv4 address before testing.');
-      return;
-    }
-
     setIsTesting(true);
     setTestResult({
       status: 'testing',
-      message: `Sending "Test Printing" command to LAN printer at ${ipAddress}:${port}...`,
+      message: `Sending "Test Printing" command directly to thermal printer...`,
     });
 
-    try {
-      const res = await settingsApi.testPrint({
-        ip_address: ipAddress.trim(),
-        port: Number(port) || 9100,
-        printer_name: printerName.trim(),
-        business_name: businessName.trim(),
-        paper_size: paperSize,
-        auto_cut: autoCut,
-        open_cash_drawer: openCashDrawer,
-        test_text: 'Test Printing',
-      });
+    const currentConfig: LanPrinterSettings = {
+      printer_name: printerName.trim(),
+      connection_type: connectionType,
+      ip_address: ipAddress.trim(),
+      port: Number(port) || 9100,
+      paper_size: paperSize,
+      business_name: businessName.trim(),
+      phone_number: phoneNumber.trim(),
+      addr_line1: addrLine1.trim(),
+      addr_line2: addrLine2.trim(),
+      addr_line3: addrLine3.trim(),
+      addr_line4: addrLine4.trim(),
+      header_note: headerNote.trim(),
+      footer_note: footerNote.trim(),
+      is_default: isDefault,
+      is_enabled: isEnabled,
+      order_receipt_enabled: orderReceiptEnabled,
+      auto_cut: autoCut,
+      open_cash_drawer: openCashDrawer,
+    };
 
-      if (res.data?.success) {
+    try {
+      const ok = await executeTestPrint(currentConfig);
+      if (ok) {
         setTestResult({
           status: 'success',
-          message:
-            res.data.message ||
-            `Successfully printed "Test Printing" on LAN printer at ${ipAddress}:${port}!`,
+          message: `Test print dispatched directly from browser to printer!`,
         });
-        toast.success(`"Test Printing" sent to LAN printer at ${ipAddress}:${port}`);
       } else {
         setTestResult({
           status: 'error',
-          message:
-            res.data?.message ||
-            `LAN printer at ${ipAddress}:${port} did not answer within timeout.`,
+          message: `Could not trigger print spooler. Check browser permissions.`,
         });
-        toast.warn(
-          res.data?.message ||
-            'LAN printer did not respond. You can test print using the system printer below.'
-        );
       }
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Network socket error';
       setTestResult({
         status: 'error',
-        message: `Socket error: ${msg}. Make sure the printer is turned on and on the same LAN network.`,
+        message: `Print error: ${err.message || 'Could not print'}`,
       });
-      toast.error(`Could not connect to ${ipAddress}:${port}. Use "Print via System" to test local printing.`);
     } finally {
       setIsTesting(false);
     }
-  };
-
-  /* ── Browser / System Print Handler for "Test Printing" ── */
-  const handleBrowserTestPrint = () => {
-    const is58 = paperSize === 'mm58';
-    const rollWidth = is58 ? '58mm' : '80mm';
-    const printWindow = window.open('', '_blank', 'width=420,height=600');
-    if (!printWindow) {
-      toast.error('Pop-up blocked. Please allow pop-ups to print test receipt.');
-      return;
-    }
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const formattedDate = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
-    const formattedTime = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Test Printing - ${printerName || 'POS'}</title>
-          <style>
-            @page { size: auto; margin: 0; }
-            body {
-              font-family: 'Courier New', Courier, monospace;
-              font-size: ${is58 ? '11px' : '12.5px'};
-              width: ${rollWidth};
-              margin: 0 auto;
-              padding: 12px 10px;
-              color: #000;
-              background: #fff;
-              line-height: 1.35;
-            }
-            .center { text-align: center; }
-            .bold { font-weight: bold; }
-            .title { font-size: ${is58 ? '18px' : '22px'}; font-weight: 900; margin: 8px 0; letter-spacing: 0.5px; }
-            .store { font-size: 14px; font-weight: bold; margin-bottom: 4px; }
-            .divider { border-bottom: 1px dashed #000; margin: 6px 0; }
-            .solid-divider { border-bottom: 1px solid #000; margin: 6px 0; }
-            .row { display: flex; justify-content: space-between; margin: 3px 0; }
-            .footer { margin-top: 10px; font-size: 11px; text-align: center; }
-          </style>
-        </head>
-        <body>
-          <div class="center store">${businessName || 'IQ Restaurant POS'}</div>
-          ${addrLine1 ? `<div class="center">${addrLine1}</div>` : ''}
-          ${phoneNumber ? `<div class="center">Tel: ${phoneNumber}</div>` : ''}
-          <div class="divider"></div>
-          <div class="center bold title">Test Printing</div>
-          <div class="divider"></div>
-          <div class="row"><span>Date:</span><span>${formattedDate}</span></div>
-          <div class="row"><span>Time:</span><span>${formattedTime}</span></div>
-          <div class="solid-divider"></div>
-          <div class="row"><span>Printer:</span><span>${printerName || 'Main Counter LAN Printer'}</span></div>
-          <div class="row"><span>IP Address:</span><span>${ipAddress}:${port}</span></div>
-          <div class="row"><span>Roll Size:</span><span>${is58 ? '58mm Roll (32 col)' : '80mm Roll (48 col)'}</span></div>
-          <div class="row"><span>Status:</span><span>ONLINE / OK</span></div>
-          <div class="divider"></div>
-          <div class="center bold" style="margin: 8px 0;">*** TEST PRINT COMPLETED ***</div>
-          <div class="center footer">Powered by IQ POS</div>
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 1200);
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
   };
 
   return (
@@ -439,15 +365,7 @@ export default function PrinterSettingsView() {
               disabled={isTesting}
             >
               <Printer size={13} />
-              <span>{isTesting ? 'Printing...' : 'Retry LAN Print'}</span>
-            </button>
-            <button
-              type="button"
-              className="printer-alert-action-btn printer-alert-action-btn--alt"
-              onClick={handleBrowserTestPrint}
-            >
-              <FileText size={13} />
-              <span>Print via System</span>
+              <span>{isTesting ? 'Printing...' : 'Retry Direct Print'}</span>
             </button>
           </div>
         </div>
@@ -1018,24 +936,14 @@ export default function PrinterSettingsView() {
             <div className="printer-preview-bottom-actions">
               <button
                 type="button"
-                className="printer-btn printer-btn--secondary"
+                className="printer-btn printer-btn--primary"
                 style={{ flex: 1 }}
                 onClick={handleTestPrint}
                 disabled={isTesting}
-                title="Send 'Test Printing' to LAN printer"
+                title="Send 'Test Printing' directly to LAN printer"
               >
                 {isTesting ? <RefreshCw size={15} className="spin" /> : <Printer size={15} />}
-                <span>{isTesting ? 'Printing...' : 'Print "Test Printing" (LAN)'}</span>
-              </button>
-              <button
-                type="button"
-                className="printer-btn printer-btn--secondary"
-                style={{ flex: 1 }}
-                onClick={handleBrowserTestPrint}
-                title="Open system print dialog with 'Test Printing' slip"
-              >
-                <FileText size={15} />
-                <span>System Print</span>
+                <span>{isTesting ? 'Printing...' : 'Direct Test Print'}</span>
               </button>
             </div>
           </div>
