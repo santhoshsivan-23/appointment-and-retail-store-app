@@ -247,16 +247,16 @@ export default function PrinterSettingsView() {
     };
 
     try {
-      const ok = await executeTestPrint(currentConfig);
-      if (ok) {
+      const res = await executeTestPrint(currentConfig);
+      if (res.success) {
         setTestResult({
           status: 'success',
-          message: `Test print dispatched directly from browser to printer!`,
+          message: res.message || `Test print dispatched directly to printer!`,
         });
       } else {
         setTestResult({
           status: 'error',
-          message: `Could not trigger print spooler. Check browser permissions.`,
+          message: res.message || `Could not connect to LAN printer at ${ipAddress}:${port}. Please verify the printer IP address and ensure the printer is turned on.`,
         });
       }
     } catch (err: any) {

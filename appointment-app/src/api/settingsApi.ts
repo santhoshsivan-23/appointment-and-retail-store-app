@@ -80,13 +80,14 @@ export const settingsApi = {
     open_cash_drawer?: boolean;
     test_text?: string;
   }) => {
-    const success = await executeTestPrint(data as any);
+    const res = await executeTestPrint(data as any);
+    const success = res.success;
     return {
       data: {
         success,
-        message: success
+        message: res.message || (success
           ? 'Test print dispatched directly from React.'
-          : 'Failed to dispatch test print.',
+          : 'Failed to dispatch test print.'),
       },
     };
   },

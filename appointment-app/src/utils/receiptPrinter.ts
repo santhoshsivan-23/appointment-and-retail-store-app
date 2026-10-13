@@ -85,7 +85,7 @@ export async function sendRawToLanPrinter(
  */
 export async function executeTestPrint(
   printerSettings?: LanPrinterSettings | null
-): Promise<boolean> {
+): Promise<{ success: boolean; message: string }> {
   const ip = (printerSettings?.ip_address || '192.168.1.51').trim();
   const port = Number(printerSettings?.port) || 9100;
 
@@ -95,14 +95,15 @@ export async function executeTestPrint(
 
     if (result.success) {
       toast.success(result.message || `Test receipt printed on LAN printer at ${ip}:${port}!`);
-      return true;
+      return { success: true, message: result.message };
     } else {
       toast.error(`Direct print failed: ${result.message}`);
-      return false;
+      return { success: false, message: result.message };
     }
   } catch (err: any) {
-    toast.error(`Failed to dispatch test print: ${err.message || err}`);
-    return false;
+    const errMsg = err.message || String(err);
+    toast.error(`Failed to dispatch test print: ${errMsg}`);
+    return { success: false, message: errMsg };
   }
 }
 
