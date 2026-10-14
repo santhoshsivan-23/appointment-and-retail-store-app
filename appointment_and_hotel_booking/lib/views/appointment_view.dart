@@ -49,6 +49,10 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
   final String _searchQuery = '';
   bool _isCalendarHidden = false;
 
+  // Dialog & Action Locks (prevent concurrent submissions or duplicate modals)
+  bool _isNewAppointmentDialogOpen = false;
+  bool _isRescheduling = false;
+
   // Drag and Drop Rescheduling State
   int? _draggingAppointmentId;
 
@@ -296,7 +300,12 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
       ]);
       if (!mounted) return;
 
-      final appointments = results[0] as List<AppointmentModel>;
+      final rawAppointments = results[0] as List<AppointmentModel>;
+      final Map<int, AppointmentModel> uniqueApptMap = {};
+      for (final a in rawAppointments) {
+        uniqueApptMap[a.id] = a;
+      }
+      final appointments = uniqueApptMap.values.toList();
       final allStaff = results[1] as List<StaffModel>;
 
       // Determine staff columns to display:
@@ -1686,16 +1695,19 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
       return;
     }
 
-    // 1. Calculate duration and new end time
-    final durationM = appt.durationMinutes > 0 ? appt.durationMinutes : _configuredSlotDuration;
-    final newEndTime = _addMinutesTo24h(targetSlot, durationM);
+    if (_isRescheduling) return;
+    _isRescheduling = true;
+    try {
+      // 1. Calculate duration and new end time
+      final durationM = appt.durationMinutes > 0 ? appt.durationMinutes : _configuredSlotDuration;
+      final newEndTime = _addMinutesTo24h(targetSlot, durationM);
 
-    // 2. Check if anything actually changed
-    final isSameStaff = appt.staffId == targetStaff.id;
-    final isSameTime = appt.startTime == targetSlot;
-    if (isSameStaff && isSameTime) {
-      return; // Dropped on the exact same slot; nothing to do
-    }
+      // 2. Check if anything actually changed
+      final isSameStaff = appt.staffId == targetStaff.id;
+      final isSameTime = appt.startTime == targetSlot;
+      if (isSameStaff && isSameTime) {
+        return; // Dropped on the exact same slot; nothing to do
+      }
 
     // 3. Business hours check
     final isOutside = _isSlotOutsideBusinessHours(targetSlot);
@@ -1857,8 +1869,12 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
       final refreshed = await ApiService.getAppointments(date: dateStr);
       final stats = await ApiService.getAppointmentStats(date: dateStr);
       if (mounted) {
+        final Map<int, AppointmentModel> uniqueMap = {};
+        for (final a in refreshed) {
+          uniqueMap[a.id] = a;
+        }
         setState(() {
-          _appointments = refreshed;
+          _appointments = uniqueMap.values.toList();
           _overviewStats = stats;
           _computeGridBounds();
         });
@@ -1893,6 +1909,9 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
         ),
       );
     }
+    } finally {
+      _isRescheduling = false;
+    }
   }
 
   bool _isSlotBlockedForDrag(AppointmentModel draggedAppt, StaffModel targetStaff, String slot) {
@@ -1922,9 +1941,14 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
                 a.services.any((s) => (s['name'] ?? '').toString().toLowerCase().contains(q));
           }).toList();
 
+    // Deduplicate lane appointments by ID to prevent stacked identical cards
+    final Map<int, AppointmentModel> uniqueLaneAppts = {};
+    for (final a in filteredAppts) {
+      uniqueLaneAppts[a.id] = a;
+    }
+    final sortedAppts = uniqueLaneAppts.values.toList();
     // Sort: cancelled & no_show first so they form the background.
     // Active appointments (booked, in_service, completed) are drawn on top in foreground.
-    final sortedAppts = List<AppointmentModel>.from(filteredAppts);
     sortedAppts.sort((a, b) {
       final aInactive = (a.status == 'cancelled' || a.status == 'no_show') ? 0 : 1;
       final bInactive = (b.status == 'cancelled' || b.status == 'no_show') ? 0 : 1;
@@ -2378,6 +2402,7 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
     }
 
     return Positioned(
+      key: ValueKey('appt_card_${appt.id}'),
       left: 6,
       right: 6,
       top: top + 2,
@@ -2530,6 +2555,9 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
     String? initialEndTime,
     DateTime? initialDate,
   }) {
+    if (_isNewAppointmentDialogOpen) return;
+    _isNewAppointmentDialogOpen = true;
+
     StaffModel? selStaff;
     if (initialStaff != null) {
       selStaff = _staffList.firstWhere((s) => s.id == initialStaff.id, orElse: () => initialStaff);
@@ -2574,6 +2602,7 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
     int? selectedCategoryId;
     String? validationOrConflictError;
     final categoryScrollCtrl = ScrollController();
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
@@ -3627,150 +3656,164 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        onPressed: () async {
-                          if (selStaff == null) {
-                            setDialogState(() => validationOrConflictError = 'Please select a staff member.');
-                            return;
-                          }
+                        onPressed: isSubmitting
+                            ? null
+                            : () async {
+                                if (selStaff == null) {
+                                  setDialogState(() => validationOrConflictError = 'Please select a staff member.');
+                                  return;
+                                }
 
-                          if (!isWalkIn && selCustomer == null) {
-                            setDialogState(() => validationOrConflictError = 'Please search and select a customer, or switch to Walk-in.');
-                            return;
-                          }
+                                if (!isWalkIn && selCustomer == null) {
+                                  setDialogState(() => validationOrConflictError = 'Please search and select a customer, or switch to Walk-in.');
+                                  return;
+                                }
 
-                          if (isWalkIn && walkInNameCtrl.text.trim().isEmpty) {
-                            setDialogState(() => validationOrConflictError = 'Please enter a name for the walk-in customer.');
-                            return;
-                          }
+                                if (isWalkIn && walkInNameCtrl.text.trim().isEmpty) {
+                                  setDialogState(() => validationOrConflictError = 'Please enter a name for the walk-in customer.');
+                                  return;
+                                }
 
-                          final rawStartInput = startCtrl.text.trim();
-                          final rawEndInput = endCtrl.text.trim();
+                                final rawStartInput = startCtrl.text.trim();
+                                final rawEndInput = endCtrl.text.trim();
 
-                          // 1. Validate format
-                          final timeRegex = RegExp(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$');
-                          if (!timeRegex.hasMatch(rawStartInput) || !timeRegex.hasMatch(rawEndInput)) {
-                            setDialogState(() {
-                              validationOrConflictError = 'Please enter valid times in ${_timeFormat == '12' ? 'hh:mm (e.g. 09:30)' : 'HH:mm (e.g. 14:30)'} format.';
-                            });
-                            return;
-                          }
+                                // 1. Validate format
+                                final timeRegex = RegExp(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$');
+                                if (!timeRegex.hasMatch(rawStartInput) || !timeRegex.hasMatch(rawEndInput)) {
+                                  setDialogState(() {
+                                    validationOrConflictError = 'Please enter valid times in ${_timeFormat == '12' ? 'hh:mm (e.g. 09:30)' : 'HH:mm (e.g. 14:30)'} format.';
+                                  });
+                                  return;
+                                }
 
-                          // 2. Convert to standard 24-hr format for business validation & DB
-                          final String effStartTime24 = _timeFormat == '12'
-                              ? _convert12To24(rawStartInput, startPeriod)
-                              : rawStartInput;
-                          final String effEndTime24 = _timeFormat == '12'
-                              ? _convert12To24(rawEndInput, endPeriod)
-                              : rawEndInput;
+                                // 2. Convert to standard 24-hr format for business validation & DB
+                                final String effStartTime24 = _timeFormat == '12'
+                                    ? _convert12To24(rawStartInput, startPeriod)
+                                    : rawStartInput;
+                                final String effEndTime24 = _timeFormat == '12'
+                                    ? _convert12To24(rawEndInput, endPeriod)
+                                    : rawEndInput;
 
-                          final int startM = _timeToMinutes(effStartTime24);
-                          final int endM = _timeToMinutes(effEndTime24);
-                          final int openM = _timeToMinutes(_configOpenTime);
-                          final int closeM = _timeToMinutes(_configCloseTime);
+                                final int startM = _timeToMinutes(effStartTime24);
+                                final int endM = _timeToMinutes(effEndTime24);
+                                final int openM = _timeToMinutes(_configOpenTime);
+                                final int closeM = _timeToMinutes(_configCloseTime);
 
-                          // 3. Validate duration
-                          if (endM <= startM) {
-                            setDialogState(() {
-                              validationOrConflictError = 'End time must be later than start time.';
-                            });
-                            return;
-                          }
+                                // 3. Validate duration
+                                if (endM <= startM) {
+                                  setDialogState(() {
+                                    validationOrConflictError = 'End time must be later than start time.';
+                                  });
+                                  return;
+                                }
 
-                          final int durationMinutes = endM - startM;
-                          if (durationMinutes < 15) {
-                            setDialogState(() {
-                              validationOrConflictError = 'Appointment duration must be at least 15 minutes (currently $durationMinutes min).';
-                            });
-                            return;
-                          }
+                                final int durationMinutes = endM - startM;
+                                if (durationMinutes < 15) {
+                                  setDialogState(() {
+                                    validationOrConflictError = 'Appointment duration must be at least 15 minutes (currently $durationMinutes min).';
+                                  });
+                                  return;
+                                }
 
-                          // 4. Validate business hours
-                          final String displayOpen = _formatSlotLabel(_configOpenTime);
-                          final String displayClose = _formatSlotLabel(_configCloseTime);
-                          final String displayStart = _formatSlotLabel(effStartTime24);
-                          final String displayEnd = _formatSlotLabel(effEndTime24);
+                                // 4. Validate business hours
+                                final String displayOpen = _formatSlotLabel(_configOpenTime);
+                                final String displayClose = _formatSlotLabel(_configCloseTime);
+                                final String displayStart = _formatSlotLabel(effStartTime24);
+                                final String displayEnd = _formatSlotLabel(effEndTime24);
 
-                          if (startM < openM) {
-                            setDialogState(() {
-                              validationOrConflictError = 'Start time ($displayStart) is before business opening time ($displayOpen).';
-                            });
-                            return;
-                          }
+                                if (startM < openM) {
+                                  setDialogState(() {
+                                    validationOrConflictError = 'Start time ($displayStart) is before business opening time ($displayOpen).';
+                                  });
+                                  return;
+                                }
 
-                          if (endM > closeM) {
-                            setDialogState(() {
-                              validationOrConflictError = 'End time ($displayEnd) exceeds business closing time ($displayClose).';
-                            });
-                            return;
-                          }
+                                if (endM > closeM) {
+                                  setDialogState(() {
+                                    validationOrConflictError = 'End time ($displayEnd) exceeds business closing time ($displayClose).';
+                                  });
+                                  return;
+                                }
 
-                          final dateStr = '${appointmentDate.year}-${appointmentDate.month.toString().padLeft(2, '0')}-${appointmentDate.day.toString().padLeft(2, '0')}';
+                                setDialogState(() {
+                                  isSubmitting = true;
+                                  validationOrConflictError = null;
+                                });
 
-                          // 5. Active conflict check (cancelled / no_show slots are treated as free!)
-                          final conflict = await ApiService.checkAppointmentConflict(
-                            staffId: selStaff!.id,
-                            appointmentDate: dateStr,
-                            startTime: effStartTime24,
-                            endTime: effEndTime24,
-                          );
+                                final dateStr = '${appointmentDate.year}-${appointmentDate.month.toString().padLeft(2, '0')}-${appointmentDate.day.toString().padLeft(2, '0')}';
 
-                          if (conflict['has_conflict'] == true) {
-                            final confAppt = conflict['conflicting_appointment'];
-                            String confRange = '';
-                            if (confAppt != null) {
-                              final cs = _formatSlotLabel(confAppt['start_time'] ?? '');
-                              final ce = _formatSlotLabel(confAppt['end_time'] ?? '');
-                              confRange = ' ($cs - $ce)';
-                            }
-                            setDialogState(() {
-                              validationOrConflictError = 'Collision: ${selStaff!.name} is already booked$confRange.';
-                            });
-                            return;
-                          }
+                                // 5. Active conflict check (cancelled / no_show slots are treated as free!)
+                                final conflict = await ApiService.checkAppointmentConflict(
+                                  staffId: selStaff!.id,
+                                  appointmentDate: dateStr,
+                                  startTime: effStartTime24,
+                                  endTime: effEndTime24,
+                                );
 
-                          final custName = isWalkIn ? walkInNameCtrl.text.trim() : (selCustomer?.name ?? '');
-                          final custPhone = isWalkIn ? walkInPhoneCtrl.text.trim() : (selCustomer?.phone ?? '');
+                                if (conflict['has_conflict'] == true) {
+                                  final confAppt = conflict['conflicting_appointment'];
+                                  String confRange = '';
+                                  if (confAppt != null) {
+                                    final cs = _formatSlotLabel(confAppt['start_time'] ?? '');
+                                    final ce = _formatSlotLabel(confAppt['end_time'] ?? '');
+                                    confRange = ' ($cs - $ce)';
+                                  }
+                                  setDialogState(() {
+                                    isSubmitting = false;
+                                    validationOrConflictError = 'Collision: ${selStaff!.name} is already booked$confRange.';
+                                  });
+                                  return;
+                                }
 
-                          final result = await ApiService.createAppointment({
-                            'staff_id': selStaff!.id,
-                            'customer_id': isWalkIn ? null : selCustomer?.id,
-                            'customer_name': custName,
-                            'customer_phone': custPhone,
-                            'staff_name': selStaff!.name,
-                            'appointment_date': dateStr,
-                            'start_time': effStartTime24,
-                            'end_time': effEndTime24,
-                            'total_amount': totalPrice,
-                            'services': selectedProducts.map((p) => {'product_id': p.id, 'name': p.name, 'price': p.price}).toList(),
-                          });
+                                final custName = isWalkIn ? walkInNameCtrl.text.trim() : (selCustomer?.name ?? '');
+                                final custPhone = isWalkIn ? walkInPhoneCtrl.text.trim() : (selCustomer?.phone ?? '');
 
-                          if (!ctx.mounted) return;
-                          Navigator.pop(ctx);
-                          if (result != null) {
-                            _selectedDate = appointmentDate;
-                            _loadData();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: const Color(0xFF10B981),
-                                content: Row(
-                                  children: [
-                                    const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Booked appointment for $custName with ${selStaff!.name} at $displayStart - $displayEnd',
-                                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                                final result = await ApiService.createAppointment({
+                                  'staff_id': selStaff!.id,
+                                  'customer_id': isWalkIn ? null : selCustomer?.id,
+                                  'customer_name': custName,
+                                  'customer_phone': custPhone,
+                                  'staff_name': selStaff!.name,
+                                  'appointment_date': dateStr,
+                                  'start_time': effStartTime24,
+                                  'end_time': effEndTime24,
+                                  'total_amount': totalPrice,
+                                  'services': selectedProducts.map((p) => {'product_id': p.id, 'name': p.name, 'price': p.price}).toList(),
+                                });
+
+                                if (!ctx.mounted) return;
+                                Navigator.pop(ctx);
+                                if (result != null) {
+                                  _selectedDate = appointmentDate;
+                                  _loadData();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: const Color(0xFF10B981),
+                                      content: Row(
+                                        children: [
+                                          const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Booked appointment for $custName with ${selStaff!.name} at $displayStart - $displayEnd',
+                                              style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                                            ),
+                                          ),
+                                        ],
                                       ),
+                                      behavior: SnackBarBehavior.floating,
+                                      duration: const Duration(seconds: 4),
                                     ),
-                                  ],
-                                ),
-                                behavior: SnackBarBehavior.floating,
-                                duration: const Duration(seconds: 4),
-                              ),
-                            );
-                          }
-                        },
-                        child: Text('Confirm Booking', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                                  );
+                                }
+                              },
+                        child: isSubmitting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : Text('Confirm Booking', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
@@ -3781,6 +3824,7 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
         },
       ),
     ).then((_) {
+      _isNewAppointmentDialogOpen = false;
       categoryScrollCtrl.dispose();
       customerSearchDebounce?.cancel();
       customerSearchCtrl.dispose();
@@ -4228,11 +4272,27 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
                       }),
                       _actionBtn('Mark No Show', Icons.person_off, const Color(0xFFF43F5E), () async {
                         Navigator.pop(ctx);
+                        setState(() {
+                          final idx = _appointments.indexWhere((a) => a.id == appt.id);
+                          if (idx != -1) {
+                            _appointments[idx] = appt.copyWith(status: 'no_show');
+                          }
+                          _overviewStats['booked'] = ((_overviewStats['booked'] ?? 1) - 1).clamp(0, 9999);
+                          _overviewStats['no_show'] = (_overviewStats['no_show'] ?? 0) + 1;
+                        });
                         await ApiService.updateAppointmentStatus(appt.id, 'no_show');
                         _loadData();
                       }),
                       _actionBtn('Cancel Booking', Icons.cancel, const Color(0xFF64748B), () async {
                         Navigator.pop(ctx);
+                        setState(() {
+                          final idx = _appointments.indexWhere((a) => a.id == appt.id);
+                          if (idx != -1) {
+                            _appointments[idx] = appt.copyWith(status: 'cancelled');
+                          }
+                          _overviewStats['booked'] = ((_overviewStats['booked'] ?? 1) - 1).clamp(0, 9999);
+                          _overviewStats['cancelled'] = (_overviewStats['cancelled'] ?? 0) + 1;
+                        });
                         await ApiService.updateAppointmentStatus(appt.id, 'cancelled');
                         _loadData();
                       }),
@@ -4252,6 +4312,14 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
                       }),
                       _actionBtn('Stop Service', Icons.pause_circle_outline, const Color(0xFFD97706), () async {
                         Navigator.pop(ctx);
+                        setState(() {
+                          final idx = _appointments.indexWhere((a) => a.id == appt.id);
+                          if (idx != -1) {
+                            _appointments[idx] = appt.copyWith(status: 'booked');
+                          }
+                          _overviewStats['in_service'] = ((_overviewStats['in_service'] ?? 1) - 1).clamp(0, 9999);
+                          _overviewStats['booked'] = (_overviewStats['booked'] ?? 0) + 1;
+                        });
                         final ok = await ApiService.updateAppointmentStatus(appt.id, 'booked');
                         if (ok) {
                           _loadData();
@@ -4274,6 +4342,14 @@ class _AppointmentViewState extends State<AppointmentView> with SingleTickerProv
                       }),
                       _actionBtn('Cancelled', Icons.cancel_outlined, const Color(0xFF64748B), () async {
                         Navigator.pop(ctx);
+                        setState(() {
+                          final idx = _appointments.indexWhere((a) => a.id == appt.id);
+                          if (idx != -1) {
+                            _appointments[idx] = appt.copyWith(status: 'cancelled');
+                          }
+                          _overviewStats['in_service'] = ((_overviewStats['in_service'] ?? 1) - 1).clamp(0, 9999);
+                          _overviewStats['cancelled'] = (_overviewStats['cancelled'] ?? 0) + 1;
+                        });
                         final ok = await ApiService.updateAppointmentStatus(appt.id, 'cancelled');
                         if (ok) {
                           _loadData();

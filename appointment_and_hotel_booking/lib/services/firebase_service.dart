@@ -905,6 +905,13 @@ class FirebaseService {
         list.add(appt);
       }
 
+      // Deduplicate by ID to prevent duplicate entries from multiple docs or queries
+      final Map<int, AppointmentModel> uniqueMap = {};
+      for (final a in list) {
+        uniqueMap[a.id] = a;
+      }
+      list = uniqueMap.values.toList();
+
       // Sorting matching React: single date sorts by startTime ASC; else date DESC then startTime DESC
       if (filterDate != null && end == null) {
         list.sort((a, b) => a.startTime.compareTo(b.startTime));
@@ -1073,6 +1080,26 @@ class FirebaseService {
   static Future<AppointmentModel?> createAppointment(Map<String, dynamic> data) async {
     try {
       final staffId = int.tryParse(data['staff_id']?.toString() ?? '0') ?? 0;
+      final dateStr = (data['appointment_date'] ?? '').toString().trim();
+      final startTimeStr = (data['start_time'] ?? '').toString().trim();
+      final custName = (data['customer_name'] ?? '').toString().trim().toLowerCase();
+      final custPhone = (data['customer_phone'] ?? '').toString().trim().toLowerCase();
+
+      // Idempotency check: if an active appointment already exists for this exact slot, customer and staff,
+      // return it instead of creating a duplicate document.
+      if (staffId > 0 && dateStr.isNotEmpty && startTimeStr.isNotEmpty) {
+        final existingAppts = await getAppointments(date: dateStr, staffId: staffId);
+        for (final a in existingAppts) {
+          if (['booked', 'in_service'].contains(a.status.toLowerCase()) &&
+              a.startTime == startTimeStr &&
+              a.customerName.trim().toLowerCase() == custName &&
+              (custPhone.isEmpty || a.customerPhone.trim().toLowerCase() == custPhone)) {
+            debugPrint('Duplicate appointment creation prevented for slot $dateStr $startTimeStr (ID: ${a.id})');
+            return a;
+          }
+        }
+      }
+
       String staffName = (data['staff_name'] ?? '').toString();
       if (staffName.isEmpty && staffId > 0) {
         final st = await getStaffById(staffId);
@@ -1134,8 +1161,9 @@ class FirebaseService {
       });
 
       final maskQuery = updateMasks.join('&');
+      final querySuffix = maskQuery.isNotEmpty ? '?$maskQuery&currentDocument.exists=true' : '?currentDocument.exists=true';
       final res = await http.patch(
-        Uri.parse('$firestoreBaseUrl/appointments/$id?$maskQuery'),
+        Uri.parse('$firestoreBaseUrl/appointments/$id$querySuffix'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'fields': fields}),
       );

@@ -156,12 +156,12 @@ class _MainTerminalShellState extends State<MainTerminalShell> {
         _preloadStaffName = null;
         _cartKey++;
       }
-      if (idx == 1) _appointmentKey++;
-      if (idx == 10) _appointmentV2Key++;
-      if (idx == 2) _staffKey++;
-      if (idx == 3) _appointmentHistoryKey++;
-      if (idx == 5) _salesHistoryKey++;
-      if (idx == 11) _printerSettingsKey++;
+      if (idx == 1 && _currentIndex != 1) _appointmentKey++;
+      if (idx == 10 && _currentIndex != 10) _appointmentV2Key++;
+      if (idx == 2 && _currentIndex != 2) _staffKey++;
+      if (idx == 3 && _currentIndex != 3) _appointmentHistoryKey++;
+      if (idx == 5 && _currentIndex != 5) _salesHistoryKey++;
+      if (idx == 11 && _currentIndex != 11) _printerSettingsKey++;
       _currentIndex = idx;
     });
     _loadTimeFormat();
