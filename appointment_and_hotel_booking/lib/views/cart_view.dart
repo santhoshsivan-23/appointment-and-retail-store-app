@@ -985,193 +985,345 @@ class _CartViewState extends State<CartView> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setPopupState) => Dialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Container(
-            width: 420,
-            padding: const EdgeInsets.all(28),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Success header
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: const BoxDecoration(color: Color(0xFFF0FDF4), shape: BoxShape.circle),
-                  child: const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 36),
-                ),
-                const SizedBox(height: 12),
-                Text('Payment Successful!', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF10B981))),
-                const SizedBox(height: 4),
-                Text(sale.receiptNumber, style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 16),
-                const Divider(),
-
-                // Customer & Staff
-                _receiptRow('Customer', sale.customerName.isNotEmpty ? sale.customerName : 'Walk-in'),
-                if (sale.customerPhone.isNotEmpty) _receiptRow('Phone', sale.customerPhone),
-                if (sale.staffName.isNotEmpty) _receiptRow('Staff', sale.staffName),
-                _receiptRow('Date', _formatDateTime(sale.createdAt)),
-                _receiptRow('Payment', sale.paymentMethodLabel),
-                const SizedBox(height: 8),
-                const Divider(),
-
-                // Items table
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Items', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.grey.shade600)),
-                ),
-                const SizedBox(height: 6),
-                ...sale.items.map((item) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${item['product_name'] ?? ''} × ${item['quantity'] ?? 1}',
-                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+            width: 540,
+            constraints: const BoxConstraints(maxWidth: 540),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Success header
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFA7F3D0), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.14),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
-                      ),
-                      Text(
-                        '\$${((item['line_total'] ?? 0) as num).toStringAsFixed(2)}',
-                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: const Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 36),
                   ),
-                )),
-                const SizedBox(height: 8),
-                const Divider(),
-
-                // Summary
-                _receiptRow('Subtotal', '\$${sale.subtotal.toStringAsFixed(2)}'),
-                if (sale.itemDiscountTotal > 0)
-                  _receiptRow('Item Discounts', '-\$${sale.itemDiscountTotal.toStringAsFixed(2)}', valueColor: const Color(0xFFE11D48)),
-                if (sale.overallDiscount > 0)
-                  _receiptRow('Overall Discount', '-\$${sale.overallDiscount.toStringAsFixed(2)}', valueColor: const Color(0xFFE11D48)),
-                _receiptRow('Tax (8%)', '\$${sale.taxAmount.toStringAsFixed(2)}'),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('GRAND TOTAL', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w800)),
-                    Text('\$${sale.totalAmount.toStringAsFixed(2)}', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w800, color: const Color(0xFFE11D48))),
-                  ],
-                ),
-                if (sale.paymentMethod == 'cash') ...[
-                  const SizedBox(height: 4),
-                  _receiptRow('Amount Paid', '\$${sale.amountTendered.toStringAsFixed(2)}'),
-                  _receiptRow('Change', '\$${sale.changeAmount.toStringAsFixed(2)}', valueColor: const Color(0xFF10B981)),
-                ],
-                const SizedBox(height: 16),
-
-                // Printer Selection Option
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Payment Successful!',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                      letterSpacing: -0.3,
+                    ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.print_outlined, size: 16, color: Color(0xFF64748B)),
-                          const SizedBox(width: 6),
-                          Text('Target Printer:', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF475569))),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          ChoiceChip(
-                            label: Text('LAN', style: GoogleFonts.inter(fontSize: 11, fontWeight: selectedPrinter == 'lan' ? FontWeight.w700 : FontWeight.w500)),
-                            avatar: const Icon(Icons.wifi, size: 13),
-                            selected: selectedPrinter == 'lan',
-                            visualDensity: VisualDensity.compact,
-                            onSelected: (val) {
-                              if (val) {
-                                setPopupState(() => selectedPrinter = 'lan');
-                                ReceiptPrinterService.setSelectedPrinterType('lan');
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 6),
-                          ChoiceChip(
-                            label: Text('USB', style: GoogleFonts.inter(fontSize: 11, fontWeight: selectedPrinter == 'usb' ? FontWeight.w700 : FontWeight.w500)),
-                            avatar: const Icon(Icons.usb, size: 13),
-                            selected: selectedPrinter == 'usb',
-                            visualDensity: VisualDensity.compact,
-                            onSelected: (val) {
-                              if (val) {
-                                setPopupState(() => selectedPrinter = 'usb');
-                                ReceiptPrinterService.setSelectedPrinterType('usb');
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Actions
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        icon: isPrinting
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.print, size: 18),
-                        label: Text(
-                          isPrinting ? 'Printing...' : 'Print',
-                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        onPressed: isPrinting
-                            ? null
-                            : () async {
-                                setPopupState(() => isPrinting = true);
-                                final res = await ReceiptPrinterService.printReceipt(
-                                  transaction: sale,
-                                  targetPrinter: selectedPrinter,
-                                  isReprint: false,
-                                  type: 'sale',
-                                );
-                                if (ctx.mounted) {
-                                  setPopupState(() => isPrinting = false);
-                                  ScaffoldMessenger.of(ctx).showSnackBar(
-                                    SnackBar(
-                                      content: Text(res.message),
-                                      backgroundColor: res.success
-                                          ? const Color(0xFF10B981)
-                                          : const Color(0xFFDC2626),
-                                    ),
-                                  );
-                                }
-                              },
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      sale.receiptNumber,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xFF64748B),
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    if (widget.onNavigateToSalesHistory != null) ...[
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Receipt Details & Itemized List Card
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        // Customer & Staff
+                        _receiptRow('Customer', sale.customerName.isNotEmpty ? sale.customerName : 'Walk-in'),
+                        if (sale.customerPhone.isNotEmpty) _receiptRow('Phone', sale.customerPhone),
+                        if (sale.staffName.isNotEmpty) _receiptRow('Staff', sale.staffName),
+                        _receiptRow('Date', _formatDateTime(sale.createdAt)),
+                        _receiptRow('Payment', sale.paymentMethodLabel),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Divider(color: Color(0xFFE2E8F0), height: 1),
+                        ),
+
+                        // Items table
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Items',
+                            style: GoogleFonts.inter(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        ...sale.items.map((item) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2.5),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${item['product_name'] ?? ''} × ${item['quantity'] ?? 1}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF1E293B),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '\$${((item['line_total'] ?? 0) as num).toStringAsFixed(2)}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Divider(color: Color(0xFFE2E8F0), height: 1),
+                        ),
+
+                        // Breakdown
+                        _receiptRow('Subtotal', '\$${sale.subtotal.toStringAsFixed(2)}'),
+                        if (sale.itemDiscountTotal > 0)
+                          _receiptRow('Item Discounts', '-\$${sale.itemDiscountTotal.toStringAsFixed(2)}', valueColor: const Color(0xFFE11D48)),
+                        if (sale.overallDiscount > 0)
+                          _receiptRow('Overall Discount', '-\$${sale.overallDiscount.toStringAsFixed(2)}', valueColor: const Color(0xFFE11D48)),
+                        _receiptRow('Tax (8%)', '\$${sale.taxAmount.toStringAsFixed(2)}'),
+                        if (sale.paymentMethod == 'cash') ...[
+                          const SizedBox(height: 3),
+                          _receiptRow('Amount Paid', '\$${sale.amountTendered.toStringAsFixed(2)}'),
+                          _receiptRow('Change', '\$${sale.changeAmount.toStringAsFixed(2)}', valueColor: const Color(0xFF10B981)),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Grand Total Highlight Banner
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1F2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFFE4E6)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'GRAND TOTAL',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF881337),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        Text(
+                          '\$${sale.totalAmount.toStringAsFixed(2)}',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFFE11D48),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Target Printer Selector
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.print_outlined, size: 16, color: Color(0xFF64748B)),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Target Printer:',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF475569),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            ChoiceChip(
+                              label: Text('LAN', style: GoogleFonts.inter(fontSize: 11, fontWeight: selectedPrinter == 'lan' ? FontWeight.w700 : FontWeight.w500)),
+                              avatar: const Icon(Icons.wifi, size: 13),
+                              selected: selectedPrinter == 'lan',
+                              visualDensity: VisualDensity.compact,
+                              onSelected: (val) {
+                                if (val) {
+                                  setPopupState(() => selectedPrinter = 'lan');
+                                  ReceiptPrinterService.setSelectedPrinterType('lan');
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: Text('USB', style: GoogleFonts.inter(fontSize: 11, fontWeight: selectedPrinter == 'usb' ? FontWeight.w700 : FontWeight.w500)),
+                              avatar: const Icon(Icons.usb, size: 13),
+                              selected: selectedPrinter == 'usb',
+                              visualDensity: VisualDensity.compact,
+                              onSelected: (val) {
+                                if (val) {
+                                  setPopupState(() => selectedPrinter = 'usb');
+                                  ReceiptPrinterService.setSelectedPrinterType('usb');
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Actions: Print, Sales History, New Sale
+                  Row(
+                    children: [
+                      // 1. Print Receipt Button
                       Expanded(
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF4F46E5),
-                            side: const BorderSide(color: Color(0xFFC7D2FE)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            foregroundColor: const Color(0xFF334155),
+                            side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            minimumSize: const Size.fromHeight(44),
                           ),
-                          icon: const Icon(Icons.receipt_long, size: 18),
-                          label: Text('Sales History', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+                          icon: isPrinting
+                              ? const SizedBox(
+                                  width: 15,
+                                  height: 15,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF475569)),
+                                )
+                              : const Icon(Icons.print_rounded, size: 17),
+                          label: Text(
+                            isPrinting ? 'Printing...' : 'Print',
+                            style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onPressed: isPrinting
+                              ? null
+                              : () async {
+                                  setPopupState(() => isPrinting = true);
+                                  final res = await ReceiptPrinterService.printReceipt(
+                                    transaction: sale,
+                                    targetPrinter: selectedPrinter,
+                                    isReprint: false,
+                                    type: 'sale',
+                                  );
+                                  if (ctx.mounted) {
+                                    setPopupState(() => isPrinting = false);
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      SnackBar(
+                                        content: Text(res.message),
+                                        backgroundColor: res.success
+                                            ? const Color(0xFF10B981)
+                                            : const Color(0xFFDC2626),
+                                      ),
+                                    );
+                                  }
+                                },
+                        ),
+                      ),
+
+                      // 2. Sales History Button (Optional depending on callback)
+                      if (widget.onNavigateToSalesHistory != null) ...[
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF4F46E5),
+                              side: const BorderSide(color: Color(0xFFA5B4FC), width: 1.2),
+                              backgroundColor: const Color(0xFFEEF2FF),
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              minimumSize: const Size.fromHeight(44),
+                            ),
+                            icon: const Icon(Icons.receipt_long_rounded, size: 17),
+                            label: Text(
+                              'Sales History',
+                              style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              setState(() {
+                                _cart.clear();
+                                _overallDiscount = 0;
+                                _overallDiscountCtrl.text = '0.00';
+                                _selectedCustomer = null;
+                                _tempNewCustomer = null;
+                                _currentAppointmentId = null;
+                                _currentStaffName = null;
+                              });
+                              widget.onNavigateToSalesHistory?.call();
+                            },
+                          ),
+                        ),
+                      ],
+
+                      // 3. New Sale Button
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE11D48),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            minimumSize: const Size.fromHeight(44),
+                          ),
+                          icon: const Icon(Icons.add_shopping_cart_rounded, size: 17),
+                          label: Text(
+                            'New Sale',
+                            style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w700),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           onPressed: () {
                             Navigator.pop(ctx);
                             setState(() {
@@ -1183,55 +1335,47 @@ class _CartViewState extends State<CartView> {
                               _currentAppointmentId = null;
                               _currentStaffName = null;
                             });
-                            widget.onNavigateToSalesHistory?.call();
                           },
                         ),
                       ),
-                      const SizedBox(width: 8),
                     ],
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE11D48),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        icon: const Icon(Icons.add_shopping_cart, size: 18),
-                        label: Text('New Sale', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          setState(() {
-                            _cart.clear();
-                            _overallDiscount = 0;
-                            _overallDiscountCtrl.text = '0.00';
-                            _selectedCustomer = null;
-                            _tempNewCustomer = null;
-                            _currentAppointmentId = null;
-                            _currentStaffName = null;
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _receiptRow(String label, String value, {Color? valueColor}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 2.5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
-          Text(value, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: valueColor ?? const Color(0xFF1E293B))),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: valueColor ?? const Color(0xFF1E293B),
+              ),
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );

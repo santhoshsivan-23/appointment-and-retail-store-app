@@ -552,6 +552,8 @@ class _DashboardViewState extends State<DashboardView> {
                                           color: AppTheme.onSurfaceVariant,
                                           letterSpacing: 0.5,
                                         ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     Expanded(
@@ -564,6 +566,8 @@ class _DashboardViewState extends State<DashboardView> {
                                           color: AppTheme.onSurfaceVariant,
                                           letterSpacing: 0.5,
                                         ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     Expanded(
@@ -734,61 +738,129 @@ class _DashboardViewState extends State<DashboardView> {
             // Time Slot
             Expanded(
               flex: 2,
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.access_time,
-                            size: 13, color: AppTheme.onSurfaceVariant),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${_formatTime12(appt.startTime)} - ${_formatTime12(appt.endTime)}',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.onSurface,
-                          ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCollapsed = constraints.maxWidth < 155;
+                  if (isCollapsed) {
+                    return Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                      ],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.access_time_rounded,
+                                    size: 11, color: AppTheme.primary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _formatTime12(appt.startTime),
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.onSurface,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 15),
+                              child: Text(
+                                _formatTime12(appt.endTime),
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Standard / Expanded column layout
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.access_time_rounded,
+                              size: 13, color: AppTheme.onSurfaceVariant),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              '${_formatTime12(appt.startTime)} - ${_formatTime12(appt.endTime)}',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.onSurface,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
 
             // Customer
             Expanded(
               flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    appt.customerName.isNotEmpty
-                        ? appt.customerName
-                        : 'Walk-in Guest',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.onSurface,
-                    ),
-                  ),
-                  if (appt.customerPhone.isNotEmpty)
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      appt.customerPhone,
+                      appt.customerName.isNotEmpty
+                          ? appt.customerName
+                          : 'Walk-in Guest',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      appt.customerPhone.isNotEmpty
+                          ? appt.customerPhone
+                          : 'Walk-in',
                       style: GoogleFonts.inter(
                         fontSize: 11,
-                        color: AppTheme.onSurfaceVariant,
+                        color: appt.customerPhone.isNotEmpty
+                            ? AppTheme.onSurfaceVariant
+                            : AppTheme.outline,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
 
