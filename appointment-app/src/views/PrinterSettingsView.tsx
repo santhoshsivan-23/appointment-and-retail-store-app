@@ -38,6 +38,7 @@ const DEFAULT_PRINTER_SETTINGS: LanPrinterSettings = {
   order_receipt_enabled: true,
   auto_cut: true,
   open_cash_drawer: false,
+  print_method: 'auto',
 };
 
 export default function PrinterSettingsView() {
@@ -67,6 +68,9 @@ export default function PrinterSettingsView() {
   const [orderReceiptEnabled, setOrderReceiptEnabled] = useState<boolean>(true);
   const [autoCut, setAutoCut] = useState<boolean>(true);
   const [openCashDrawer, setOpenCashDrawer] = useState<boolean>(false);
+  const [printMethod, setPrintMethod] = useState<'auto' | 'browser' | 'lan_socket'>(
+    DEFAULT_PRINTER_SETTINGS.print_method || 'auto'
+  );
 
   /* ── Status & Network States ────────────────────────────── */
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -133,6 +137,7 @@ export default function PrinterSettingsView() {
           effective.order_receipt_enabled !== undefined ? effective.order_receipt_enabled : true
         );
         setAutoCut(effective.auto_cut !== undefined ? effective.auto_cut : true);
+        setPrintMethod(effective.print_method || 'auto');
         setOpenCashDrawer(effective.open_cash_drawer !== undefined ? effective.open_cash_drawer : false);
       } catch (err) {
         console.warn('Could not load settings from server, falling back to local defaults:', err);
@@ -193,6 +198,7 @@ export default function PrinterSettingsView() {
       order_receipt_enabled: orderReceiptEnabled,
       auto_cut: autoCut,
       open_cash_drawer: openCashDrawer,
+      print_method: printMethod,
     };
 
     try {
@@ -244,6 +250,7 @@ export default function PrinterSettingsView() {
       order_receipt_enabled: orderReceiptEnabled,
       auto_cut: autoCut,
       open_cash_drawer: openCashDrawer,
+      print_method: printMethod,
     };
 
     try {
@@ -404,7 +411,7 @@ export default function PrinterSettingsView() {
                 />
               </div>
 
-              <div>
+                            <div>
                 <label className="printer-label">Connection Type</label>
                 <select
                   className="printer-input"
@@ -414,6 +421,61 @@ export default function PrinterSettingsView() {
                   <option value="lan">LAN / Network Thermal (TCP/IP)</option>
                   <option value="usb">USB / OS Installed Spooler</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="printer-label">
+                  <span>Print Method</span>
+                  <span className="printer-label__hint">
+                    {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'Local Network' : 'Web / Cloud'}
+                  </span>
+                </label>
+                <select
+                  className="printer-input"
+                  value={printMethod}
+                  onChange={(e) =>
+                    setPrintMethod(e.target.value as 'auto' | 'browser' | 'lan_socket')
+                  }
+                >
+                  <option value="auto">
+                    Auto (Smart Cloud & Local Safe - Recommended)
+                  </option>
+                  <option value="browser">
+                    Browser / System Spooler (Always works on deployed websites)
+                  </option>
+                  <option value="lan_socket">
+                    Direct TCP Socket (Requires server on same local network)
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label className="printer-label">
+                  <span>Environment Mode</span>
+                </label>
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    background: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? '#ECFDF5' : '#EFF6FF',
+                    color: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? '#065F46' : '#1E40AF',
+                    fontSize: '12.5px',
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginTop: '2px',
+                    minHeight: '38px',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <Wifi size={14} />
+                  <span>
+                    {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                      ? 'Localhost (Direct LAN Socket active)'
+                      : 'Cloud Deployment (Browser print spooler active)'}
+                  </span>
+                </div>
               </div>
             </div>
 

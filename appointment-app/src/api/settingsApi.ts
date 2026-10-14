@@ -21,6 +21,7 @@ export interface LanPrinterSettings {
   order_receipt_enabled?: boolean;
   auto_cut?: boolean;
   open_cash_drawer?: boolean;
+  print_method?: 'auto' | 'browser' | 'lan_socket';
 }
 
 export interface Settings {
@@ -78,6 +79,7 @@ export const settingsApi = {
     paper_size?: string;
     auto_cut?: boolean;
     open_cash_drawer?: boolean;
+  print_method?: 'auto' | 'browser' | 'lan_socket';
     test_text?: string;
   }) => {
     const res = await executeTestPrint(data as any);
