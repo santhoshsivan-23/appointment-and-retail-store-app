@@ -2601,85 +2601,45 @@ main.grid {
    TIMELINE SCHEDULE VIEW (EXACT MATCH FOR REFERENCE IMAGE)
    ========================================================================== */
 .v2-timeline-board {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  grid-auto-rows: minmax(76px, auto);
   background: #ffffff;
   border-radius: 16px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   position: relative;
-  overflow: visible !important;
-  flex-shrink: 0 !important;
-  min-height: max-content !important;
-  height: auto !important;
-  width: 100% !important;
-}
-
-.v2-timeline-row {
-  display: flex;
-  min-height: 70px;
-  height: auto;
-  flex-shrink: 0 !important;
-  border-bottom: 1px solid #f1f5f9;
-  position: relative;
-  transition: background-color 0.15s ease;
-}
-
-.v2-timeline-row:first-child {
-  border-top-left-radius: 15px;
-  border-top-right-radius: 15px;
-}
-
-.v2-timeline-row:first-child .v2-timeline-time-col {
-  border-top-left-radius: 15px;
-}
-
-.v2-timeline-row:last-child {
-  border-bottom: none;
-  border-bottom-left-radius: 15px;
-  border-bottom-right-radius: 15px;
-}
-
-.v2-timeline-row:last-child .v2-timeline-time-col {
-  border-bottom-left-radius: 15px;
+  overflow: hidden;
+  width: 100%;
 }
 
 .v2-timeline-time-col {
-  width: 100px;
-  min-width: 100px;
-  background-color: #f8fafc;
-  border-right: 1px solid #e2e8f0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 12px 14px;
   font-weight: 700;
-  font-size: 13px;
-  color: #334155;
-  letter-spacing: -0.01em;
+  font-size: 13.5px;
+  color: #1e293b;
+  background-color: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #f1f5f9;
   user-select: none;
-  flex-shrink: 0;
-}
-
-.v2-timeline-content-col {
-  flex: 1;
-  min-width: 0;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 6px 14px;
+  letter-spacing: -0.01em;
+  box-sizing: border-box;
 }
 
 .v2-timeline-empty-slot {
-  width: 100%;
-  height: 100%;
-  min-height: 56px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  border-radius: 8px;
-  padding: 0 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid #f1f5f9;
+  background-color: #ffffff;
   cursor: pointer;
   transition: background-color 0.15s ease;
+  min-height: 76px;
+  box-sizing: border-box;
 }
 
 .v2-timeline-empty-slot:hover {
@@ -2695,61 +2655,200 @@ main.grid {
   color: #94a3b8;
   opacity: 0;
   transition: opacity 0.15s ease, color 0.15s ease;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 6px;
 }
 
 .v2-timeline-empty-slot:hover .v2-timeline-empty-btn {
   opacity: 1;
   color: #2563eb;
+  background: #eff6ff;
 }
 
 /* Appointment Card - Reference Image Design */
 .v2-timeline-card {
   position: relative;
-  background-color: #eff6ff;
-  border: 1px solid #dbeafe;
-  border-radius: 10px;
-  padding: 9px 14px 9px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  border-radius: 12px;
+  padding: 10px 14px 10px 18px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  width: 100%;
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   overflow: hidden;
   text-align: left;
+  user-select: none;
+  margin: 4px 8px;
+  height: calc(100% - 8px);
+  min-height: calc(100% - 8px);
+  box-sizing: border-box;
 }
 
-.v2-timeline-card::before {
-  content: '';
+.v2-timeline-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.v2-timeline-card__accent-bar {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
   width: 5px;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+
+/* Status Variations */
+/* 1. Booked (Blue) */
+.v2-timeline-card--booked {
+  background-color: #eff6ff;
+  border: 1px solid #dbeafe;
+}
+.v2-timeline-card--booked .v2-timeline-card__accent-bar {
   background-color: #2563eb;
-  border-top-left-radius: 10px;
-  border-bottom-left-radius: 10px;
+}
+.v2-timeline-card--booked .v2-timeline-time-info {
+  color: #1e3a8a;
+}
+.v2-timeline-card--booked .v2-timeline-clock-icon {
+  color: #2563eb;
+}
+.v2-timeline-card--booked .v2-timeline-service-name {
+  color: #2563eb;
+}
+.v2-timeline-card--booked .v2-timeline-phone,
+.v2-timeline-card--booked .v2-timeline-amount {
+  color: #1e3a8a;
 }
 
-.v2-timeline-card:hover {
-  border-color: #bfdbfe;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+/* 2. No Show (Coral / Red) */
+.v2-timeline-card--no_show {
+  background-color: #fff1f2;
+  border: 1px solid #ffe4e6;
+}
+.v2-timeline-card--no_show .v2-timeline-card__accent-bar {
+  background-color: #f43f5e;
+}
+.v2-timeline-card--no_show .v2-timeline-time-info {
+  color: #9f1239;
+}
+.v2-timeline-card--no_show .v2-timeline-clock-icon {
+  color: #ef4444;
+}
+.v2-timeline-card--no_show .v2-timeline-service-name {
+  color: #be123c;
+}
+.v2-timeline-card--no_show .v2-timeline-phone,
+.v2-timeline-card--no_show .v2-timeline-amount {
+  color: #9f1239;
 }
 
-.v2-timeline-card--in-service {
+/* 3. In Service (Amber) */
+.v2-timeline-card--in_service {
   background-color: #fffbeb;
-  border-color: #fef3c7;
+  border: 1px solid #fef3c7;
+}
+.v2-timeline-card--in_service .v2-timeline-card__accent-bar {
+  background-color: #f59e0b;
+}
+.v2-timeline-card--in_service .v2-timeline-time-info {
+  color: #92400e;
+}
+.v2-timeline-card--in_service .v2-timeline-clock-icon {
+  color: #d97706;
+}
+.v2-timeline-card--in_service .v2-timeline-service-name {
+  color: #b45309;
+}
+.v2-timeline-card--in_service .v2-timeline-phone,
+.v2-timeline-card--in_service .v2-timeline-amount {
+  color: #78350f;
 }
 
-.v2-timeline-card--in-service::before {
-  background-color: #d97706;
-}
-
+/* 4. Completed (Emerald Green) */
 .v2-timeline-card--completed {
-  background-color: #ecfdf5;
-  border-color: #d1fae5;
+  background-color: #f0fdf4;
+  border: 1px solid #d1fae5;
+}
+.v2-timeline-card--completed .v2-timeline-card__accent-bar {
+  background-color: #10b981;
+}
+.v2-timeline-card--completed .v2-timeline-time-info {
+  color: #065f46;
+}
+.v2-timeline-card--completed .v2-timeline-clock-icon {
+  color: #059669;
+}
+.v2-timeline-card--completed .v2-timeline-service-name {
+  color: #047857;
+}
+.v2-timeline-card--completed .v2-timeline-phone,
+.v2-timeline-card--completed .v2-timeline-amount {
+  color: #064e3b;
 }
 
-.v2-timeline-card--completed::before {
-  background-color: #059669;
+/* 5. Cancelled (Gray) */
+.v2-timeline-card--cancelled {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.v2-timeline-card--cancelled .v2-timeline-card__accent-bar {
+  background-color: #94a3b8;
+}
+.v2-timeline-card--cancelled .v2-timeline-time-info {
+  color: #475569;
+}
+.v2-timeline-card--cancelled .v2-timeline-clock-icon {
+  color: #64748b;
+}
+.v2-timeline-card--cancelled .v2-timeline-service-name {
+  color: #64748b;
+}
+.v2-timeline-card--cancelled .v2-timeline-phone,
+.v2-timeline-card--cancelled .v2-timeline-amount {
+  color: #64748b;
+}
+
+/* Status Pill Badges */
+.v2-timeline-badge {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 9px;
+  border-radius: 6px;
+  line-height: 1.1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.v2-timeline-badge--booked {
+  background-color: #2563eb;
+}
+.v2-timeline-badge--no_show {
+  background-color: #ef4444;
+}
+.v2-timeline-badge--in_service {
+  background-color: #f59e0b;
+}
+.v2-timeline-badge--completed {
+  background-color: #10b981;
+}
+.v2-timeline-badge--cancelled {
+  background-color: #64748b;
+}
+
+/* Inner Layout */
+.v2-timeline-card__inner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
 }
 
 .v2-timeline-card-header {
@@ -2765,42 +2864,103 @@ main.grid {
   align-items: center;
   gap: 6px;
   font-weight: 700;
-  font-size: 12px;
-  color: #1e293b;
+  font-size: 12.5px;
   letter-spacing: -0.01em;
 }
 
-.v2-timeline-badge {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 2.5px 8px;
-  border-radius: 5px;
-  line-height: 1;
-}
-
-.v2-timeline-badge--booked {
-  background-color: #2563eb;
-  color: #ffffff;
-}
-
-.v2-timeline-badge--in-service {
-  background-color: #d97706;
-  color: #ffffff;
-}
-
-.v2-timeline-badge--completed {
-  background-color: #059669;
-  color: #ffffff;
+.v2-timeline-clock-icon {
+  flex-shrink: 0;
 }
 
 .v2-timeline-cust-name {
-  font-size: 14.5px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.015em;
+  line-height: 1.25;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v2-timeline-service-name {
+  font-size: 12.5px;
+  font-weight: 500;
   line-height: 1.3;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v2-timeline-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.v2-timeline-phone {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.v2-timeline-amount {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.v2-timeline-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.08);
+}
+
+.v2-timeline-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.v2-timeline-quick-btn--start {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+.v2-timeline-quick-btn--start:hover {
+  background-color: #1d4ed8;
+}
+
+.v2-timeline-quick-btn--continue {
+  background-color: #d97706;
+  color: #ffffff;
+}
+.v2-timeline-quick-btn--continue:hover {
+  background-color: #b45309;
+}
+
+.v2-timeline-quick-btn--details {
+  background-color: rgba(255, 255, 255, 0.85);
+  color: #334155;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+.v2-timeline-quick-btn--details:hover {
+  background-color: #ffffff;
+  color: #0f172a;
 }
 
 /* Red Timeline Indicator Line & Pin Dot */
@@ -2810,13 +2970,13 @@ main.grid {
   right: 0;
   height: 2px;
   background-color: #ef4444;
-  z-index: 20;
+  z-index: 25;
   pointer-events: none;
 }
 
 .v2-timeline-now-dot {
   position: absolute;
-  left: 100px;
+  left: 110px;
   width: 12px;
   height: 12px;
   border-radius: 50%;
@@ -2824,7 +2984,7 @@ main.grid {
   border: 2px solid #ffffff;
   transform: translate(-50%, -50%);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  z-index: 22;
+  z-index: 26;
   pointer-events: none;
 }
 
@@ -5072,52 +5232,41 @@ main.grid {
   /* Time View Timeline Board Optimization */
   .v2-timeline-board {
     border-radius: 14px !important;
+    grid-template-columns: 82px 1fr !important;
   }
 
   .v2-timeline-time-col {
-    width: 72px !important;
-    min-width: 72px !important;
-    padding: 0 6px !important;
+    padding: 10px 6px !important;
     font-size: 11px !important;
-  }
-
-  .v2-timeline-content-col {
-    padding: 6px 8px !important;
   }
 
   .v2-timeline-card {
     padding: 8px 10px 8px 14px !important;
     border-radius: 10px !important;
+    margin: 3px 4px !important;
   }
 
   .v2-timeline-card-header {
     flex-wrap: wrap !important;
-    gap: 6px !important;
+    gap: 4px !important;
   }
 
   .v2-timeline-time-info {
-    font-size: 11.5px !important;
+    font-size: 11px !important;
   }
 
   .v2-timeline-badge {
-    font-size: 10px !important;
-    padding: 2px 7px !important;
+    font-size: 9px !important;
+    padding: 2px 6px !important;
   }
 
   .v2-timeline-cust-name {
     font-size: 13.5px !important;
-    margin-top: 4px !important;
+    margin-top: 2px !important;
   }
 
   .v2-timeline-empty-slot {
-    height: 38px !important;
-    min-height: 38px !important;
-    background-color: #fafbfc !important;
-    border: 1px dashed #e2e8f0 !important;
-    border-radius: 8px !important;
-    justify-content: flex-end !important;
-    padding: 0 10px !important;
-    margin: 2px 0 !important;
+    padding: 0 8px !important;
   }
 
   .v2-timeline-empty-btn {
@@ -5126,12 +5275,8 @@ main.grid {
     font-size: 11px !important;
   }
 
-  .v2-timeline-now-line {
-    left: 72px !important;
-  }
-
   .v2-timeline-now-dot {
-    left: 68px !important;
+    left: 82px !important;
   }
 
   /* Empty Schedule Card on Mobile */

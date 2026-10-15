@@ -18,10 +18,12 @@ import type { Staff } from '../api/staffApi';
 import type { Appointment } from '../api/appointmentApi';
 import {
   timeToMinutes,
+  minutesToTime24,
   formatDatePretty,
   formatTimeSlotLabel,
   getStatusMeta,
   getTodayDateStr,
+  generateBusinessSlots,
   type BusinessSlot,
 } from '../utils/appointmentV2Utils';
 
@@ -51,7 +53,7 @@ export default function AppointmentV2LayoutData({
   selectedDate,
   appointments,
   businessSlots,
-  slotAppointmentMap,
+  slotAppointmentMap: _slotAppointmentMap,
   expandedApptId,
   onToggleExpandAppt,
   timeFormat,
@@ -67,6 +69,9 @@ export default function AppointmentV2LayoutData({
     const mins = timeToMinutes(time24);
     const h24 = Math.floor(mins / 60) % 24;
     const m = mins % 60;
+    if (timeFormat === '24') {
+      return `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
     const period = h24 >= 12 ? 'PM' : 'AM';
     let h12 = h24 % 12;
     if (h12 === 0) h12 = 12;
@@ -77,54 +82,148 @@ export default function AppointmentV2LayoutData({
     return `${formatTime12Leading(start24)} - ${formatTime12Leading(end24)}`;
   };
 
-  // Generate non-duplicated timeline rows where multi-slot appointments (e.g. 8:00 - 9:30)
-  // are rendered as a single appointment entry spanning the full duration.
-  const timelineRows = useMemo(() => {
-    const rows: {
-      slot: BusinessSlot;
-      primaryAppt: Appointment | null;
-      startM: number;
-      endM: number;
-    }[] = [];
+  const slotInterval = 30; // 30 mins per grid row
+  const SLOT_HEIGHT = 76; // px per slot row
 
-    const renderedApptIds = new Set<number>();
-    let coveredUntilM = 0;
+  // Determine effective grid slots from businessSlots or expand if appointments exist outside standard hours
+  const gridSlots: BusinessSlot[] = useMemo(() => {
+    if (!businessSlots || businessSlots.length === 0) {
+      return generateBusinessSlots('08:00', '20:00', slotInterval);
+    }
+    let minM = businessSlots[0].startM;
+    let maxM = businessSlots[businessSlots.length - 1].endM;
 
-    for (const slot of businessSlots) {
-      // Find matching unrendered appointment for this slot
-      const matchingAppts = (slotAppointmentMap.get(slot.start24) || []).filter(
-        (a) => !renderedApptIds.has(a.id)
-      );
-
-      if (matchingAppts.length > 0) {
-        const appt = matchingAppts[0];
-        renderedApptIds.add(appt.id);
-        const aStartM = timeToMinutes(appt.start_time || slot.start24);
-        const aEndM = timeToMinutes(appt.end_time || slot.end24);
-        coveredUntilM = Math.max(coveredUntilM, aEndM);
-
-        rows.push({
-          slot,
-          primaryAppt: appt,
-          startM: aStartM,
-          endM: aEndM,
-        });
-      } else if (slot.startM < coveredUntilM) {
-        // Intermediate slot covered by multi-slot appointment (e.g. 8:30 or 9:00 for 8:00-9:30)
-        continue;
-      } else {
-        // Empty slot
-        rows.push({
-          slot,
-          primaryAppt: null,
-          startM: slot.startM,
-          endM: slot.endM,
-        });
+    appointments.forEach((a) => {
+      if (a.start_time) {
+        const sM = timeToMinutes(a.start_time);
+        minM = Math.min(minM, Math.floor(sM / slotInterval) * slotInterval);
       }
+      if (a.end_time) {
+        const eM = timeToMinutes(a.end_time);
+        maxM = Math.max(maxM, Math.ceil(eM / slotInterval) * slotInterval);
+      }
+    });
+
+    if (minM < businessSlots[0].startM || maxM > businessSlots[businessSlots.length - 1].endM) {
+      return generateBusinessSlots(minutesToTime24(minM), minutesToTime24(maxM), slotInterval);
+    }
+    return businessSlots;
+  }, [businessSlots, appointments]);
+
+  // Compute exact multi-slot grid spanning and packing for appointments
+  const { apptItems, occupiedSlots } = useMemo(() => {
+    if (gridSlots.length === 0) {
+      return { apptItems: [], occupiedSlots: new Set<number>() };
     }
 
-    return rows;
-  }, [businessSlots, slotAppointmentMap]);
+    const baseStartM = gridSlots[0].startM;
+    const totalSlots = gridSlots.length;
+    const occupiedSlots = new Set<number>();
+
+    // Filter valid appointments
+    const validAppts = appointments
+      .filter((a) => a.start_time && a.end_time)
+      .map((a) => {
+        const sM = timeToMinutes(a.start_time);
+        let eM = timeToMinutes(a.end_time);
+        if (eM <= sM) eM = sM + slotInterval;
+        return {
+          appt: a,
+          startM: sM,
+          endM: eM,
+        };
+      })
+      .sort((a, b) => a.startM - b.startM || (b.endM - b.startM) - (a.endM - a.startM));
+
+    // Detect overlapping clusters to support side-by-side columns if needed
+    const clusters: Array<typeof validAppts> = [];
+    let currentCluster: typeof validAppts = [];
+    let clusterEndM = -1;
+
+    validAppts.forEach((item) => {
+      if (currentCluster.length === 0 || item.startM < clusterEndM) {
+        currentCluster.push(item);
+        clusterEndM = Math.max(clusterEndM, item.endM);
+      } else {
+        clusters.push(currentCluster);
+        currentCluster = [item];
+        clusterEndM = item.endM;
+      }
+    });
+    if (currentCluster.length > 0) {
+      clusters.push(currentCluster);
+    }
+
+    const apptItems: {
+      appt: Appointment;
+      startSlotIndex: number;
+      endSlotIndex: number;
+      spanSlots: number;
+      gridRowStart: number;
+      gridRowEnd: number;
+      colIndex: number;
+      totalCols: number;
+    }[] = [];
+
+    clusters.forEach((cluster) => {
+      const colEndTimes: number[] = [];
+      const itemsWithCol: { item: (typeof validAppts)[0]; col: number }[] = [];
+
+      cluster.forEach((item) => {
+        let placedCol = -1;
+        for (let c = 0; c < colEndTimes.length; c++) {
+          if (colEndTimes[c] <= item.startM) {
+            placedCol = c;
+            colEndTimes[c] = item.endM;
+            break;
+          }
+        }
+        if (placedCol === -1) {
+          placedCol = colEndTimes.length;
+          colEndTimes.push(item.endM);
+        }
+        itemsWithCol.push({ item, col: placedCol });
+      });
+
+      const totalCols = Math.max(1, colEndTimes.length);
+
+      itemsWithCol.forEach(({ item, col }) => {
+        const rawStartIndex = Math.floor((item.startM - baseStartM) / slotInterval);
+        const rawEndIndex = Math.ceil((item.endM - baseStartM) / slotInterval);
+
+        const startSlotIndex = Math.max(0, Math.min(totalSlots - 1, rawStartIndex));
+        const endSlotIndex = Math.max(startSlotIndex + 1, Math.min(totalSlots, rawEndIndex));
+        const spanSlots = endSlotIndex - startSlotIndex;
+
+        // Mark all covered slots as occupied
+        for (let s = startSlotIndex; s < endSlotIndex; s++) {
+          occupiedSlots.add(s);
+        }
+
+        apptItems.push({
+          appt: item.appt,
+          startSlotIndex,
+          endSlotIndex,
+          spanSlots,
+          gridRowStart: startSlotIndex + 1,
+          gridRowEnd: endSlotIndex + 1,
+          colIndex: col,
+          totalCols,
+        });
+      });
+    });
+
+    return { apptItems, occupiedSlots };
+  }, [gridSlots, appointments]);
+
+  // Live Red Current Time Indicator calculations across grid
+  const isToday = selectedDate === getTodayDateStr();
+  const gridStartM = gridSlots.length > 0 ? gridSlots[0].startM : 0;
+  const gridEndM = gridSlots.length > 0 ? gridSlots[gridSlots.length - 1].endM : 0;
+  const isNowInGrid = isToday && nowMinutes >= gridStartM && nowMinutes <= gridEndM;
+  const nowTopPx = isNowInGrid
+    ? ((nowMinutes - gridStartM) / slotInterval) * SLOT_HEIGHT
+    : 0;
 
   const renderExpandedDetails = (appt: Appointment, onCollapse?: () => void, hideService = false) => {
     const statusMeta = getStatusMeta(appt.status);
@@ -543,117 +642,195 @@ export default function AppointmentV2LayoutData({
         )
       ) : (
         /* ── VIEW 3: TIME VIEW (EXACT REFERENCE IMAGE SCHEDULE DESIGN) ── */
-        <div className="v2-timeline-board" data-purpose="timeline-schedule-view">
-          {timelineRows.map(({ slot, primaryAppt, startM, endM }) => {
-            const isBooked = Boolean(primaryAppt);
-            const isExpanded = primaryAppt ? expandedApptId === primaryAppt.id : false;
+        <div
+          className="v2-timeline-board"
+          data-purpose="timeline-schedule-view"
+          style={{
+            gridTemplateRows: `repeat(${gridSlots.length}, minmax(${SLOT_HEIGHT}px, auto))`,
+          }}
+        >
+          {/* Column 1: Time Labels for each slot (Always visible, never skipped) */}
+          {gridSlots.map((slot, index) => (
+            <div
+              key={`time-${slot.start24}`}
+              id={`v2-time-label-${slot.start24}`}
+              className="v2-timeline-time-col"
+              style={{
+                gridColumn: 1,
+                gridRow: index + 1,
+              }}
+            >
+              <span>{formatTime12Leading(slot.start24)}</span>
+            </div>
+          ))}
 
-            const isService = primaryAppt && primaryAppt.status === 'in_service';
-            const isCompleted = primaryAppt && primaryAppt.status === 'completed';
-
-            // Live Current Time Indicator calculations across this row's duration
-            const isToday = selectedDate === getTodayDateStr();
-            const isCurrentSlotRow = isToday && nowMinutes >= startM && nowMinutes < endM;
-            const slotFraction = isCurrentSlotRow && (endM - startM) > 0
-              ? (nowMinutes - startM) / (endM - startM)
-              : 0;
+          {/* Column 2: Available Empty Slots (for slots without an appointment) */}
+          {gridSlots.map((slot, index) => {
+            if (occupiedSlots.has(index)) return null;
 
             return (
               <div
-                key={slot.start24}
-                id={`v2-slot-${slot.start24}`}
-                className="v2-timeline-row"
+                key={`empty-${slot.start24}`}
+                id={`v2-empty-slot-${slot.start24}`}
+                className="v2-timeline-empty-slot"
+                style={{
+                  gridColumn: 2,
+                  gridRow: index + 1,
+                }}
+                onClick={() => {
+                  onOpenAddModal({
+                    start24: slot.start24,
+                    end24: slot.end24,
+                  });
+                }}
+                title={`Book slot: ${formatSlotRangeLeading(slot.start24, slot.end24)}`}
               >
-                {/* Left: Time Column matching reference image (08:00 AM, 08:30 AM, etc.) */}
-                <div className="v2-timeline-time-col">
-                  <span>{formatTime12Leading(primaryAppt ? (primaryAppt.start_time || slot.start24) : slot.start24)}</span>
-                </div>
-
-                {/* Right: Schedule Content Area */}
-                <div className="v2-timeline-content-col">
-                  {isBooked && primaryAppt ? (
-                    /* Booked Appointment Card - Full Duration (e.g. 8:00 - 9:30) */
-                    <article
-                      className={`v2-timeline-card ${
-                        isService
-                          ? 'v2-timeline-card--in-service'
-                          : isCompleted
-                          ? 'v2-timeline-card--completed'
-                          : ''
-                      }`}
-                      onClick={() => {
-                        onToggleExpandAppt(primaryAppt.id);
-                      }}
-                    >
-                      <div className="v2-timeline-card-header">
-                        <div className="v2-timeline-time-info">
-                          <Clock size={13} className="text-slate-700" />
-                          <span>
-                            {formatSlotRangeLeading(
-                              primaryAppt.start_time || slot.start24,
-                              primaryAppt.end_time || slot.end24
-                            )}
-                          </span>
-                        </div>
-                        <span
-                          className={`v2-timeline-badge ${
-                            isService
-                              ? 'v2-timeline-badge--in-service'
-                              : isCompleted
-                              ? 'v2-timeline-badge--completed'
-                              : 'v2-timeline-badge--booked'
-                          }`}
-                        >
-                          {isService ? 'IN SERVICE' : isCompleted ? 'COMPLETED' : 'BOOKED'}
-                        </span>
-                      </div>
-
-                      <div className="v2-timeline-cust-name">
-                        {primaryAppt.customer_name || 'Walk-in Guest'}
-                      </div>
-
-                      {/* Smooth Expand/Collapse Details */}
-                      <div className={`v2-smooth-expand ${isExpanded ? 'v2-smooth-expand--open' : ''}`}>
-                        <div className="v2-smooth-expand-content">
-                          {renderExpandedDetails(primaryAppt, () => onToggleExpandAppt(primaryAppt.id))}
-                        </div>
-                      </div>
-                    </article>
-                  ) : (
-                    /* Empty Available Slot */
-                    <div
-                      className="v2-timeline-empty-slot"
-                      onClick={() => {
-                        onOpenAddModal({
-                          start24: slot.start24,
-                          end24: slot.end24,
-                        });
-                      }}
-                    >
-                      <span className="v2-timeline-empty-btn">
-                        <Plus size={13} />
-                        <span>Book Slot</span>
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Live Red Current Time Indicator Line & Circular Pin Dot */}
-                {isCurrentSlotRow && (
-                  <>
-                    <div
-                      className="v2-timeline-now-line"
-                      style={{ top: `${Math.round(slotFraction * 100)}%` }}
-                    />
-                    <div
-                      className="v2-timeline-now-dot"
-                      style={{ top: `${Math.round(slotFraction * 100)}%` }}
-                    />
-                  </>
-                )}
+                <span className="v2-timeline-empty-btn">
+                  <Plus size={13} />
+                  <span>Book Slot</span>
+                </span>
               </div>
             );
           })}
+
+          {/* Column 2: Appointment Cards Spanning Exact Multi-Slot Durations */}
+          {apptItems.map((item) => {
+            const appt = item.appt;
+            const isExpanded = expandedApptId === appt.id;
+            const statusMeta = getStatusMeta(appt.status);
+            const servicesStr =
+              (appt.services || []).map((s) => s.name || s.product_name).join(', ') ||
+              'General Consultation / Service';
+
+            return (
+              <article
+                key={appt.id}
+                id={`v2-timeline-appt-${appt.id}`}
+                className={`v2-timeline-card v2-timeline-card--${statusMeta.key} ${
+                  isExpanded ? 'v2-timeline-card--expanded' : ''
+                }`}
+                style={{
+                  gridColumn: 2,
+                  gridRow: `${item.gridRowStart} / ${item.gridRowEnd}`,
+                  width:
+                    item.totalCols > 1
+                      ? `calc(${100 / item.totalCols}% - 12px)`
+                      : 'calc(100% - 16px)',
+                  marginLeft:
+                    item.totalCols > 1
+                      ? `calc(${(item.colIndex * 100) / item.totalCols}% + 6px)`
+                      : '8px',
+                  zIndex: 10 + item.colIndex,
+                }}
+                onClick={() => onToggleExpandAppt(appt.id)}
+              >
+                {/* Left Colored Accent Pill Bar */}
+                <div
+                  className={`v2-timeline-card__accent-bar v2-timeline-card__accent-bar--${statusMeta.key}`}
+                />
+
+                <div className="v2-timeline-card__inner">
+                  {/* Top Header: Time range + Status badge */}
+                  <div className="v2-timeline-card-header">
+                    <div className="v2-timeline-time-info">
+                      <Clock size={13} className="v2-timeline-clock-icon" />
+                      <span>{formatSlotRangeLeading(appt.start_time, appt.end_time)}</span>
+                    </div>
+                    <span className={`v2-timeline-badge v2-timeline-badge--${statusMeta.key}`}>
+                      {statusMeta.label.toUpperCase()}
+                    </span>
+                  </div>
+
+                  {/* Customer Name */}
+                  <div
+                    className="v2-timeline-cust-name"
+                    title={appt.customer_name || 'Walk-in Guest'}
+                  >
+                    {appt.customer_name || 'Walk-in Guest'}
+                  </div>
+
+                  {/* Service Line (visible when multi-slot or expanded) */}
+                  {(item.spanSlots >= 2 || isExpanded) && (
+                    <div className="v2-timeline-service-name" title={servicesStr}>
+                      {servicesStr}
+                    </div>
+                  )}
+
+                  {/* Bottom Row: Phone Number & Total Amount */}
+                  {(item.spanSlots >= 2 || isExpanded) && (
+                    <div className="v2-timeline-bottom-row">
+                      <span className="v2-timeline-phone">
+                        {appt.customer_phone || ''}
+                      </span>
+                      <span className="v2-timeline-amount">
+                        {Number(appt.total_amount || 0) === 0
+                          ? '0'
+                          : `$${Number(appt.total_amount || 0).toFixed(2)}`}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Quick Action Buttons for 2hr+ cards (e.g. 1 to 3 clock) */}
+                  {item.spanSlots >= 3 && !isExpanded && (
+                    <div
+                      className="v2-timeline-quick-actions"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {appt.status === 'booked' && (
+                        <button
+                          type="button"
+                          className="v2-timeline-quick-btn v2-timeline-quick-btn--start"
+                          onClick={() => onStartServiceClick(appt)}
+                        >
+                          <Play size={11} />
+                          <span>Start Service</span>
+                        </button>
+                      )}
+                      {appt.status === 'in_service' && (
+                        <button
+                          type="button"
+                          className="v2-timeline-quick-btn v2-timeline-quick-btn--continue"
+                          onClick={() => onContinueServiceClick(appt)}
+                        >
+                          <ArrowRight size={11} />
+                          <span>Continue</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="v2-timeline-quick-btn v2-timeline-quick-btn--details"
+                        onClick={() => onOpenDetailsModal(appt)}
+                      >
+                        <span>Full Details</span>
+                        <ChevronRight size={11} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Smooth Expand/Collapse Details */}
+                  <div className={`v2-smooth-expand ${isExpanded ? 'v2-smooth-expand--open' : ''}`}>
+                    <div className="v2-smooth-expand-content">
+                      {renderExpandedDetails(appt, () => onToggleExpandAppt(appt.id))}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+
+          {/* Live Red Current Time Indicator Line & Circular Pin Dot */}
+          {isNowInGrid && (
+            <>
+              <div
+                className="v2-timeline-now-line"
+                style={{ top: `${nowTopPx}px` }}
+              />
+              <div
+                className="v2-timeline-now-dot"
+                style={{ top: `${nowTopPx}px` }}
+              />
+            </>
+          )}
         </div>
       )}
     </section>
